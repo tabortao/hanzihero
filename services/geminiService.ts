@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { AIExplanation } from "../types";
+import { AIExplanation, AppSettings } from "../types";
 import { getSettings } from "./storage";
 
 export const explainCharacter = async (char: string): Promise<AIExplanation> => {
@@ -120,3 +120,50 @@ const getErrorState = (): AIExplanation => ({
   words: [],
   sentenceData: []
 });
+
+export const testConnection = async (settings: AppSettings): Promise<boolean> => {
+  const prompt = "Hello";
+
+  // 1. Check if using Custom OpenAI Compatible API
+  if (settings.apiBaseUrl && settings.apiKey) {
+    try {
+      const response = await fetch(`${settings.apiBaseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${settings.apiKey}`
+        },
+        body: JSON.stringify({
+          model: settings.model || 'gpt-3.5-turbo',
+          messages: [
+            { role: 'user', content: prompt }
+          ],
+          max_tokens: 5
+        })
+      });
+      return response.ok;
+    } catch (error) {
+      console.error("Custom API Test Error:", error);
+      return false;
+    }
+  }
+
+  // 2. Default to Google GenAI SDK (Gemini)
+  const envKey = process.env.API_KEY || '';
+  const effectiveKey = settings.apiKey || envKey;
+
+  if (!effectiveKey) return false;
+
+  try {
+    const ai = new GoogleGenAI({ apiKey: effectiveKey });
+    const modelToUse = settings.model || "gemini-2.5-flash";
+    await ai.models.generateContent({
+      model: modelToUse,
+      contents: prompt,
+    });
+    return true;
+  } catch (error) {
+    console.error("Gemini API Test Error:", error);
+    return false;
+  }
+};

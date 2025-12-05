@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Settings as SettingsIcon, Download, Upload, Check } from 'lucide-react';
+import { X, Save, Settings as SettingsIcon, Download, Upload, Check, Activity, Wifi, WifiOff } from 'lucide-react';
 import { AppSettings, Curriculum } from '../types';
 import { getSettings, saveSettings, exportUserData, importUserData } from '../services/storage';
+import { testConnection } from '../services/geminiService';
 import { APP_DATA } from '../data';
 
 interface SettingsModalProps {
@@ -23,10 +24,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [importText, setImportText] = useState('');
   const [showImportArea, setShowImportArea] = useState(false);
   const [importStatus, setImportStatus] = useState<'IDLE' | 'SUCCESS' | 'ERROR'>('IDLE');
+  
+  const [testStatus, setTestStatus] = useState<'IDLE' | 'TESTING' | 'SUCCESS' | 'FAIL'>('IDLE');
 
   useEffect(() => {
     if (isOpen) {
       setConfig(getSettings());
+      setTestStatus('IDLE');
       
       const updateVoices = () => {
         const voices = window.speechSynthesis.getVoices();
@@ -41,9 +45,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   const handleSave = () => {
     saveSettings(config);
-    // Reload page to apply curriculum changes freshly or trigger a callback (simplest is just close for now, app state will read from storage on next render or we can force reload)
-    window.location.reload(); 
+    // Removed window.location.reload() to prevent "file not found" errors in some environments.
+    // The parent component (SelectionView) will re-render when the modal closes, picking up the new settings.
     onClose();
+  };
+
+  const handleTestConnection = async () => {
+    setTestStatus('TESTING');
+    const success = await testConnection(config);
+    setTestStatus(success ? 'SUCCESS' : 'FAIL');
+    
+    // Clear status after a few seconds
+    setTimeout(() => {
+        if (isOpen) setTestStatus('IDLE');
+    }, 3000);
   };
 
   const handleExport = () => {
@@ -64,7 +79,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     if (success) {
       setImportStatus('SUCCESS');
       setTimeout(() => {
-         window.location.reload();
+         window.location.reload(); // Import might need reload to fully clear/reset all states cleanly, we can keep this or handle it better. Keep for now as import is rare.
       }, 1000);
     } else {
       setImportStatus('ERROR');
@@ -137,6 +152,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           <div className="space-y-4">
             <h3 className="font-bold text-gray-800 border-b pb-2">🧠 AI 配置</h3>
             <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1">API BASE URL (可选)</label>
+              <input
+                type="text"
+                placeholder="https://api.openai.com/v1"
+                className="w-full p-3 rounded-xl border border-gray-300 focus:border-indigo-500 outline-none text-sm"
+                value={config.apiBaseUrl}
+                onChange={e => setConfig({ ...config, apiBaseUrl: e.target.value })}
+              />
+            </div>
+            <div>
               <label className="block text-xs font-bold text-gray-500 mb-1">API KEY</label>
               <input
                 type="password"
@@ -146,15 +171,46 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 onChange={e => setConfig({ ...config, apiKey: e.target.value })}
               />
             </div>
-             <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1">API BASE URL (可选)</label>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1">模型名称 (Model)</label>
               <input
                 type="text"
-                placeholder="默认 Gemini API"
+                placeholder="如: gemini-2.5-flash 或 gpt-4o"
                 className="w-full p-3 rounded-xl border border-gray-300 focus:border-indigo-500 outline-none text-sm"
-                value={config.apiBaseUrl}
-                onChange={e => setConfig({ ...config, apiBaseUrl: e.target.value })}
+                value={config.model}
+                onChange={e => setConfig({ ...config, model: e.target.value })}
               />
+            </div>
+
+            {/* Test Connection Button */}
+            <div className="flex items-center gap-3">
+                <button
+                    onClick={handleTestConnection}
+                    disabled={testStatus === 'TESTING'}
+                    className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors border ${
+                        testStatus === 'SUCCESS' ? 'bg-green-50 border-green-200 text-green-600' :
+                        testStatus === 'FAIL' ? 'bg-red-50 border-red-200 text-red-600' :
+                        'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                    }`}
+                >
+                    {testStatus === 'TESTING' ? (
+                        <>
+                            <Activity className="animate-spin" size={16} /> 测试中...
+                        </>
+                    ) : testStatus === 'SUCCESS' ? (
+                        <>
+                            <Wifi size={16} /> 连接成功
+                        </>
+                    ) : testStatus === 'FAIL' ? (
+                        <>
+                            <WifiOff size={16} /> 连接失败
+                        </>
+                    ) : (
+                        <>
+                            <Activity size={16} /> 测试连接
+                        </>
+                    )}
+                </button>
             </div>
           </div>
 
@@ -230,7 +286,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             onClick={handleSave}
             className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2"
           >
-            <Save size={20} /> 保存并在首页生效
+            <Save size={20} /> 保存
           </button>
         </div>
       </div>
