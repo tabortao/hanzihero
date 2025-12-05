@@ -12,7 +12,39 @@ interface GameViewProps {
   onExit: (newStars: number) => void;
 }
 
-const StrokeOrderDisplay = ({ char }: { char: string }) => {
+// --- Grid Components ---
+
+// Pinyin Grid (四线格) + Hanzi Grid (田字格)
+const WritingGrid: React.FC<{ char: string; pinyin: string }> = ({ char, pinyin }) => {
+  return (
+    <div className="flex flex-col items-center">
+      {/* Pinyin Grid (4 lines) */}
+      <div className="relative w-12 h-8 sm:w-16 sm:h-10 mb-1 flex items-center justify-center">
+         {/* Grid Lines */}
+         <div className="absolute inset-x-0 top-[20%] border-t border-red-300/40"></div>
+         <div className="absolute inset-x-0 top-[40%] border-t border-red-300/40"></div>
+         <div className="absolute inset-x-0 top-[60%] border-t border-red-400/60"></div> {/* Baseline */}
+         <div className="absolute inset-x-0 top-[80%] border-t border-red-300/40"></div>
+         
+         <span className="relative z-10 text-sm sm:text-base font-medium text-gray-700 font-sans -mt-1">{pinyin}</span>
+      </div>
+      
+      {/* Hanzi Tianzigrid (田字格) */}
+      <div className="relative w-12 h-12 sm:w-16 sm:h-16 bg-white border border-red-400 flex items-center justify-center">
+        {/* Dotted lines */}
+        <div className="absolute inset-0 border-dashed border-red-300/50" 
+             style={{ backgroundImage: 'linear-gradient(to right, transparent 49%, #fca5a5 50%, transparent 51%), linear-gradient(to bottom, transparent 49%, #fca5a5 50%, transparent 51%)', backgroundSize: '100% 100%' }}>
+        </div>
+        <div className="absolute inset-0 border-2 border-red-200 m-0.5 pointer-events-none"></div>
+        <span className="relative z-10 font-fun text-2xl sm:text-3xl text-gray-800 leading-none">{char}</span>
+      </div>
+    </div>
+  );
+};
+
+// --- Stroke Order Component ---
+
+const StrokeOrderDisplay: React.FC<{ char: string }> = ({ char }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const writerRef = useRef<any>(null);
 
@@ -20,10 +52,13 @@ const StrokeOrderDisplay = ({ char }: { char: string }) => {
     if (containerRef.current && typeof HanziWriter !== 'undefined') {
       containerRef.current.innerHTML = ''; // Clear previous
       
+      // Calculate size based on current container width (responsive)
+      const size = containerRef.current.clientWidth;
+
       try {
         writerRef.current = HanziWriter.create(containerRef.current, char, {
-          width: 200, // Matches the container size roughly
-          height: 200,
+          width: size, 
+          height: size,
           padding: 5,
           showOutline: true,
           strokeAnimationSpeed: 1, // 1x speed
@@ -36,13 +71,7 @@ const StrokeOrderDisplay = ({ char }: { char: string }) => {
         writerRef.current.animateCharacter();
       } catch (e) {
         console.error("HanziWriter error", e);
-        // Fallback or ignore
       }
-    }
-    
-    return () => {
-       // Cleanup if needed? HanziWriter doesn't have a destroy method easily accessible, 
-       // but clearing innerHTML handles the DOM.
     }
   }, [char]);
 
@@ -54,7 +83,9 @@ const StrokeOrderDisplay = ({ char }: { char: string }) => {
 
   return (
     <div className="relative w-40 h-40 sm:w-56 sm:h-56 mx-auto cursor-pointer" onClick={replay}>
-      <div ref={containerRef} className="w-full h-full bg-red-50 rounded-3xl border-2 border-red-100" />
+      <div ref={containerRef} className="w-full h-full bg-red-50 rounded-3xl border-2 border-red-100 overflow-hidden" />
+      
+      {/* TianZiGe Overlay */}
       <div className="absolute inset-0 border-dashed border-red-200 pointer-events-none rounded-3xl" style={{
         backgroundImage: 'linear-gradient(to right, transparent 49%, #fca5a5 50%, transparent 51%), linear-gradient(to bottom, transparent 49%, #fca5a5 50%, transparent 51%)',
         backgroundSize: '100% 100%'
@@ -151,7 +182,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
   const progress = ((currentIndex + 1) / config.characters.length) * 100;
 
   return (
-    <div className="max-w-2xl mx-auto p-4 min-h-screen flex flex-col bg-[#ecfdf5]">
+    <div className="max-w-3xl mx-auto p-4 min-h-screen flex flex-col bg-[#ecfdf5]">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <button 
@@ -178,10 +209,10 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
       </div>
 
       {/* Main Area */}
-      <div className="flex-1 flex flex-col items-center w-full max-w-lg mx-auto">
+      <div className="flex-1 flex flex-col items-center w-full max-w-2xl mx-auto">
         
         {/* Character Card */}
-        <div className="bg-white rounded-[2.5rem] shadow-xl w-full p-8 text-center border-4 border-green-100 relative mb-6">
+        <div className="bg-white rounded-[2.5rem] shadow-xl w-full p-6 sm:p-8 text-center border-4 border-green-100 relative mb-6">
           <div className="flex justify-center mb-4">
              {/* If learning, show stroke order, else show static for initial guess */}
              {viewState === 'LEARNING' ? (
@@ -212,7 +243,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
           {viewState === 'INITIAL' && (
             <div className="py-8 animate-fade-in">
               <p className="text-xl text-gray-600 font-bold mb-8">这个字你认识吗？</p>
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-6 max-w-sm mx-auto">
                 <button
                   onClick={handleUnknown}
                   className="py-4 bg-orange-100 hover:bg-orange-200 text-orange-700 font-bold rounded-2xl border-b-4 border-orange-300 active:border-b-0 active:translate-y-1 transition-all flex flex-col items-center justify-center gap-2"
@@ -275,37 +306,53 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
                     </div>
                   </div>
 
-                  {/* Vocabulary & Sentence */}
+                  {/* Vocabulary */}
                   <div className="space-y-3">
                     <h3 className="font-bold text-gray-700 flex items-center gap-2">
-                      <BookOpen size={18} className="text-green-600" /> 组词造句
+                      <BookOpen size={18} className="text-green-600" /> 组词
                     </h3>
                     
-                    <div className="flex flex-wrap gap-3">
-                      {aiExplanation.words?.map((w, i) => (
-                        <div key={i} className="bg-white px-3 py-2 rounded-xl border border-green-100 shadow-sm flex flex-col items-center min-w-[80px]">
-                           <span className="text-xs text-gray-400 mb-1">{w.pinyin}</span>
-                           <span className="font-medium text-gray-800">
-                             {w.word.split('').map((char, idx) => (
-                               <span key={idx} className={char === currentCharacter.char ? 'text-green-600 font-bold' : ''}>{char}</span>
-                             ))}
-                           </span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="bg-white p-4 rounded-xl border border-green-100 shadow-sm relative group cursor-pointer" onClick={() => speak(aiExplanation.sentence)}>
-                       <p className="text-sm text-gray-400 mb-1 text-center">{aiExplanation.sentencePinyin}</p>
-                       <p className="text-lg text-center font-medium text-gray-800">
-                         {aiExplanation.sentence.split('').map((char, idx) => (
-                           <span key={idx} className={char === currentCharacter.char ? 'text-green-600 font-bold text-xl' : ''}>{char}</span>
-                         ))}
-                       </p>
-                       <button className="absolute right-2 bottom-2 text-green-300 group-hover:text-green-600 transition-colors">
-                         <Volume2 size={18} />
-                       </button>
+                    <div className="flex flex-wrap gap-4">
+                      {aiExplanation.words?.map((w, i) => {
+                        // Split word and pinyin (assuming space separated pinyin for words)
+                        // Simple fallback splitting logic
+                        const chars = w.word.split('');
+                        const pinyins = w.pinyin.split(' ');
+                        
+                        return (
+                           <div key={i} className="bg-white p-2 rounded-xl border border-green-100 shadow-sm flex gap-1">
+                              {chars.map((c, idx) => (
+                                <WritingGrid key={idx} char={c} pinyin={pinyins[idx] || ''} />
+                              ))}
+                           </div>
+                        );
+                      })}
                     </div>
                   </div>
+
+                  {/* Sentence */}
+                  <div className="space-y-3">
+                     <h3 className="font-bold text-gray-700 flex items-center gap-2">
+                        <Sparkles size={18} className="text-purple-600" /> 造句
+                     </h3>
+                     <div 
+                        className="bg-white p-4 rounded-xl border border-purple-100 shadow-sm flex flex-wrap gap-2 cursor-pointer relative group"
+                        onClick={() => {
+                           // Construct sentence string for speech
+                           const sentence = aiExplanation.sentenceData.map(d => d.char).join('');
+                           speak(sentence);
+                        }}
+                     >
+                        {aiExplanation.sentenceData?.map((item, idx) => (
+                           <WritingGrid key={idx} char={item.char} pinyin={item.pinyin} />
+                        ))}
+
+                        <button className="absolute right-2 bottom-2 text-purple-300 group-hover:text-purple-600 transition-colors">
+                           <Volume2 size={18} />
+                        </button>
+                     </div>
+                  </div>
+
                 </div>
               ) : (
                 <div className="text-center text-red-400 py-4">无法获取AI讲解</div>

@@ -14,10 +14,11 @@ export const explainCharacter = async (char: string): Promise<AIExplanation> => 
   2. composition: 简单的部件拆解 (如："日" 加 "月")。
   3. memoryTip: 一个有趣好记的顺口溜或小故事，帮助孩子记住这个字。
   4. words: 两个常见组词，每个组词包含 word (词语) 和 pinyin (拼音)。
-  5. sentence: 一个包含该字的简单例句。
-  6. sentencePinyin: 例句的拼音。
+  5. sentenceData: 一个包含该字的简单例句，拆解为字符数组，每个对象包含 char (汉字) 和 pinyin (该字的拼音)。
 
-  注意：所有解释内容必须使用简体中文。
+  注意：
+  - 所有解释内容必须使用简体中文。
+  - sentenceData 中的标点符号也需要作为一个对象，pinyin为空字符串。
   `;
 
   // 1. Check if using Custom OpenAI Compatible API
@@ -86,10 +87,18 @@ export const explainCharacter = async (char: string): Promise<AIExplanation> => 
                 }
               }
             },
-            sentence: { type: Type.STRING },
-            sentencePinyin: { type: Type.STRING }
+            sentenceData: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  char: { type: Type.STRING },
+                  pinyin: { type: Type.STRING }
+                }
+              }
+            }
           },
-          required: ["structure", "composition", "memoryTip", "words", "sentence", "sentencePinyin"]
+          required: ["structure", "composition", "memoryTip", "words", "sentenceData"]
         }
       }
     });
@@ -109,6 +118,5 @@ const getErrorState = (): AIExplanation => ({
   composition: "暂无拆解",
   memoryTip: "AI老师暂时无法连接，请检查设置。",
   words: [],
-  sentence: "",
-  sentencePinyin: ""
+  sentenceData: []
 });

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Book, GraduationCap, Grid, Star, PlayCircle, Settings, Library, Trophy, Flame } from 'lucide-react';
-import { GameConfig, Character } from '../types';
+import { Book, Grid, Star, PlayCircle, Settings, Library, Trophy, BarChart3, CheckCircle, List, ArrowRight, X } from 'lucide-react';
+import { GameConfig, Character, Unit } from '../types';
 import { APP_DATA } from '../data';
 import { SettingsModal } from './SettingsModal';
-import { getSettings, getUnknownCharacters, getDailyActivity } from '../services/storage';
+import { StatsModal } from './StatsModal';
+import { getSettings, getUnknownCharacters, getKnownCharacters } from '../services/storage';
 
 interface SelectionViewProps {
   onStartGame: (config: GameConfig) => void;
@@ -12,69 +13,40 @@ interface SelectionViewProps {
   stars: number;
 }
 
-// Simple Heatmap Component
-const LearningHeatmap = () => {
-  const activity = getDailyActivity();
-  const days = 14; // Show last 2 weeks
-  const today = new Date();
-  const dates = Array.from({ length: days }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(d.getDate() - (days - 1 - i));
-    return d.toISOString().split('T')[0];
-  });
-
-  return (
-    <div className="bg-white p-4 rounded-3xl shadow-md border border-gray-100">
-      <div className="flex items-center gap-2 mb-3 text-gray-700 font-bold text-sm">
-        <Flame className="text-orange-500" size={18} /> 学习热力图
-      </div>
-      <div className="flex justify-between items-end gap-1 sm:gap-2">
-        {dates.map(date => {
-          const count = activity[date] || 0;
-          let colorClass = 'bg-gray-100';
-          let heightClass = 'h-3';
-          if (count > 0) {
-            colorClass = 'bg-green-200';
-            heightClass = 'h-4';
-          }
-          if (count > 5) {
-            colorClass = 'bg-green-400';
-             heightClass = 'h-6';
-          }
-          if (count > 15) {
-            colorClass = 'bg-green-600';
-             heightClass = 'h-8';
-          }
-
-          const isToday = date === today.toISOString().split('T')[0];
-
-          return (
-            <div key={date} className="flex flex-col items-center gap-1 w-full">
-              <div 
-                className={`w-full rounded-md transition-all ${colorClass} ${heightClass} ${isToday ? 'ring-2 ring-orange-300 ring-offset-1' : ''}`} 
-                title={`${date}: ${count} characters`}
-              />
-              <span className="text-[10px] text-gray-400 font-mono hidden sm:block">
-                 {date.slice(5).replace('-','/')}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
 export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onReview, onOpenBank, stars }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isStatsOpen, setIsStatsOpen] = useState(false);
+  const [isAllUnitsOpen, setIsAllUnitsOpen] = useState(false); // Modal for all units
+  
+  const [activeTab, setActiveTab] = useState<'TODO' | 'DONE'>('TODO');
+  
   const settings = getSettings();
+  const knownChars = getKnownCharacters();
+  const unknownChars = getUnknownCharacters();
   
   // Resolve current configuration
   const currentCurriculum = APP_DATA.find(c => c.id === settings.selectedCurriculumId);
   const currentGrade = currentCurriculum?.grades.find(g => g.id === settings.selectedGradeId);
-
-  // Check if setup is needed
   const needsSetup = !currentCurriculum || !currentGrade;
+
+  // Process Units Logic
+  const processedUnits = React.useMemo(() => {
+    if (!currentGrade) return { todo: [], done: [] };
+    
+    const knownSet = new Set(knownChars.map(c => c.char));
+    const todo: Unit[] = [];
+    const done: Unit[] = [];
+
+    currentGrade.units.forEach(unit => {
+       const isComplete = unit.characters.every(c => knownSet.has(c.char));
+       if (isComplete) {
+         done.push(unit);
+       } else {
+         todo.push(unit);
+       }
+    });
+    return { todo, done };
+  }, [currentGrade, knownChars]);
 
   const handleStart = (unitId: string, unitName: string, chars: Character[]) => {
     onStartGame({
@@ -88,30 +60,23 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
   };
 
   const startDailyChallenge = () => {
-    // 1. Get unknown characters (Review Priority)
-    const unknownChars = getUnknownCharacters();
-    // Shuffle and take up to 5
-    const reviewSet = unknownChars.sort(() => 0.5 - Math.random()).slice(0, 5);
+    const unknown = getUnknownCharacters();
+    const reviewSet = unknown.sort(() => 0.5 - Math.random()).slice(0, 5);
     
-    // 2. Get random new characters to fill up to 10
     let allChars: Character[] = [];
     if (currentCurriculum) {
        currentCurriculum.grades.forEach(g => g.units.forEach(u => {
          allChars = [...allChars, ...u.characters];
        }));
     } else {
-        // Fallback to all data if no curriculum selected
          APP_DATA.forEach(c => c.grades.forEach(g => g.units.forEach(u => {
            allChars = [...allChars, ...u.characters];
          })));
     }
 
-    // Filter out chars already in reviewSet to avoid duplicates
     const existingChars = new Set(reviewSet.map(c => c.char));
     const pool = allChars.filter(c => !existingChars.has(c.char));
     const newSet = pool.sort(() => 0.5 - Math.random()).slice(0, 10 - reviewSet.length);
-
-    // Combine
     const challengeChars = [...reviewSet, ...newSet];
 
     onStartGame({
@@ -124,142 +89,190 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
     });
   };
 
-  return (
-    <div className="max-w-4xl mx-auto p-4 space-y-6 animate-fade-in relative pb-20">
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+  // Helper component for Unit List
+  const UnitList = ({ units, limit }: { units: Unit[], limit?: number }) => {
+    const displayUnits = limit ? units.slice(0, limit) : units;
+    
+    if (units.length === 0) {
+      return (
+         <div className="flex flex-col items-center justify-center py-10 text-gray-400 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+            {activeTab === 'TODO' ? <CheckCircle size={32} className="mb-2 text-green-300"/> : <Book size={32} className="mb-2 text-gray-300"/>}
+            <p className="text-sm">{activeTab === 'TODO' ? '太棒了！本册所有单元已完成' : '还没完成任何单元，加油！'}</p>
+         </div>
+      );
+    }
 
-      {/* Header */}
-      <div className="flex justify-between items-center bg-white p-6 rounded-[2rem] shadow-xl border-b-8 border-blue-100">
-        <div className="flex items-center space-x-4">
-          <div className="bg-yellow-400 p-3 rounded-2xl shadow-inner text-white hidden sm:block">
-            <div className="text-3xl">🐼</div>
-          </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-fun text-gray-800">汉字小英雄</h1>
-            <p className="text-gray-400 text-xs sm:text-sm font-bold mt-1">
-              {currentCurriculum ? `${currentCurriculum.name} · ${currentGrade?.name}` : '请先选择教材'}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 sm:gap-3">
-           <div className="flex items-center space-x-1 sm:space-x-2 bg-yellow-50 px-3 py-1.5 rounded-full border border-yellow-200">
-            <Star className="text-yellow-500 fill-yellow-500 w-4 h-4 sm:w-5 sm:h-5" />
-            <span className="font-bold text-yellow-700 text-sm sm:text-lg">{stars}</span>
-          </div>
-          <button 
-            onClick={() => setIsSettingsOpen(true)}
-            className="p-3 bg-gray-50 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {displayUnits.map((unit, index) => (
+          <button
+            key={unit.id}
+            onClick={() => handleStart(unit.id, unit.name, unit.characters)}
+            className="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:border-blue-200 hover:shadow-md active:scale-[0.98] transition-all group"
           >
-            <Settings size={20} />
+             <div className="flex items-center gap-4 overflow-hidden">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg shrink-0 ${activeTab === 'DONE' ? 'bg-green-100 text-green-600' : 'bg-blue-50 text-blue-500'}`}>
+                   {limit ? index + 1 : units.indexOf(unit) + 1}
+                </div>
+                <div className="text-left overflow-hidden">
+                   <h3 className="font-bold text-gray-800 truncate group-hover:text-blue-600 transition-colors">{unit.name}</h3>
+                   <p className="text-xs text-gray-400">{unit.characters.length} 个生字</p>
+                </div>
+             </div>
+             <PlayCircle size={24} className={`${activeTab === 'DONE' ? 'text-green-400' : 'text-blue-400'} shrink-0 group-hover:scale-110 transition-transform`} />
           </button>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto min-h-screen bg-gray-50 flex flex-col pb-6 relative transition-all">
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <StatsModal isOpen={isStatsOpen} onClose={() => setIsStatsOpen(false)} />
+
+      {/* --- Header --- */}
+      <div className="bg-white px-6 pt-12 pb-4 md:pt-6 md:pb-6 rounded-b-[2rem] shadow-sm flex justify-between items-center z-10 sticky top-0">
+        <div>
+           <div className="flex items-center gap-2">
+             <span className="text-3xl">🐼</span>
+             <h1 className="text-2xl font-fun text-gray-800">汉字小英雄</h1>
+           </div>
+           <p className="text-xs md:text-sm text-gray-400 font-bold mt-1 pl-1">
+             {currentCurriculum ? `${currentCurriculum.name} · ${currentGrade?.name}` : '请先设置教材'}
+           </p>
+        </div>
+        <div className="flex gap-3">
+           {/* Stats Button */}
+           <button onClick={() => setIsStatsOpen(true)} className="p-3 bg-indigo-50 text-indigo-500 rounded-full hover:bg-indigo-100 transition-colors" title="统计">
+              <BarChart3 size={24} />
+           </button>
+           {/* Settings Button */}
+           <button onClick={() => setIsSettingsOpen(true)} className="p-3 bg-gray-100 text-gray-500 rounded-full hover:bg-gray-200 transition-colors" title="设置">
+              <Settings size={24} />
+           </button>
         </div>
       </div>
 
-      {/* Heatmap */}
-      <LearningHeatmap />
-
-      <div className="grid md:grid-cols-3 gap-6">
-        
-        {/* Left: Main Content (Units) */}
-        <div className="md:col-span-2 space-y-4">
-          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2 px-2">
-            <Grid className="w-6 h-6 text-blue-500" /> 
-            学习单元
-          </h2>
+      <div className="px-4 md:px-8 mt-8 flex-1">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          {needsSetup ? (
-            <div className="bg-white p-8 rounded-3xl text-center border-2 border-dashed border-gray-300">
-              <Book size={48} className="mx-auto text-gray-300 mb-4" />
-              <h3 className="text-lg font-bold text-gray-600 mb-2">还没有选择教材哦</h3>
-              <p className="text-gray-400 text-sm mb-6">去设置里选择你正在学习的课本吧</p>
-              <button 
-                onClick={() => setIsSettingsOpen(true)}
-                className="px-6 py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-colors"
-              >
-                去设置教材
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {currentGrade?.units.map((unit, index) => (
-                <button
-                  key={unit.id}
-                  onClick={() => handleStart(unit.id, unit.name, unit.characters)}
-                  className="group relative bg-white p-5 rounded-3xl shadow-sm hover:shadow-md border-2 border-transparent hover:border-blue-200 transition-all text-left overflow-hidden"
-                >
-                   <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                      <span className="text-6xl font-fun text-blue-500">{index + 1}</span>
-                   </div>
-                   <div className="relative z-10">
-                      <span className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-1 block">Unit {index + 1}</span>
-                      <h3 className="text-lg font-bold text-gray-800 mb-2 truncate">{unit.name}</h3>
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                         <span className="bg-gray-100 px-2 py-0.5 rounded text-xs">{unit.characters.length} 个生字</span>
-                      </div>
-                      <div className="mt-4 flex items-center text-blue-500 font-bold text-sm group-hover:translate-x-1 transition-transform">
-                         开始学习 <PlayCircle size={16} className="ml-1" />
-                      </div>
+          {/* Left Sidebar (Stats & Quick Actions) */}
+          <div className="lg:col-span-4 space-y-6">
+             {/* Stats Summary / Currency */}
+             <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                <div className="flex items-center space-x-2 bg-yellow-100 px-4 py-2 rounded-full border border-yellow-200 shadow-sm">
+                   <Star className="text-yellow-600 fill-yellow-500 w-5 h-5" />
+                   <span className="font-bold text-yellow-800 text-lg">{stars}</span>
+                </div>
+                <div className="text-sm text-gray-500 font-medium">
+                   今日已学 <span className="text-blue-500 font-bold text-lg">{Object.values(processedUnits.done).length}</span> 单元
+                </div>
+             </div>
+
+             {/* Compact Quick Actions (Grid) */}
+             <div className="grid grid-cols-3 gap-3">
+                <button onClick={startDailyChallenge} className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-3 rounded-2xl shadow-lg shadow-blue-200 flex flex-col items-center justify-center gap-2 h-32 relative overflow-hidden group hover:scale-[1.02] transition-transform">
+                   <div className="absolute top-0 right-0 p-2 opacity-20"><Trophy size={40}/></div>
+                   <Trophy size={32} />
+                   <div className="text-center">
+                      <div className="font-bold text-sm">每日挑战</div>
+                      <div className="text-[10px] opacity-80">Challenge</div>
                    </div>
                 </button>
-              ))}
-            </div>
-          )}
-        </div>
+                
+                <button onClick={onReview} className="bg-white text-gray-800 p-3 rounded-2xl shadow-md border border-orange-100 flex flex-col items-center justify-center gap-2 h-32 relative overflow-hidden group hover:border-orange-300 transition-colors">
+                   {unknownChars.length > 0 && <div className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full animate-pulse" />}
+                   <div className="bg-orange-100 p-2 rounded-xl text-orange-600 group-hover:scale-110 transition-transform"><Book size={24} /></div>
+                   <div className="text-center">
+                      <div className="font-bold text-sm">生字本</div>
+                      <div className="text-[10px] text-gray-400">{unknownChars.length} 个待复习</div>
+                   </div>
+                </button>
 
-        {/* Right: Actions */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2 px-2">
-            <Trophy className="w-6 h-6 text-yellow-500" /> 
-            挑战与复习
-          </h2>
-
-          {/* Daily Challenge */}
-          <button 
-            onClick={startDailyChallenge}
-            className="w-full bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-3xl shadow-lg border-b-4 border-blue-800 hover:scale-[1.02] active:scale-95 transition-all text-left group relative overflow-hidden"
-          >
-             <div className="absolute right-[-20px] top-[-20px] bg-white/10 w-32 h-32 rounded-full blur-2xl group-hover:bg-white/20 transition-colors"></div>
-             
-             <div className="bg-white/20 w-12 h-12 rounded-2xl flex items-center justify-center mb-4 group-hover:rotate-12 transition-transform">
-               <Trophy size={24} className="text-white" />
+                <button onClick={onOpenBank} className="bg-white text-gray-800 p-3 rounded-2xl shadow-md border border-green-100 flex flex-col items-center justify-center gap-2 h-32 group hover:border-green-300 transition-colors">
+                   <div className="bg-green-100 p-2 rounded-xl text-green-600 group-hover:scale-110 transition-transform"><Library size={24} /></div>
+                   <div className="text-center">
+                      <div className="font-bold text-sm">我的字库</div>
+                      <div className="text-[10px] text-gray-400">{knownChars.length} 个已掌握</div>
+                   </div>
+                </button>
              </div>
-             <h3 className="text-xl font-bold mb-1">每日挑战</h3>
-             <p className="text-blue-100 text-xs">
-               Review + New
-               <br/>
-               复习生字，巩固新知
-             </p>
-          </button>
+          </div>
 
-          {/* Review */}
-          <button
-            onClick={onReview}
-            className="w-full bg-white p-5 rounded-3xl shadow-md border-2 border-orange-100 hover:border-orange-300 transition-all text-left flex items-center gap-4 group"
-          >
-            <div className="bg-orange-100 w-12 h-12 rounded-2xl flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform">
-               <Book size={24} />
-            </div>
-            <div>
-               <h3 className="text-lg font-bold text-gray-800">生字本</h3>
-               <p className="text-gray-400 text-xs">消灭拦路虎</p>
-            </div>
-          </button>
+          {/* Right Content (Units) */}
+          <div className="lg:col-span-8">
+             <div className="bg-white p-6 rounded-3xl shadow-sm min-h-[500px] border border-gray-100">
+                <div className="flex items-center justify-between mb-6">
+                   <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                     <Grid className="w-6 h-6 text-blue-500" /> 学习单元
+                   </h2>
+                   
+                   {/* Tabs Switch */}
+                   <div className="bg-gray-100 p-1 rounded-xl flex text-sm font-bold">
+                      <button 
+                        onClick={() => setActiveTab('TODO')}
+                        className={`px-4 py-2 rounded-lg transition-all ${activeTab === 'TODO' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                      >
+                        待学习 ({processedUnits.todo.length})
+                      </button>
+                      <button 
+                        onClick={() => setActiveTab('DONE')}
+                        className={`px-4 py-2 rounded-lg transition-all ${activeTab === 'DONE' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                      >
+                        已完成 ({processedUnits.done.length})
+                      </button>
+                   </div>
+                </div>
+                
+                {needsSetup ? (
+                   <div className="flex flex-col items-center justify-center py-20 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+                      <Book size={48} className="text-gray-300 mb-4"/>
+                      <p className="text-gray-500 font-bold mb-2">还没有设置教材</p>
+                      <button onClick={() => setIsSettingsOpen(true)} className="px-6 py-2 bg-blue-500 text-white rounded-xl text-sm font-bold hover:bg-blue-600 transition-colors">去设置</button>
+                   </div>
+                ) : (
+                   <>
+                      <UnitList units={activeTab === 'TODO' ? processedUnits.todo : processedUnits.done} limit={10} />
+                      
+                      {/* View All Button */}
+                      {(activeTab === 'TODO' ? processedUnits.todo.length : processedUnits.done.length) > 10 && (
+                         <button 
+                            onClick={() => setIsAllUnitsOpen(true)}
+                            className="w-full mt-4 py-4 text-sm font-bold text-gray-500 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-center gap-2 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+                         >
+                            <List size={18} /> 查看全部单元
+                         </button>
+                      )}
+                   </>
+                )}
+             </div>
+          </div>
 
-          {/* Library / Bank */}
-          <button
-            onClick={onOpenBank}
-            className="w-full bg-white p-5 rounded-3xl shadow-md border-2 border-green-100 hover:border-green-300 transition-all text-left flex items-center gap-4 group"
-          >
-            <div className="bg-green-100 w-12 h-12 rounded-2xl flex items-center justify-center text-green-600 group-hover:scale-110 transition-transform">
-               <Library size={24} />
-            </div>
-             <div>
-               <h3 className="text-lg font-bold text-gray-800">我的字库</h3>
-               <p className="text-gray-400 text-xs">学习足迹</p>
-            </div>
-          </button>
         </div>
       </div>
+
+      {/* --- Full Unit List Modal --- */}
+      {isAllUnitsOpen && (
+         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-40 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <div className="bg-white w-full max-w-2xl sm:rounded-3xl h-[80vh] flex flex-col shadow-2xl animate-slide-up">
+               <div className="p-4 border-b border-gray-100 flex justify-between items-center">
+                  <h2 className="font-bold text-lg flex items-center gap-2">
+                     {activeTab === 'TODO' ? '待学习单元' : '已完成单元'}
+                     <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-500">
+                        {activeTab === 'TODO' ? processedUnits.todo.length : processedUnits.done.length}
+                     </span>
+                  </h2>
+                  <button onClick={() => setIsAllUnitsOpen(false)} className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">
+                     <X size={20} />
+                  </button>
+               </div>
+               <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                  <UnitList units={activeTab === 'TODO' ? processedUnits.todo : processedUnits.done} />
+               </div>
+            </div>
+         </div>
+      )}
     </div>
   );
 };

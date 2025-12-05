@@ -44,13 +44,17 @@ export interface WordEntry {
   pinyin: string;
 }
 
+export interface CharPair {
+  char: string;
+  pinyin: string;
+}
+
 export interface AIExplanation {
   structure: string; // e.g. "Left-Right"
   composition: string; // e.g. "Sun (日) + Moon (月)"
   memoryTip: string; // The mnemonic story
   words: WordEntry[];
-  sentence: string;
-  sentencePinyin: string;
+  sentenceData: CharPair[]; // Structured data for grid display
 }
 
 export interface AppSettings {
