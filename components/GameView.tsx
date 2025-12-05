@@ -1,103 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Volume2, Sparkles, BookOpen, Star, RefreshCw, Layers, Check, X, PenTool } from 'lucide-react';
+import { ArrowLeft, Volume2, Sparkles, BookOpen, Star, RefreshCw, Layers, Check, X } from 'lucide-react';
 import { GameConfig, AIExplanation } from '../types';
 import { explainCharacter } from '../services/geminiService';
 import { addUnknownCharacter, addKnownCharacter, addStars, getSettings, recordLearning } from '../services/storage';
-
-// Declare HanziWriter types (loaded from CDN)
-declare const HanziWriter: any;
+import { WritingGrid, StrokeOrderDisplay, speakText } from './SharedComponents';
 
 interface GameViewProps {
   config: GameConfig;
   onExit: (newStars: number) => void;
 }
-
-// --- Grid Components ---
-
-// Pinyin Grid (四线格) + Hanzi Grid (田字格)
-const WritingGrid: React.FC<{ char: string; pinyin: string }> = ({ char, pinyin }) => {
-  return (
-    <div className="flex flex-col items-center">
-      {/* Pinyin Grid (4 lines) */}
-      <div className="relative w-12 h-8 sm:w-16 sm:h-10 mb-1 flex items-center justify-center">
-         {/* Grid Lines */}
-         <div className="absolute inset-x-0 top-[20%] border-t border-red-300/40"></div>
-         <div className="absolute inset-x-0 top-[40%] border-t border-red-300/40"></div>
-         <div className="absolute inset-x-0 top-[60%] border-t border-red-400/60"></div> {/* Baseline */}
-         <div className="absolute inset-x-0 top-[80%] border-t border-red-300/40"></div>
-         
-         <span className="relative z-10 text-sm sm:text-base font-medium text-gray-700 font-sans -mt-1">{pinyin}</span>
-      </div>
-      
-      {/* Hanzi Tianzigrid (田字格) */}
-      <div className="relative w-12 h-12 sm:w-16 sm:h-16 bg-white border border-red-400 flex items-center justify-center">
-        {/* Dotted lines */}
-        <div className="absolute inset-0 border-dashed border-red-300/50" 
-             style={{ backgroundImage: 'linear-gradient(to right, transparent 49%, #fca5a5 50%, transparent 51%), linear-gradient(to bottom, transparent 49%, #fca5a5 50%, transparent 51%)', backgroundSize: '100% 100%' }}>
-        </div>
-        <div className="absolute inset-0 border-2 border-red-200 m-0.5 pointer-events-none"></div>
-        <span className="relative z-10 font-fun text-2xl sm:text-3xl text-gray-800 leading-none">{char}</span>
-      </div>
-    </div>
-  );
-};
-
-// --- Stroke Order Component ---
-
-const StrokeOrderDisplay: React.FC<{ char: string }> = ({ char }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const writerRef = useRef<any>(null);
-
-  useEffect(() => {
-    if (containerRef.current && typeof HanziWriter !== 'undefined') {
-      containerRef.current.innerHTML = ''; // Clear previous
-      
-      // Calculate size based on current container width (responsive)
-      const size = containerRef.current.clientWidth;
-
-      try {
-        writerRef.current = HanziWriter.create(containerRef.current, char, {
-          width: size, 
-          height: size,
-          padding: 5,
-          showOutline: true,
-          strokeAnimationSpeed: 1, // 1x speed
-          delayBetweenStrokes: 200, // ms
-          strokeColor: '#333333',
-          radicalColor: '#166534', // Green-700
-        });
-        
-        // Auto animate once loaded
-        writerRef.current.animateCharacter();
-      } catch (e) {
-        console.error("HanziWriter error", e);
-      }
-    }
-  }, [char]);
-
-  const replay = () => {
-    if(writerRef.current) {
-        writerRef.current.animateCharacter();
-    }
-  };
-
-  return (
-    <div className="relative w-40 h-40 sm:w-56 sm:h-56 mx-auto cursor-pointer" onClick={replay}>
-      <div ref={containerRef} className="w-full h-full bg-red-50 rounded-3xl border-2 border-red-100 overflow-hidden" />
-      
-      {/* TianZiGe Overlay */}
-      <div className="absolute inset-0 border-dashed border-red-200 pointer-events-none rounded-3xl" style={{
-        backgroundImage: 'linear-gradient(to right, transparent 49%, #fca5a5 50%, transparent 51%), linear-gradient(to bottom, transparent 49%, #fca5a5 50%, transparent 51%)',
-        backgroundSize: '100% 100%'
-      }}></div>
-      <div className="absolute inset-0 border-2 border-red-200 m-2 pointer-events-none rounded-2xl"></div>
-      
-      <button className="absolute bottom-2 right-2 p-2 bg-white/80 rounded-full text-gray-600 hover:text-green-600 shadow-sm z-10" title="Replay Strokes">
-        <PenTool size={16} />
-      </button>
-    </div>
-  );
-};
 
 export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -117,22 +28,16 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
     setAiExplanation(null);
   }, [currentIndex]);
 
-  const speak = (text: string) => {
-    const settings = getSettings();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'zh-CN';
-    utterance.rate = settings.ttsRate;
-    
-    if (settings.ttsVoice) {
-      const voices = window.speechSynthesis.getVoices();
-      const selectedVoice = voices.find(v => v.voiceURI === settings.ttsVoice);
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-      }
+  // Auto-Speak Memory Tip when Loaded
+  useEffect(() => {
+    if (viewState === 'LEARNING' && aiExplanation && aiExplanation.memoryTip) {
+       // Small delay to ensure UI renders first and previous speech clears
+       const timer = setTimeout(() => {
+         speakText(aiExplanation.memoryTip);
+       }, 500);
+       return () => clearTimeout(timer);
     }
-    
-    window.speechSynthesis.speak(utterance);
-  };
+  }, [aiExplanation, viewState]);
 
   const markLearned = () => {
     setSessionLearned(prev => new Set(prev).add(currentCharacter.char));
@@ -143,7 +48,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
     addKnownCharacter(currentCharacter);
     markLearned();
     setScore(prev => prev + 10);
-    speak("真棒！");
+    speakText("真棒！");
     nextChar();
   };
 
@@ -152,7 +57,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
     addUnknownCharacter(currentCharacter);
     markLearned();
     setViewState('LEARNING');
-    speak(currentCharacter.char);
+    speakText(currentCharacter.char); // Speak char immediately
     
     // Auto-load AI content
     setAiLoading(true);
@@ -220,7 +125,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
              ) : (
                 <div 
                   className="w-40 h-40 sm:w-56 sm:h-56 bg-red-50 rounded-3xl flex items-center justify-center border-2 border-red-100 cursor-pointer hover:border-red-200 transition-colors relative"
-                  onClick={() => speak(currentCharacter.char)}
+                  onClick={() => speakText(currentCharacter.char)}
                 >
                   {/* Grid lines */}
                   <div className="absolute inset-0 border-dashed border-red-200 pointer-events-none" style={{
@@ -269,7 +174,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
               <div className="text-center border-b border-gray-100 pb-4">
                 <h2 className="text-4xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-2">
                   {currentCharacter.pinyin}
-                  <button onClick={() => speak(currentCharacter.char)} className="p-1 bg-gray-100 rounded-full text-gray-500 hover:text-blue-500">
+                  <button onClick={() => speakText(currentCharacter.char)} className="p-1 bg-gray-100 rounded-full text-gray-500 hover:text-blue-500">
                     <Volume2 size={20} />
                   </button>
                 </h2>
@@ -298,7 +203,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
                     <div className="bg-white p-3 rounded-lg text-gray-700 leading-relaxed relative">
                        <p>{aiExplanation.memoryTip}</p>
                        <button 
-                         onClick={() => speak(aiExplanation.memoryTip)}
+                         onClick={() => speakText(aiExplanation.memoryTip)}
                          className="absolute top-2 right-2 text-indigo-300 hover:text-indigo-600"
                        >
                          <Volume2 size={16} />
@@ -314,15 +219,18 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
                     
                     <div className="flex flex-wrap gap-4">
                       {aiExplanation.words?.map((w, i) => {
-                        // Split word and pinyin (assuming space separated pinyin for words)
-                        // Simple fallback splitting logic
                         const chars = w.word.split('');
                         const pinyins = w.pinyin.split(' ');
                         
                         return (
                            <div key={i} className="bg-white p-2 rounded-xl border border-green-100 shadow-sm flex gap-1">
                               {chars.map((c, idx) => (
-                                <WritingGrid key={idx} char={c} pinyin={pinyins[idx] || ''} />
+                                <WritingGrid 
+                                  key={idx} 
+                                  char={c} 
+                                  pinyin={pinyins[idx] || ''} 
+                                  isTarget={c === currentCharacter.char} // Highlight if match
+                                />
                               ))}
                            </div>
                         );
@@ -336,19 +244,25 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
                         <Sparkles size={18} className="text-purple-600" /> 造句
                      </h3>
                      <div 
-                        className="bg-white p-4 rounded-xl border border-purple-100 shadow-sm flex flex-wrap gap-2 cursor-pointer relative group"
-                        onClick={() => {
-                           // Construct sentence string for speech
-                           const sentence = aiExplanation.sentenceData.map(d => d.char).join('');
-                           speak(sentence);
-                        }}
+                        className="bg-white p-4 rounded-xl border border-purple-100 shadow-sm flex flex-wrap gap-2 relative group"
                      >
                         {aiExplanation.sentenceData?.map((item, idx) => (
-                           <WritingGrid key={idx} char={item.char} pinyin={item.pinyin} />
+                           <WritingGrid 
+                              key={idx} 
+                              char={item.char} 
+                              pinyin={item.pinyin} 
+                              isTarget={item.char === currentCharacter.char} // Highlight if match
+                           />
                         ))}
 
-                        <button className="absolute right-2 bottom-2 text-purple-300 group-hover:text-purple-600 transition-colors">
-                           <Volume2 size={18} />
+                        <button 
+                           onClick={() => {
+                              const sentence = aiExplanation.sentenceData.map(d => d.char).join('');
+                              speakText(sentence);
+                           }}
+                           className="absolute right-2 bottom-2 text-purple-300 hover:text-purple-600 transition-colors bg-white/80 rounded-full p-1"
+                        >
+                           <Volume2 size={20} />
                         </button>
                      </div>
                   </div>

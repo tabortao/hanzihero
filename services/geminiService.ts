@@ -12,7 +12,7 @@ export const explainCharacter = async (char: string): Promise<AIExplanation> => 
   请严格按照JSON格式返回以下内容：
   1. structure: 字形结构 (如：左右结构、上下结构、独体字)。
   2. composition: 简单的部件拆解 (如："日" 加 "月")。
-  3. memoryTip: 一个有趣好记的顺口溜或小故事，帮助孩子记住这个字。
+  3. memoryTip: 一个非常简短、有趣好记的顺口溜或一句话故事（20字以内），方便朗读给孩子听。
   4. words: 两个常见组词，每个组词包含 word (词语) 和 pinyin (拼音)。
   5. sentenceData: 一个包含该字的简单例句，拆解为字符数组，每个对象包含 char (汉字) 和 pinyin (该字的拼音)。
 
