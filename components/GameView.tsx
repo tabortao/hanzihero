@@ -170,7 +170,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
           {/* LEARNING STATE: SHOW DETAILS */}
           {viewState === 'LEARNING' && (
             <div className="animate-fade-in text-left space-y-6">
-              {/* Pinyin & Definition */}
+              {/* Pinyin (Definition removed) */}
               <div className="text-center border-b border-gray-100 pb-4">
                 <h2 className="text-4xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-2">
                   {currentCharacter.pinyin}
@@ -178,7 +178,6 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
                     <Volume2 size={20} />
                   </button>
                 </h2>
-                <p className="text-gray-500">{currentCharacter.definition}</p>
               </div>
 
               {/* AI Content */}

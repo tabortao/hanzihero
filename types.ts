@@ -1,7 +1,7 @@
 export interface Character {
   char: string;
   pinyin: string;
-  definition?: string;
+  // definition field removed
 }
 
 export interface Unit {
