@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Volume2, Sparkles, BookOpen, Star, RefreshCw, Layers, Check, X } from 'lucide-react';
+import { ArrowLeft, Volume2, Sparkles, BookOpen, Star, RefreshCw, Layers, Check, X, Puzzle } from 'lucide-react';
 import { GameConfig, AIExplanation } from '../types';
 import { explainCharacter } from '../services/geminiService';
 import { addUnknownCharacter, addKnownCharacter, addStars, getSettings, recordLearning } from '../services/storage';
 import { WritingGrid, StrokeOrderDisplay, speakText } from './SharedComponents';
+import confetti from 'canvas-confetti';
 
 interface GameViewProps {
   config: GameConfig;
@@ -66,14 +67,47 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
     setAiLoading(false);
   };
 
+  const triggerCelebration = () => {
+    const duration = 2000;
+    const end = Date.now() + duration;
+
+    (function frame() {
+      confetti({
+        particleCount: 5,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 },
+        colors: ['#ff0000', '#00ff00', '#0000ff', '#ffff00']
+      });
+      confetti({
+        particleCount: 5,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 },
+        colors: ['#ff0000', '#00ff00', '#0000ff', '#ffff00']
+      });
+
+      if (Date.now() < end) {
+        requestAnimationFrame(frame);
+      }
+    }());
+  };
+
   const handleFinish = () => {
+    // Trigger celebration
+    triggerCelebration();
+
     // Record stats
     const charsLearned = config.characters.filter(c => sessionLearned.has(c.char));
     recordLearning(charsLearned);
 
     const earnedStars = Math.floor(score / 10); 
     const totalStars = addStars(earnedStars);
-    onExit(totalStars);
+
+    // Delay exit slightly to show celebration
+    setTimeout(() => {
+        onExit(totalStars);
+    }, 2000);
   };
 
   const nextChar = () => {
@@ -87,11 +121,11 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
   const progress = ((currentIndex + 1) / config.characters.length) * 100;
 
   return (
-    <div className="max-w-3xl mx-auto p-4 min-h-screen flex flex-col bg-[#ecfdf5]">
+    <div className="max-w-3xl mx-auto p-4 min-h-screen flex flex-col bg-[#ecfdf5] pb-24">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <button 
-          onClick={handleFinish} 
+          onClick={() => onExit(addStars(0))} // Exit without celebration/extra save if manual
           className="p-2 rounded-full hover:bg-gray-200 text-gray-600 transition-colors"
         >
           <ArrowLeft />
@@ -108,9 +142,8 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
             />
           </div>
         </div>
-        <div className="flex items-center gap-1 font-bold text-yellow-700 bg-yellow-100 px-3 py-1 rounded-full border border-yellow-300">
-           <Star size={16} fill="currentColor" /> {score}
-        </div>
+        {/* Stars Removed in Game View as requested */}
+        <div className="w-8"></div> 
       </div>
 
       {/* Main Area */}
@@ -118,10 +151,40 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
         
         {/* Character Card */}
         <div className="bg-white rounded-[2.5rem] shadow-xl w-full p-6 sm:p-8 text-center border-4 border-green-100 relative mb-6">
+          
+          {viewState === 'LEARNING' && (
+              <div className="mb-4 text-center">
+                  <h2 className="text-4xl font-bold text-gray-800 flex items-center justify-center gap-2">
+                  {currentCharacter.pinyin}
+                  <button onClick={() => speakText(currentCharacter.char)} className="p-1 bg-gray-100 rounded-full text-gray-500 hover:text-blue-500">
+                    <Volume2 size={20} />
+                  </button>
+                </h2>
+              </div>
+          )}
+
+          {/* Composition Decomposition (New) */}
+          {viewState === 'LEARNING' && aiExplanation?.compositionParts && aiExplanation.compositionParts.length > 0 && (
+             <div className="flex flex-col items-center justify-center mb-6 bg-blue-50 p-3 rounded-2xl border border-blue-100 border-dashed">
+                <div className="text-xs text-blue-500 font-bold mb-2 flex items-center gap-1">
+                    <Puzzle size={12} /> 字形结构拆解
+                </div>
+                <div className="flex items-center gap-4">
+                    {aiExplanation.compositionParts.map((part, idx) => (
+                        <React.Fragment key={idx}>
+                             {/* Plus sign between parts */}
+                             {idx > 0 && <span className="text-blue-300 font-bold text-xl">+</span>}
+                             <WritingGrid char={part.char} pinyin={part.pinyin} />
+                        </React.Fragment>
+                    ))}
+                </div>
+             </div>
+          )}
+
           <div className="flex justify-center mb-4">
              {/* If learning, show stroke order, else show static for initial guess */}
              {viewState === 'LEARNING' ? (
-                <StrokeOrderDisplay char={currentCharacter.char} />
+                <StrokeOrderDisplay key={currentCharacter.char} char={currentCharacter.char} />
              ) : (
                 <div 
                   className="w-40 h-40 sm:w-56 sm:h-56 bg-red-50 rounded-3xl flex items-center justify-center border-2 border-red-100 cursor-pointer hover:border-red-200 transition-colors relative"
@@ -170,16 +233,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
           {/* LEARNING STATE: SHOW DETAILS */}
           {viewState === 'LEARNING' && (
             <div className="animate-fade-in text-left space-y-6">
-              {/* Pinyin (Definition removed) */}
-              <div className="text-center border-b border-gray-100 pb-4">
-                <h2 className="text-4xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-2">
-                  {currentCharacter.pinyin}
-                  <button onClick={() => speakText(currentCharacter.char)} className="p-1 bg-gray-100 rounded-full text-gray-500 hover:text-blue-500">
-                    <Volume2 size={20} />
-                  </button>
-                </h2>
-              </div>
-
+              
               {/* AI Content */}
               {aiLoading ? (
                 <div className="flex flex-col items-center py-8 space-y-3 text-indigo-400">
@@ -194,11 +248,14 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
                        <Layers size={18} className="text-indigo-600" />
                        <span className="font-bold text-indigo-800">字形结构: {aiExplanation.structure}</span>
                     </div>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                       <span className="bg-white px-3 py-1 rounded-lg text-indigo-700 font-medium shadow-sm border border-indigo-100">
-                         {aiExplanation.composition}
-                       </span>
-                    </div>
+                    {/* Fallback composition text if visual parts aren't there */}
+                    {(!aiExplanation.compositionParts || aiExplanation.compositionParts.length === 0) && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                            <span className="bg-white px-3 py-1 rounded-lg text-indigo-700 font-medium shadow-sm border border-indigo-100">
+                                {aiExplanation.composition}
+                            </span>
+                        </div>
+                    )}
                     <div className="bg-white p-3 rounded-lg text-gray-700 leading-relaxed relative">
                        <p>{aiExplanation.memoryTip}</p>
                        <button 

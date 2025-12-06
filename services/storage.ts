@@ -1,10 +1,11 @@
-import { Character, AppSettings, LearningStats, UserProgress } from '../types';
+import { Character, AppSettings, LearningStats, UserProgress, Story } from '../types';
 
 const STORAGE_KEY_UNKNOWN = 'hanzi_hero_unknown';
 const STORAGE_KEY_KNOWN = 'hanzi_hero_known';
 const STORAGE_KEY_STARS = 'hanzi_hero_stars';
 const STORAGE_KEY_SETTINGS = 'hanzi_hero_settings';
 const STORAGE_KEY_STATS = 'hanzi_hero_stats';
+const STORAGE_KEY_STORIES = 'hanzi_hero_stories';
 
 // --- Character Management ---
 
@@ -27,7 +28,9 @@ export const addUnknownCharacter = (char: Character): void => {
   const currentUnknown = getUnknownCharacters();
   // Add to unknown if not present
   if (!currentUnknown.some(c => c.char === char.char)) {
-    localStorage.setItem(STORAGE_KEY_UNKNOWN, JSON.stringify([...currentUnknown, char]));
+    // Reset learnedAt when moving back to unknown
+    const { learnedAt, ...cleanChar } = char;
+    localStorage.setItem(STORAGE_KEY_UNKNOWN, JSON.stringify([...currentUnknown, cleanChar]));
   }
   
   // Remove from known if it was there (since user now doesn't know it)
@@ -40,9 +43,17 @@ export const addUnknownCharacter = (char: Character): void => {
 
 export const addKnownCharacter = (char: Character): void => {
   const currentKnown = getKnownCharacters();
-  // Add to known
-  if (!currentKnown.some(c => c.char === char.char)) {
-    localStorage.setItem(STORAGE_KEY_KNOWN, JSON.stringify([...currentKnown, char]));
+  const now = Date.now();
+  
+  // Add to known or update timestamp
+  const existingIndex = currentKnown.findIndex(c => c.char === char.char);
+  if (existingIndex >= 0) {
+      // Update timestamp for existing
+      currentKnown[existingIndex] = { ...currentKnown[existingIndex], learnedAt: now };
+      localStorage.setItem(STORAGE_KEY_KNOWN, JSON.stringify(currentKnown));
+  } else {
+      // Add new
+      localStorage.setItem(STORAGE_KEY_KNOWN, JSON.stringify([...currentKnown, { ...char, learnedAt: now }]));
   }
 
   // Remove from unknown
@@ -81,6 +92,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   model: 'gemini-2.5-flash',
   ttsRate: 1.0,
   ttsVoice: '',
+  dailyLimit: 10,
+  storyLength: 50, // Default story length
   selectedCurriculumId: 'renjiaoban',
   selectedGradeId: 'g1-1'
 };
@@ -125,6 +138,31 @@ export const getDailyActivity = (): Record<string, number> => {
   return getStats().dailyActivity;
 };
 
+// --- Stories ---
+
+export const getStories = (): Story[] => {
+  const data = localStorage.getItem(STORAGE_KEY_STORIES);
+  return data ? JSON.parse(data) : [];
+};
+
+export const saveStory = (story: Story): void => {
+  const stories = getStories();
+  // Check if update or new
+  const index = stories.findIndex(s => s.id === story.id);
+  if (index >= 0) {
+      stories[index] = story;
+      localStorage.setItem(STORAGE_KEY_STORIES, JSON.stringify(stories));
+  } else {
+      localStorage.setItem(STORAGE_KEY_STORIES, JSON.stringify([story, ...stories]));
+  }
+};
+
+export const deleteStory = (id: string): void => {
+  const stories = getStories();
+  localStorage.setItem(STORAGE_KEY_STORIES, JSON.stringify(stories.filter(s => s.id !== id)));
+};
+
+
 // --- Import / Export ---
 
 export const exportUserData = (): string => {
@@ -133,7 +171,8 @@ export const exportUserData = (): string => {
     stars: getStars(),
     unknown: getUnknownCharacters(),
     known: getKnownCharacters(),
-    stats: getStats()
+    stats: getStats(),
+    stories: getStories()
   };
   return JSON.stringify(data, null, 2);
 };
@@ -146,6 +185,7 @@ export const importUserData = (jsonStr: string): boolean => {
     if (data.unknown) localStorage.setItem(STORAGE_KEY_UNKNOWN, JSON.stringify(data.unknown));
     if (data.known) localStorage.setItem(STORAGE_KEY_KNOWN, JSON.stringify(data.known));
     if (data.stats) localStorage.setItem(STORAGE_KEY_STATS, JSON.stringify(data.stats));
+    if (data.stories) localStorage.setItem(STORAGE_KEY_STORIES, JSON.stringify(data.stories));
     return true;
   } catch (e) {
     console.error("Import failed", e);

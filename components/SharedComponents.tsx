@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { PenTool } from 'lucide-react';
+import { PenTool, Grid, BookOpen, BarChart3, User } from 'lucide-react';
 import { getSettings } from '../services/storage';
+import { ViewState } from '../types';
 
 // Helper to speak individual characters
 export const speakText = (text: string) => {
@@ -39,6 +40,13 @@ export const WritingGrid: React.FC<WritingGridProps> = ({ char, pinyin, isTarget
     }
   };
 
+  // Check if character is punctuation (no pinyin usually)
+  const isPunctuation = !pinyin && char.length === 1 && !char.match(/[\u4e00-\u9fa5]/);
+
+  if (isPunctuation) {
+      return <span className="text-4xl self-end mb-4 font-fun text-gray-400">{char}</span>;
+  }
+
   return (
     <div className="flex flex-col items-center cursor-pointer group" onClick={handleClick}>
       {/* Pinyin Grid (4 lines) */}
@@ -65,11 +73,6 @@ export const WritingGrid: React.FC<WritingGridProps> = ({ char, pinyin, isTarget
           }}
         ></div>
         
-        {/* Dotted lines mask (simulated by using dashed border on inner div if needed, but CSS gradient above handles standard lines. 
-            For dotted specific Tianzi Ge often used in schools, simplified cross lines are often enough. 
-            Let's stick to standard solid center lines + diagonals which is common for calligraphy structure) 
-        */}
-        
         <span className={`relative z-10 font-fun text-xl sm:text-2xl leading-none ${isTarget ? 'text-blue-600' : 'text-gray-800'}`}>{char}</span>
       </div>
     </div>
@@ -82,6 +85,7 @@ declare const HanziWriter: any;
 export const StrokeOrderDisplay: React.FC<{ char: string }> = ({ char }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const writerRef = useRef<any>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (containerRef.current && typeof HanziWriter !== 'undefined') {
@@ -103,16 +107,34 @@ export const StrokeOrderDisplay: React.FC<{ char: string }> = ({ char }) => {
           showHintAfterMisses: 1
         });
         
-        writerRef.current.animateCharacter();
+        startAnimationLoop();
       } catch (e) {
         console.error("HanziWriter error", e);
       }
     }
+    return () => {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    }
   }, [char]);
+
+  const startAnimationLoop = () => {
+      if (!writerRef.current) return;
+      
+      writerRef.current.animateCharacter({
+          onComplete: () => {
+              // Loop after 1.5 seconds
+              timeoutRef.current = setTimeout(() => {
+                  startAnimationLoop();
+              }, 1500);
+          }
+      });
+  };
 
   const replay = () => {
     if(writerRef.current) {
-        writerRef.current.animateCharacter();
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        // Cancel existing animation if any (HanziWriter doesn't have a simple stop, but animateCharacter overrides)
+        startAnimationLoop();
     }
   };
 
@@ -136,4 +158,39 @@ export const StrokeOrderDisplay: React.FC<{ char: string }> = ({ char }) => {
       </button>
     </div>
   );
+};
+
+// --- Bottom Navigation ---
+
+interface BottomNavProps {
+    currentTab: ViewState;
+    onChange: (tab: ViewState) => void;
+}
+
+export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onChange }) => {
+    const navItems = [
+        { id: 'TAB_HOME', label: '识字', icon: Grid },
+        { id: 'TAB_STORY', label: '短文', icon: BookOpen },
+        { id: 'TAB_STATS', label: '统计', icon: BarChart3 },
+        { id: 'TAB_PROFILE', label: '我的', icon: User },
+    ];
+
+    return (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-6 py-2 pb-5 flex justify-between items-center z-50 shadow-[0_-5px_15px_rgba(0,0,0,0.02)]">
+            {navItems.map(item => {
+                const isActive = currentTab === item.id;
+                const Icon = item.icon;
+                return (
+                    <button
+                        key={item.id}
+                        onClick={() => onChange(item.id as ViewState)}
+                        className={`flex flex-col items-center gap-1 p-2 transition-all duration-300 ${isActive ? 'text-indigo-600 scale-110' : 'text-gray-400'}`}
+                    >
+                        <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
+                        <span className={`text-[10px] font-bold ${isActive ? 'opacity-100' : 'opacity-70'}`}>{item.label}</span>
+                    </button>
+                )
+            })}
+        </div>
+    );
 };

@@ -1,7 +1,8 @@
+
 export interface Character {
   char: string;
   pinyin: string;
-  // definition field removed
+  learnedAt?: number; // Timestamp for 3-1-3 method
 }
 
 export interface Unit {
@@ -23,12 +24,12 @@ export interface Curriculum {
 }
 
 export interface UserProgress {
-  unknownCharacters: Character[]; // List of characters the user missed
-  knownCharacters: Character[]; // List of characters the user knows
-  stars: number; // Gamification currency
+  unknownCharacters: Character[]; 
+  knownCharacters: Character[]; 
+  stars: number; 
 }
 
-export type ViewState = 'SELECTION' | 'GAME' | 'REVIEW' | 'BANK';
+export type ViewState = 'TAB_HOME' | 'TAB_STORY' | 'TAB_STATS' | 'TAB_PROFILE' | 'GAME' | 'REVIEW' | 'BANK';
 
 export interface GameConfig {
   mode: 'UNIT' | 'REVIEW' | 'CHALLENGE';
@@ -50,24 +51,37 @@ export interface CharPair {
 }
 
 export interface AIExplanation {
-  structure: string; // e.g. "Left-Right"
-  composition: string; // e.g. "Sun (日) + Moon (月)"
-  memoryTip: string; // The mnemonic story
+  structure: string; 
+  composition: string; // e.g. "日 + 月"
+  compositionParts?: CharPair[]; // New: Structured parts for grid display
+  memoryTip: string; 
   words: WordEntry[];
-  sentenceData: CharPair[]; // Structured data for grid display
+  sentenceData: CharPair[]; 
 }
 
 export interface AppSettings {
   apiBaseUrl: string;
   apiKey: string;
   model: string;
-  ttsRate: number; // 0.5 to 2.0
-  ttsVoice: string; // Voice URI or Name
+  ttsRate: number; 
+  ttsVoice: string; 
+  dailyLimit: number;
+  storyLength: number; // New: Target length for stories
   selectedCurriculumId?: string;
   selectedGradeId?: string;
 }
 
 export interface LearningStats {
-  characterCounts: Record<string, number>; // char -> count
-  dailyActivity: Record<string, number>; // YYYY-MM-DD -> count
+  characterCounts: Record<string, number>; 
+  dailyActivity: Record<string, number>; 
+}
+
+export interface Story {
+  id: string;
+  title: string;
+  content: CharPair[]; // The story content parsed into chars
+  createdAt: number;
+  isArchived: boolean;
+  readCount: number; // New: Number of times read
+  keywords?: string; // New: Keywords used to generate
 }

@@ -1,9 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Book, Grid, Star, PlayCircle, Settings, Library, Trophy, BarChart3, CheckCircle, List, ArrowRight, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { Book, Grid, Star, PlayCircle, Trophy, CheckCircle, List, X, Library } from 'lucide-react';
 import { GameConfig, Character, Unit } from '../types';
 import { APP_DATA } from '../data';
-import { SettingsModal } from './SettingsModal';
-import { StatsModal } from './StatsModal';
 import { getSettings, getUnknownCharacters, getKnownCharacters } from '../services/storage';
 
 interface SelectionViewProps {
@@ -14,8 +12,6 @@ interface SelectionViewProps {
 }
 
 export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onReview, onOpenBank, stars }) => {
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isStatsOpen, setIsStatsOpen] = useState(false);
   const [isAllUnitsOpen, setIsAllUnitsOpen] = useState(false); // Modal for all units
   
   const [activeTab, setActiveTab] = useState<'TODO' | 'DONE'>('TODO');
@@ -59,33 +55,79 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
     });
   };
 
+  /**
+   * 3-1-3 Method Implementation
+   */
   const startDailyChallenge = () => {
-    const unknown = getUnknownCharacters();
-    const reviewSet = unknown.sort(() => 0.5 - Math.random()).slice(0, 5);
+    const dailyLimit = settings.dailyLimit || 10;
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     
-    let allChars: Character[] = [];
-    if (currentCurriculum) {
-       currentCurriculum.grades.forEach(g => g.units.forEach(u => {
-         allChars = [...allChars, ...u.characters];
-       }));
-    } else {
-         APP_DATA.forEach(c => c.grades.forEach(g => g.units.forEach(u => {
-           allChars = [...allChars, ...u.characters];
-         })));
+    // Helper: Days since learned
+    const getDaysSince = (ts?: number) => {
+        if (!ts) return 999;
+        const diff = todayStart - ts;
+        return Math.floor(diff / (1000 * 60 * 60 * 24));
+    };
+
+    // 1. Identify Review Candidates (Known)
+    const reviewCandidates = knownChars.filter(c => {
+        const days = getDaysSince(c.learnedAt);
+        return days === 1 || days === 3 || days > 7; // 3-1-3 + long term decay
+    });
+    
+    // Sort by priority: 1 day > 3 days > older
+    reviewCandidates.sort((a, b) => {
+        const daysA = getDaysSince(a.learnedAt);
+        const daysB = getDaysSince(b.learnedAt);
+        const scoreA = (daysA === 1 ? 0 : daysA === 3 ? 1 : 10);
+        const scoreB = (daysB === 1 ? 0 : daysB === 3 ? 1 : 10);
+        return scoreA - scoreB;
+    });
+
+    let selectedChars: Character[] = [];
+    selectedChars = reviewCandidates.slice(0, dailyLimit);
+
+    // 2. If space remains, add from "Unknown" list
+    if (selectedChars.length < dailyLimit) {
+        const needed = dailyLimit - selectedChars.length;
+        const unknownReview = unknownChars.slice(0, needed);
+        selectedChars = [...selectedChars, ...unknownReview];
     }
 
-    const existingChars = new Set(reviewSet.map(c => c.char));
-    const pool = allChars.filter(c => !existingChars.has(c.char));
-    const newSet = pool.sort(() => 0.5 - Math.random()).slice(0, 10 - reviewSet.length);
-    const challengeChars = [...reviewSet, ...newSet];
+    // 3. If space still remains, add New Words
+    if (selectedChars.length < dailyLimit) {
+        let allCurriculumChars: Character[] = [];
+        if (currentCurriculum) {
+            currentCurriculum.grades.forEach(g => g.units.forEach(u => {
+                allCurriculumChars = [...allCurriculumChars, ...u.characters];
+            }));
+        } else {
+             // Fallback
+             APP_DATA.forEach(c => c.grades.forEach(g => g.units.forEach(u => {
+                 allCurriculumChars = [...allCurriculumChars, ...u.characters];
+             })));
+        }
+        
+        const existingSet = new Set([...knownChars, ...unknownChars].map(c => c.char));
+        const newPool = allCurriculumChars.filter(c => !existingSet.has(c.char));
+        const needed = dailyLimit - selectedChars.length;
+        const newWords = newPool.sort(() => 0.5 - Math.random()).slice(0, needed);
+        selectedChars = [...selectedChars, ...newWords];
+    }
+    
+    if (selectedChars.length === 0) {
+        alert("恭喜你！没有需要复习的字，去学习新单元吧！");
+        return;
+    }
 
     onStartGame({
       mode: 'CHALLENGE',
-      title: '📅 每日挑战',
+      title: '📅 每日挑战 (3-1-3)',
       curriculumId: 'daily',
       gradeId: 'daily',
       unitId: 'daily',
-      characters: challengeChars
+      characters: selectedChars
     });
   };
 
@@ -127,49 +169,30 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
   };
 
   return (
-    <div className="max-w-7xl mx-auto min-h-screen bg-gray-50 flex flex-col pb-6 relative transition-all">
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
-      <StatsModal isOpen={isStatsOpen} onClose={() => setIsStatsOpen(false)} />
-
+    <div className="max-w-7xl mx-auto min-h-screen bg-gray-50 flex flex-col pb-24 relative transition-all">
+      
       {/* --- Header --- */}
-      <div className="bg-white px-6 pt-12 pb-4 md:pt-6 md:pb-6 rounded-b-[2rem] shadow-sm flex justify-between items-center z-10 sticky top-0">
+      <div className="bg-white px-4 py-4 md:px-6 md:py-6 rounded-b-[2rem] shadow-sm flex justify-between items-center z-10 sticky top-0">
         <div>
            <div className="flex items-center gap-2">
              <span className="text-3xl">🐼</span>
-             <h1 className="text-2xl font-fun text-gray-800">汉字小英雄</h1>
+             <h1 className="text-xl md:text-2xl font-fun text-gray-800">汉字小英雄</h1>
            </div>
-           <p className="text-xs md:text-sm text-gray-400 font-bold mt-1 pl-1">
+           <p className="text-[10px] md:text-sm text-gray-400 font-bold mt-1 pl-1">
              {currentCurriculum ? `${currentCurriculum.name} · ${currentGrade?.name}` : '请先设置教材'}
            </p>
         </div>
-        <div className="flex gap-3">
-           {/* Stats Button */}
-           <button onClick={() => setIsStatsOpen(true)} className="p-3 bg-indigo-50 text-indigo-500 rounded-full hover:bg-indigo-100 transition-colors" title="统计">
-              <BarChart3 size={24} />
-           </button>
-           {/* Settings Button */}
-           <button onClick={() => setIsSettingsOpen(true)} className="p-3 bg-gray-100 text-gray-500 rounded-full hover:bg-gray-200 transition-colors" title="设置">
-              <Settings size={24} />
-           </button>
+        <div className="flex items-center space-x-2 bg-yellow-100 px-3 py-1.5 rounded-full border border-yellow-200 shadow-sm">
+            <Star className="text-yellow-600 fill-yellow-500 w-5 h-5" />
+            <span className="font-bold text-yellow-800 text-lg">{stars}</span>
         </div>
       </div>
 
-      <div className="px-4 md:px-8 mt-8 flex-1">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="px-4 md:px-8 mt-6 flex-1">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
           
           {/* Left Sidebar (Stats & Quick Actions) */}
-          <div className="lg:col-span-4 space-y-6">
-             {/* Stats Summary / Currency */}
-             <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-                <div className="flex items-center space-x-2 bg-yellow-100 px-4 py-2 rounded-full border border-yellow-200 shadow-sm">
-                   <Star className="text-yellow-600 fill-yellow-500 w-5 h-5" />
-                   <span className="font-bold text-yellow-800 text-lg">{stars}</span>
-                </div>
-                <div className="text-sm text-gray-500 font-medium">
-                   今日已学 <span className="text-blue-500 font-bold text-lg">{Object.values(processedUnits.done).length}</span> 单元
-                </div>
-             </div>
-
+          <div className="lg:col-span-4 space-y-4 md:space-y-6">
              {/* Compact Quick Actions (Grid) */}
              <div className="grid grid-cols-3 gap-3">
                 <button onClick={startDailyChallenge} className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-3 rounded-2xl shadow-lg shadow-blue-200 flex flex-col items-center justify-center gap-2 h-32 relative overflow-hidden group hover:scale-[1.02] transition-transform">
@@ -177,7 +200,7 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
                    <Trophy size={32} />
                    <div className="text-center">
                       <div className="font-bold text-sm">每日挑战</div>
-                      <div className="text-[10px] opacity-80">Challenge</div>
+                      <div className="text-[10px] opacity-80">3-1-3 识字法</div>
                    </div>
                 </button>
                 
@@ -203,13 +226,14 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
           {/* Right Content (Units) */}
           <div className="lg:col-span-8">
              <div className="bg-white p-6 rounded-3xl shadow-sm min-h-[500px] border border-gray-100">
-                <div className="flex items-center justify-between mb-6">
+                {/* Header: Stack vertically on mobile, row on desktop */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
                    <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                      <Grid className="w-6 h-6 text-blue-500" /> 学习单元
                    </h2>
                    
                    {/* Tabs Switch */}
-                   <div className="bg-gray-100 p-1 rounded-xl flex text-sm font-bold">
+                   <div className="bg-gray-100 p-1 rounded-xl flex text-sm font-bold self-start md:self-auto">
                       <button 
                         onClick={() => setActiveTab('TODO')}
                         className={`px-4 py-2 rounded-lg transition-all ${activeTab === 'TODO' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
@@ -229,7 +253,8 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
                    <div className="flex flex-col items-center justify-center py-20 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
                       <Book size={48} className="text-gray-300 mb-4"/>
                       <p className="text-gray-500 font-bold mb-2">还没有设置教材</p>
-                      <button onClick={() => setIsSettingsOpen(true)} className="px-6 py-2 bg-blue-500 text-white rounded-xl text-sm font-bold hover:bg-blue-600 transition-colors">去设置</button>
+                      {/* Note: User must go to "Profile" tab to settings now */}
+                      <p className="text-xs text-gray-400">请前往"我的"页面进行设置</p>
                    </div>
                 ) : (
                    <>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Settings as SettingsIcon, Download, Upload, Check, Activity, Wifi, WifiOff } from 'lucide-react';
+import { X, Save, Settings as SettingsIcon, Download, Upload, Check, Activity, Wifi, WifiOff, HelpCircle } from 'lucide-react';
 import { AppSettings, Curriculum } from '../types';
 import { getSettings, saveSettings, exportUserData, importUserData } from '../services/storage';
 import { testConnection } from '../services/geminiService';
@@ -17,6 +17,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     model: 'gemini-2.5-flash',
     ttsRate: 1.0,
     ttsVoice: '',
+    dailyLimit: 10,
+    storyLength: 50,
     selectedCurriculumId: '',
     selectedGradeId: ''
   });
@@ -214,12 +216,48 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             </div>
           </div>
 
-          {/* TTS Settings */}
+          {/* TTS & Daily Settings */}
           <div className="space-y-4">
-            <h3 className="font-bold text-gray-800 border-b pb-2">🔊 语音设置</h3>
-            <div className="flex gap-4">
-               <div className="flex-1">
-                  <label className="block text-xs font-bold text-gray-500 mb-1">音色</label>
+            <h3 className="font-bold text-gray-800 border-b pb-2">⚙️ 习惯设置</h3>
+            
+            <div className="flex flex-col gap-4">
+               {/* Daily Limit */}
+               <div>
+                 <div className="flex justify-between items-center mb-2">
+                    <label className="text-xs font-bold text-gray-500">每日挑战卡片数量</label>
+                    <span className="text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{config.dailyLimit || 10} 张</span>
+                 </div>
+                 <input
+                   type="range"
+                   min="5"
+                   max="30"
+                   step="1"
+                   className="w-full h-2 bg-indigo-100 rounded-lg cursor-pointer"
+                   value={config.dailyLimit || 10}
+                   onChange={e => setConfig({ ...config, dailyLimit: parseInt(e.target.value) })}
+                 />
+               </div>
+
+               {/* Voice Speed */}
+               <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-xs font-bold text-gray-500">语音朗读速度</label>
+                    <span className="text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{config.ttsRate}x</span>
+                  </div>
+                 <input
+                   type="range"
+                   min="0.5"
+                   max="1.5"
+                   step="0.1"
+                   className="w-full h-2 bg-indigo-100 rounded-lg cursor-pointer"
+                   value={config.ttsRate}
+                   onChange={e => setConfig({ ...config, ttsRate: parseFloat(e.target.value) })}
+                 />
+               </div>
+
+               {/* Voice Select */}
+               <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">朗读音色</label>
                   <select 
                     className="w-full p-3 rounded-xl border border-gray-300 focus:border-indigo-500 outline-none text-sm bg-white"
                     value={config.ttsVoice}
@@ -233,19 +271,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     ))}
                   </select>
                </div>
-               <div className="w-1/3">
-                 <label className="block text-xs font-bold text-gray-500 mb-1">语速 {config.ttsRate}x</label>
-                 <input
-                   type="range"
-                   min="0.5"
-                   max="1.5"
-                   step="0.1"
-                   className="w-full h-2 bg-indigo-100 rounded-lg mt-4 cursor-pointer"
-                   value={config.ttsRate}
-                   onChange={e => setConfig({ ...config, ttsRate: parseFloat(e.target.value) })}
-                 />
-               </div>
             </div>
+          </div>
+          
+          {/* About / Help Section */}
+          <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100 space-y-2">
+             <h3 className="font-bold text-blue-800 flex items-center gap-2">
+                <HelpCircle size={18} /> 关于 3-1-3 识字法
+             </h3>
+             <p className="text-xs text-blue-700 leading-relaxed">
+                <span className="font-bold">设计理念：</span> 本应用基于“艾宾浩斯遗忘曲线”设计的 3-1-3 记忆规律。
+             </p>
+             <ul className="text-xs text-blue-600 list-disc list-inside space-y-1">
+                <li><span className="font-bold">3：</span> 每天复习 <span className="underline">3天前</span> 学习的汉字。</li>
+                <li><span className="font-bold">1：</span> 每天复习 <span className="underline">1天前</span>（昨天）学习的汉字。</li>
+                <li><span className="font-bold">3：</span> 每天学习 <span className="underline">3个</span>（或更多）新汉字。</li>
+             </ul>
+             <p className="text-xs text-blue-700 mt-2">
+                每日挑战功能会自动为您挑选这三类字卡，帮助孩子高效巩固，拒绝死记硬背。
+             </p>
           </div>
 
           {/* Data Management */}

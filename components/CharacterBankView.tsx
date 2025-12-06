@@ -33,7 +33,7 @@ export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack }) 
   const currentList = activeTab === 'KNOWN' ? knownList : unknownList;
 
   return (
-    <div className="max-w-4xl mx-auto p-4 min-h-screen animate-fade-in">
+    <div className="max-w-6xl mx-auto p-4 min-h-screen animate-fade-in pb-24">
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
         <button 
@@ -49,7 +49,7 @@ export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack }) 
       </div>
 
       {/* Tabs */}
-      <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-gray-100 mb-6">
+      <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-gray-100 mb-6 max-w-lg mx-auto">
         <button
           onClick={() => setActiveTab('KNOWN')}
           className={`flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
@@ -82,28 +82,28 @@ export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack }) 
             <p>这里还是空的哦</p>
           </div>
         ) : (
-          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-4">
+          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-4">
             {currentList.map((char, idx) => {
               const learnCount = getCharacterLearnCount(char.char);
               return (
                 <div key={`${char.char}-${idx}`} className="relative group">
-                  <div className="aspect-square bg-gray-50 rounded-xl border border-gray-100 flex flex-col items-center justify-center cursor-default relative overflow-hidden">
+                  <div className="aspect-square bg-gray-50 rounded-xl border border-gray-100 flex flex-col items-center justify-center cursor-default relative">
                     <span className="font-fun text-2xl text-gray-800">{char.char}</span>
                     <span className="text-[10px] text-gray-400">{char.pinyin}</span>
                     
-                    {/* Learn Count Badge */}
+                    {/* Learn Count Badge - Fixed positioning and z-index */}
                     {learnCount > 0 && (
-                      <div className="absolute top-1 right-1 flex items-center gap-0.5 bg-blue-100 text-blue-600 px-1 rounded-full text-[8px] font-bold">
-                        <RotateCcw size={6} />
+                      <div className="absolute top-1 right-1 flex items-center gap-0.5 bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full text-[9px] font-bold z-10 shadow-sm">
+                        <RotateCcw size={8} />
                         {learnCount}
                       </div>
                     )}
                   </div>
                   
-                  {/* Overlay Action */}
+                  {/* Overlay Action - Ensure z-index is higher but doesn't clip badge if badge is outside */}
                   <button
                     onClick={() => toggleStatus(char, activeTab === 'KNOWN' ? 'UNKNOWN' : 'KNOWN')}
-                    className="absolute inset-0 bg-black/60 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-xs font-bold"
+                    className="absolute inset-0 bg-black/60 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-xs font-bold z-20"
                   >
                     {activeTab === 'KNOWN' ? (
                       <>

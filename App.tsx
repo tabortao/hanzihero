@@ -4,10 +4,14 @@ import { SelectionView } from './components/SelectionView';
 import { GameView } from './components/GameView';
 import { ReviewView } from './components/ReviewView';
 import { CharacterBankView } from './components/CharacterBankView';
+import { StatsView } from './components/StatsView';
+import { StoryView } from './components/StoryView';
+import { ProfileView } from './components/ProfileView';
+import { BottomNav } from './components/SharedComponents';
 import { getStars } from './services/storage';
 
 const App: React.FC = () => {
-  const [view, setView] = useState<ViewState>('SELECTION');
+  const [view, setView] = useState<ViewState>('TAB_HOME');
   const [gameConfig, setGameConfig] = useState<GameConfig | null>(null);
   const [stars, setStars] = useState(0);
 
@@ -23,28 +27,25 @@ const App: React.FC = () => {
 
   const handleExitGame = (newTotalStars: number) => {
     setStars(newTotalStars);
-    setView('SELECTION');
+    setView('TAB_HOME');
     setGameConfig(null);
   };
 
-  const handleReview = () => {
-    setView('REVIEW');
-  };
-
-  const handleOpenBank = () => {
-    setView('BANK');
-  };
-
-  const handleBackToMenu = () => {
-    // Refresh stars just in case they were updated in review (future proofing)
+  // When inside a tab, switch sub-views
+  const handleReview = () => setView('REVIEW');
+  const handleOpenBank = () => setView('BANK');
+  const handleBackToHome = () => {
     setStars(getStars());
-    setView('SELECTION');
+    setView('TAB_HOME');
   };
+
+  // Determine if we should show bottom nav
+  const showNav = ['TAB_HOME', 'TAB_STORY', 'TAB_STATS', 'TAB_PROFILE'].includes(view);
 
   return (
     <div className="min-h-screen bg-[#ecfdf5] text-gray-800 font-sans selection:bg-yellow-200">
       <main className="w-full">
-        {view === 'SELECTION' && (
+        {view === 'TAB_HOME' && (
           <SelectionView 
             onStartGame={handleStartGame} 
             onReview={handleReview}
@@ -52,6 +53,11 @@ const App: React.FC = () => {
             stars={stars}
           />
         )}
+        {view === 'TAB_STORY' && <StoryView />}
+        {view === 'TAB_STATS' && <StatsView />}
+        {view === 'TAB_PROFILE' && <ProfileView />}
+
+        {/* Sub Views */}
         {view === 'GAME' && gameConfig && (
           <GameView 
             config={gameConfig} 
@@ -60,15 +66,19 @@ const App: React.FC = () => {
         )}
         {view === 'REVIEW' && (
           <ReviewView 
-            onBack={handleBackToMenu} 
+            onBack={handleBackToHome} 
           />
         )}
         {view === 'BANK' && (
           <CharacterBankView 
-            onBack={handleBackToMenu} 
+            onBack={handleBackToHome} 
           />
         )}
       </main>
+
+      {showNav && (
+          <BottomNav currentTab={view} onChange={setView} />
+      )}
     </div>
   );
 };
