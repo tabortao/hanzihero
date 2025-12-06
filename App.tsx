@@ -55,7 +55,9 @@ const App: React.FC = () => {
         )}
         {view === 'TAB_STORY' && <StoryView />}
         {view === 'TAB_STATS' && <StatsView />}
-        {view === 'TAB_PROFILE' && <ProfileView />}
+        {view === 'TAB_PROFILE' && (
+            <ProfileView onSave={() => setView('TAB_HOME')} />
+        )}
 
         {/* Sub Views */}
         {view === 'GAME' && gameConfig && (

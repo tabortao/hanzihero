@@ -195,12 +195,13 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
           <div className="lg:col-span-4 space-y-4 md:space-y-6">
              {/* Compact Quick Actions (Grid) */}
              <div className="grid grid-cols-3 gap-3">
-                <button onClick={startDailyChallenge} className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-3 rounded-2xl shadow-lg shadow-blue-200 flex flex-col items-center justify-center gap-2 h-32 relative overflow-hidden group hover:scale-[1.02] transition-transform">
-                   <div className="absolute top-0 right-0 p-2 opacity-20"><Trophy size={40}/></div>
-                   <Trophy size={32} />
+                <button onClick={startDailyChallenge} className="bg-white text-gray-800 p-3 rounded-2xl shadow-md border border-blue-100 flex flex-col items-center justify-center gap-2 h-32 relative overflow-hidden group hover:border-blue-300 transition-colors">
+                   <div className="bg-blue-100 p-2 rounded-xl text-blue-600 group-hover:scale-110 transition-transform">
+                     <Trophy size={24} />
+                   </div>
                    <div className="text-center">
                       <div className="font-bold text-sm">每日挑战</div>
-                      <div className="text-[10px] opacity-80">3-1-3 识字法</div>
+                      <div className="text-[10px] text-gray-400">3-1-3 识字法</div>
                    </div>
                 </button>
                 

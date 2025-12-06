@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Flame, Activity, PieChart, ChevronLeft, ChevronRight, BookOpen } from 'lucide-react';
+import { Flame, Activity, PieChart, ChevronLeft, ChevronRight, BookOpen, Clock } from 'lucide-react';
 import { getDailyActivity, getKnownCharacters, getUnknownCharacters, getStories } from '../services/storage';
 
 type HeatmapMode = 'YEAR' | 'MONTH' | 'WEEK';
@@ -13,7 +13,37 @@ export const StatsView: React.FC = () => {
   const [heatmapMode, setHeatmapMode] = useState<HeatmapMode>('WEEK');
   const [currentDate, setCurrentDate] = useState(new Date());
 
-  // Calculate Aggregates
+  // --- Ebbinghaus Data Calculation ---
+  const ebbinghausData = useMemo(() => {
+    const now = Date.now();
+    const buckets = {
+        new: 0,   // < 24 hours
+        day1: 0,  // 1-2 days
+        day3: 0,  // 3-6 days
+        day7: 0,  // 7-30 days
+        old: 0    // > 30 days
+    };
+
+    known.forEach(char => {
+        if (!char.learnedAt) {
+            buckets.old++; 
+            return;
+        }
+        const diffHours = (now - char.learnedAt) / (1000 * 60 * 60);
+        
+        if (diffHours < 24) buckets.new++;
+        else if (diffHours < 48) buckets.day1++; // approx 1 day
+        else if (diffHours < 24 * 3) buckets.day1++; // buffer
+        else if (diffHours < 24 * 7) buckets.day3++;
+        else if (diffHours < 24 * 30) buckets.day7++;
+        else buckets.old++;
+    });
+
+    return buckets;
+  }, [known]);
+
+
+  // --- Aggregates ---
   const stats = useMemo(() => {
     const today = new Date();
     let week = 0;
@@ -33,7 +63,7 @@ export const StatsView: React.FC = () => {
     return { week, month, year };
   }, [activity]);
 
-  // Generate Heatmap Data based on Mode
+  // --- Heatmap Data Generation ---
   const gridData = useMemo(() => {
     const data = [];
     const dateCursor = new Date(currentDate);
@@ -53,7 +83,7 @@ export const StatsView: React.FC = () => {
                date: dStr, 
                count: activity[dStr] || 0, 
                dayLabel: ['一','二','三','四','五','六','日'][i],
-               dateNum: dateCursor.getDate(),
+               dateNum: dateCursor.getDate(), // Display this in the box
                isToday: dStr === todayStr
            });
            dateCursor.setDate(dateCursor.getDate() + 1);
@@ -65,7 +95,6 @@ export const StatsView: React.FC = () => {
        
        // Calculate start day (Mon start)
        const startDay = dateCursor.getDay(); // 0-6
-       // If 1st is Mon(1), offset 0. If Sun(0), offset 6.
        const offset = startDay === 0 ? 6 : startDay - 1;
 
        dateCursor.setDate(dateCursor.getDate() - offset); // Back to previous monday
@@ -117,7 +146,6 @@ export const StatsView: React.FC = () => {
 
   const getTitle = () => {
       if (heatmapMode === 'WEEK') {
-          // Find Monday of current date cursor
           const d = new Date(currentDate);
           const day = d.getDay();
           const distToMon = day === 0 ? 6 : day - 1;
@@ -152,50 +180,97 @@ export const StatsView: React.FC = () => {
         </div>
 
         <div className="p-4 space-y-6 -mt-4">
-           {/* Ebbinghaus Curve */}
+           {/* Ebbinghaus Curve with Real User Data */}
            <div className="bg-white rounded-3xl p-6 shadow-md border border-gray-100">
-               <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
-                   <Activity className="text-pink-500" size={20}/> 记忆遗忘曲线
-               </h3>
-               {/* Fixed SVG ViewBox and Coordinates */}
-               <div className="relative h-48 w-full border-l border-b border-gray-200">
-                   <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible" preserveAspectRatio="none" viewBox="0 0 600 300">
+               <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-gray-700 flex items-center gap-2">
+                        <Clock className="text-pink-500" size={20}/> 记忆遗忘状态
+                    </h3>
+                    <span className="text-xs bg-pink-50 text-pink-600 px-2 py-1 rounded-full font-bold">
+                        已掌握: {known.length} 字
+                    </span>
+               </div>
+               
+               {/* SVG Visualization */}
+               <div className="relative h-56 w-full border-l border-b border-gray-200">
+                   <svg className="absolute inset-0 w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 600 300">
                        {/* Background Grid Lines */}
                        <line x1="0" y1="75" x2="600" y2="75" stroke="#f3f4f6" strokeDasharray="4"/>
                        <line x1="0" y1="150" x2="600" y2="150" stroke="#f3f4f6" strokeDasharray="4"/>
                        <line x1="0" y1="225" x2="600" y2="225" stroke="#f3f4f6" strokeDasharray="4"/>
                        
-                       {/* The Curve */}
+                       {/* The Curve (Theoretical) */}
                        <path 
                          d="M0,20 Q 50,250 600,280" 
                          fill="none" 
                          stroke="#ec4899" 
                          strokeWidth="3"
+                         strokeOpacity="0.3"
                          vectorEffect="non-scaling-stroke"
                        />
-                       {/* Area under curve */}
-                       <path 
-                         d="M0,20 Q 50,250 600,280 L 600,300 L 0,300 Z" 
-                         fill="url(#gradientPink)" 
-                         opacity="0.1"
-                         vectorEffect="non-scaling-stroke"
-                       />
-                        <defs>
-                            <linearGradient id="gradientPink" x1="0" x2="0" y1="0" y2="1">
-                            <stop offset="0%" stopColor="#ec4899" />
-                            <stop offset="100%" stopColor="white" />
-                            </linearGradient>
-                        </defs>
+
+                       {/* DATA BUBBLES - Overlaying real user distribution on the curve timeline */}
+                       {/* Point 1: New (0 time) -> High retention (y=20) */}
+                       {ebbinghausData.new > 0 && (
+                          <g>
+                             <circle cx="10" cy="20" r={Math.min(30, 10 + ebbinghausData.new)} fill="#10b981" opacity="0.8" />
+                             <text x="10" y="24" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">{ebbinghausData.new}</text>
+                          </g>
+                       )}
+
+                       {/* Point 2: 1 Day -> ~70% retention visual (x=80, y=90) */}
+                       {ebbinghausData.day1 > 0 && (
+                          <g>
+                             <circle cx="80" cy="90" r={Math.min(30, 10 + ebbinghausData.day1)} fill="#3b82f6" opacity="0.8" />
+                             <text x="80" y="94" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">{ebbinghausData.day1}</text>
+                          </g>
+                       )}
+
+                       {/* Point 3: 3 Days -> ~50% retention visual (x=180, y=150) */}
+                       {ebbinghausData.day3 > 0 && (
+                          <g>
+                             <circle cx="180" cy="150" r={Math.min(30, 10 + ebbinghausData.day3)} fill="#f59e0b" opacity="0.8" />
+                             <text x="180" y="154" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">{ebbinghausData.day3}</text>
+                          </g>
+                       )}
+                       
+                       {/* Point 4: 7 Days -> ~30% retention visual (x=300, y=220) */}
+                       {ebbinghausData.day7 > 0 && (
+                          <g>
+                             <circle cx="300" cy="220" r={Math.min(30, 10 + ebbinghausData.day7)} fill="#ef4444" opacity="0.8" />
+                             <text x="300" y="224" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">{ebbinghausData.day7}</text>
+                          </g>
+                       )}
+                       
+                        {/* Point 5: Old -> Long tail (x=500, y=280) */}
+                       {ebbinghausData.old > 0 && (
+                          <g>
+                             <circle cx="500" cy="280" r={Math.min(30, 10 + ebbinghausData.old)} fill="#6b7280" opacity="0.8" />
+                             <text x="500" y="284" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">{ebbinghausData.old}</text>
+                          </g>
+                       )}
+
                    </svg>
                    
-                   {/* Labels */}
-                   <div className="absolute bottom-[-20px] left-0 text-[10px] text-gray-400">刚学完</div>
-                   <div className="absolute bottom-[-20px] left-[15%] text-[10px] text-gray-400">1天</div>
+                   {/* X Axis Labels */}
+                   <div className="absolute bottom-[-20px] left-0 text-[10px] text-gray-500 font-bold">刚学</div>
+                   <div className="absolute bottom-[-20px] left-[13%] text-[10px] text-gray-400">1天</div>
                    <div className="absolute bottom-[-20px] left-[30%] text-[10px] text-gray-400">3天</div>
-                   <div className="absolute bottom-[-20px] right-0 text-[10px] text-gray-400">30天</div>
+                   <div className="absolute bottom-[-20px] left-[50%] text-[10px] text-gray-400">7天+</div>
+                   <div className="absolute bottom-[-20px] right-0 text-[10px] text-gray-400">稳定期</div>
                </div>
-               <p className="text-xs text-gray-400 mt-6 text-center bg-gray-50 p-2 rounded-lg">
-                   根据遗忘曲线，系统会在第1、3、7天安排复习，高效对抗遗忘。
+               
+               {/* Legend */}
+               <div className="mt-8 flex flex-wrap justify-center gap-3 text-[10px] text-gray-500">
+                   <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500"></div>新学</div>
+                   <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500"></div>1天前</div>
+                   <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-500"></div>3天前</div>
+                   <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div>需复习</div>
+               </div>
+               
+               <p className="text-xs text-gray-400 mt-4 text-center bg-gray-50 p-3 rounded-xl border border-gray-100">
+                   气泡中的数字代表处于该遗忘阶段的汉字数量。<br/>
+                   <span className="text-pink-500 font-bold">系统会自动安排复习</span>，将它们移回“刚学”状态。
                </p>
            </div>
 
@@ -302,19 +377,18 @@ export const StatsView: React.FC = () => {
                                     ${d.isToday ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}
                                 `}
                             >
-                                <span className={`text-xs font-bold ${d.count > 0 ? 'text-green-700' : 'text-gray-300'}`}>{d.dayLabel}</span>
+                                {/* REMOVED REPETITIVE DAY LABEL */}
+                                {/* Show Date Number nicely */}
+                                <span className={`text-sm sm:text-lg font-bold ${d.count > 0 ? 'text-green-700' : 'text-gray-300'}`}>
+                                    {heatmapMode === 'WEEK' ? d.dateNum : d.dayLabel}
+                                </span>
+
                                 {d.count > 0 && <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-1"></div>}
-                                {d.isToday && <div className="text-[8px] text-indigo-500 font-bold absolute top-1">今</div>}
+                                {d.isToday && <div className="text-[8px] text-indigo-500 font-bold absolute top-1 right-1">今</div>}
                                 
                                 <div className="absolute bottom-full mb-1 bg-black/80 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-10 left-1/2 -translate-x-1/2">
                                     {d.date}: {d.count} 字
                                 </div>
-                                
-                                {heatmapMode === 'WEEK' && (
-                                    <div className="absolute -bottom-5 text-[9px] text-gray-300 font-mono">
-                                        {d.dateNum}
-                                    </div>
-                                )}
                             </div>
                         ))}
                     </div>

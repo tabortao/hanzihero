@@ -60,11 +60,25 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
     setViewState('LEARNING');
     speakText(currentCharacter.char); // Speak char immediately
     
-    // Auto-load AI content
+    // Auto-load AI content (will default to local if available)
+    loadExplanation(false);
+  };
+
+  const loadExplanation = async (forceAI: boolean) => {
     setAiLoading(true);
-    const data = await explainCharacter(currentCharacter.char);
-    setAiExplanation(data);
-    setAiLoading(false);
+    setAiExplanation(null);
+    try {
+        const data = await explainCharacter(currentCharacter.char, forceAI);
+        setAiExplanation(data);
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setAiLoading(false);
+    }
+  };
+
+  const handleForceRefresh = () => {
+      loadExplanation(true);
   };
 
   const triggerCelebration = () => {
@@ -158,6 +172,14 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
                   {currentCharacter.pinyin}
                   <button onClick={() => speakText(currentCharacter.char)} className="p-1 bg-gray-100 rounded-full text-gray-500 hover:text-blue-500">
                     <Volume2 size={20} />
+                  </button>
+                  {/* Regenerate AI Button */}
+                  <button 
+                    onClick={handleForceRefresh} 
+                    className={`p-2 bg-indigo-50 rounded-full text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 transition-colors ml-2 ${aiLoading ? 'animate-spin' : ''}`}
+                    title="AI 重新分析"
+                  >
+                    <Sparkles size={20} />
                   </button>
                 </h2>
               </div>

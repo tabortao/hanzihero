@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIExplanation, AppSettings, Character, Story } from "../types";
 import { getSettings } from "./storage";
+import { HANZI_DICT } from "../data/hanziData";
 
 // Helper for simple ID
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
@@ -77,7 +78,13 @@ async function callOpenAICompatible(
 }
 
 
-export const explainCharacter = async (char: string): Promise<AIExplanation> => {
+export const explainCharacter = async (char: string, forceAI: boolean = false): Promise<AIExplanation> => {
+  // 1. Check Offline Dictionary first (unless forced)
+  if (!forceAI && HANZI_DICT[char]) {
+      // Return a copy to avoid mutation issues
+      return JSON.parse(JSON.stringify(HANZI_DICT[char]));
+  }
+
   const settings = getSettings();
 
   const systemPrompt = "你是一位专业的小学语文老师，请用生动有趣的中文为小学生讲解汉字。";

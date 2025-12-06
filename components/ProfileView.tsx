@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Save, Download, Upload, Check, Activity, Wifi, HelpCircle, Info, Book, Zap, ArrowLeft, Sliders, FileText, Server, Eye, EyeOff, WifiOff } from 'lucide-react';
+import { User, Save, Download, Upload, Activity, Wifi, HelpCircle, Book, Zap, ArrowLeft, Server, Eye, EyeOff, WifiOff, Check } from 'lucide-react';
 import { AppSettings } from '../types';
 import { getSettings, saveSettings, exportUserData, importUserData } from '../services/storage';
 import { testConnection } from '../services/geminiService';
@@ -12,7 +12,11 @@ const PROVIDERS = {
     CUSTOM: { name: '自定义 / OpenAI 兼容', url: '', model: '' }
 };
 
-export const ProfileView: React.FC = () => {
+interface ProfileViewProps {
+    onSave?: () => void;
+}
+
+export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
   const [view, setView] = useState<'MAIN' | 'HELP'>('MAIN');
   const [config, setConfig] = useState<AppSettings>({
     apiBaseUrl: '',
@@ -30,6 +34,7 @@ export const ProfileView: React.FC = () => {
   const [showKey, setShowKey] = useState(false);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [testStatus, setTestStatus] = useState<'IDLE' | 'TESTING' | 'SUCCESS' | 'FAIL'>('IDLE');
+  const [saveStatus, setSaveStatus] = useState<'IDLE' | 'SAVED'>('IDLE');
   const [importStatus, setImportStatus] = useState<'IDLE' | 'SUCCESS' | 'ERROR'>('IDLE');
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState('');
@@ -71,8 +76,22 @@ export const ProfileView: React.FC = () => {
   };
 
   const handleSave = () => {
-    saveSettings(config);
-    window.location.reload(); // Reload to apply global changes effectively
+    try {
+        saveSettings(config);
+        setSaveStatus('SAVED');
+        
+        // Use callback to navigate instead of reloading page
+        if (onSave) {
+            setTimeout(() => {
+                onSave();
+            }, 800);
+        } else {
+            setTimeout(() => setSaveStatus('IDLE'), 2000);
+        }
+    } catch (e) {
+        console.error("Save failed", e);
+        alert("保存失败，请重试");
+    }
   };
 
   const handleTestConnection = async () => {
@@ -103,6 +122,7 @@ export const ProfileView: React.FC = () => {
     }
   };
 
+  // Safe access to current curriculum
   const currentCurriculum = APP_DATA.find(c => c.id === config.selectedCurriculumId);
 
   if (view === 'HELP') {
@@ -201,11 +221,12 @@ export const ProfileView: React.FC = () => {
                      className="w-full p-3 rounded-xl border border-gray-300 focus:border-indigo-500 outline-none bg-white"
                      value={config.selectedCurriculumId}
                      onChange={e => {
-                        const newCurr = APP_DATA.find(c => c.id === e.target.value);
+                        const newCurrId = e.target.value;
+                        const newCurr = APP_DATA.find(c => c.id === newCurrId);
                         setConfig({
                           ...config, 
-                          selectedCurriculumId: e.target.value,
-                          // Reset grade if curriculum changes
+                          selectedCurriculumId: newCurrId,
+                          // Reset grade immediately to avoid invalid state if curriculum changes
                           selectedGradeId: newCurr?.grades[0]?.id || ''
                         })
                      }}
@@ -224,10 +245,16 @@ export const ProfileView: React.FC = () => {
                      onChange={e => setConfig({...config, selectedGradeId: e.target.value})}
                      disabled={!currentCurriculum}
                    >
-                     <option value="">请选择年级</option>
-                     {currentCurriculum?.grades.map(g => (
-                       <option key={g.id} value={g.id}>{g.name}</option>
-                     ))}
+                     {!currentCurriculum ? (
+                        <option value="">请先选择教材</option>
+                     ) : (
+                         <>
+                            <option value="">请选择年级</option>
+                            {currentCurriculum.grades.map(g => (
+                              <option key={g.id} value={g.id}>{g.name}</option>
+                            ))}
+                         </>
+                     )}
                    </select>
                 </div>
              </div>
@@ -339,18 +366,32 @@ export const ProfileView: React.FC = () => {
                         onChange={e => setConfig({ ...config, dailyLimit: parseInt(e.target.value) })}
                     />
                  </div>
+                 
+                 {/* Story Length - Modified to Number Input with 10000 max */}
                  <div>
-                    <label className="text-xs font-bold text-gray-500 mb-1 block">短文最大字数: {config.storyLength || 50} 字</label>
-                    <input
-                        type="range"
-                        min="20"
-                        max="200"
-                        step="10"
-                        className="w-full h-2 bg-amber-100 rounded-lg"
-                        value={config.storyLength || 50}
-                        onChange={e => setConfig({ ...config, storyLength: parseInt(e.target.value) })}
-                    />
+                    <div className="flex justify-between text-xs font-bold text-gray-500 mb-1">
+                        <label>短文最大字数 (上限 10000)</label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="number"
+                            min="20"
+                            max="10000"
+                            className="w-full p-3 rounded-xl border border-gray-300 focus:border-indigo-500 outline-none font-mono"
+                            value={config.storyLength || 50}
+                            onChange={e => {
+                                let val = parseInt(e.target.value);
+                                if (isNaN(val)) val = 0;
+                                if (val > 10000) val = 10000;
+                                setConfig({ ...config, storyLength: val });
+                            }}
+                        />
+                        <span className="text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-3 rounded-xl border border-indigo-100">
+                            字
+                        </span>
+                    </div>
                  </div>
+
                  <div>
                     <label className="text-xs font-bold text-gray-500 mb-1 block">语速: {config.ttsRate}x</label>
                     <input
@@ -414,9 +455,15 @@ export const ProfileView: React.FC = () => {
            
            <button 
              onClick={handleSave}
-             className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg flex justify-center gap-2"
+             disabled={saveStatus === 'SAVED'}
+             className={`w-full py-4 font-bold rounded-2xl shadow-lg flex justify-center gap-2 transition-all ${
+                saveStatus === 'SAVED' 
+                ? 'bg-green-500 text-white scale-95' 
+                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+             }`}
            >
-              <Save /> 保存设置
+              {saveStatus === 'SAVED' ? <Check /> : <Save />} 
+              {saveStatus === 'SAVED' ? '设置已保存' : '保存设置'}
            </button>
        </div>
     </div>
