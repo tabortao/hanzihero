@@ -5,6 +5,78 @@ import { getSettings } from "./storage";
 // Helper for simple ID
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
 
+/**
+ * GENERIC OPENAI-COMPATIBLE FETCH
+ */
+async function callOpenAICompatible(
+    settings: AppSettings, 
+    systemPrompt: string, 
+    userPrompt: string,
+    schemaDescription: string
+): Promise<any> {
+    const start = Date.now();
+    try {
+        // Append schema instructions for generic models
+        const finalSystemPrompt = `${systemPrompt}\n\n请务必只返回纯 JSON 格式数据，不要包含 Markdown 标记（如 \`\`\`json）。JSON 结构必须严格遵守以下定义：\n${schemaDescription}`;
+
+        const payload = {
+            model: settings.model,
+            messages: [
+                { role: "system", content: finalSystemPrompt },
+                { role: "user", content: userPrompt }
+            ],
+            // DeepSeek and others often support json_object mode, but 'text' is safer for broad compatibility with strong prompting
+            response_format: { type: "json_object" }, 
+            temperature: 0.7,
+            max_tokens: 2000
+        };
+
+        // If using SiliconFlow or others, url might need /chat/completions appended if user didn't provide it
+        // But usually we ask user to provide full base URL or handle standard suffixes.
+        // Standard convention: Base URL is `https://api.deepseek.com`, endpoint is `/chat/completions`
+        // We will assume settings.apiBaseUrl is the *base* and append /chat/completions
+        let url = settings.apiBaseUrl.replace(/\/+$/, ''); // remove trailing slash
+        if (!url.endsWith('/v1') && !url.includes('google')) {
+           // Heuristic: most conform to /v1/chat/completions. 
+           // If user put 'https://api.deepseek.com', we might need 'https://api.deepseek.com/chat/completions'
+           // A common pattern in settings is just the host. Let's try to be smart.
+           if (!url.includes('/chat/completions')) {
+               url = `${url}/chat/completions`;
+           }
+        } else if (url.endsWith('/v1')) {
+            url = `${url}/chat/completions`;
+        }
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${settings.apiKey}`
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`API Error (${response.status}): ${errText}`);
+        }
+
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+        
+        if (!content) throw new Error("Empty response from AI provider");
+
+        // Clean Markdown if present
+        const jsonStr = content.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        return JSON.parse(jsonStr);
+
+    } catch (error) {
+        console.error("OpenAI Compatible API Error:", error);
+        throw error;
+    }
+}
+
+
 export const explainCharacter = async (char: string): Promise<AIExplanation> => {
   const settings = getSettings();
 
@@ -23,8 +95,8 @@ export const explainCharacter = async (char: string): Promise<AIExplanation> => 
   - 所有解释内容必须使用简体中文。
   `;
 
-  // Schema for response
-  const responseSchema = {
+  // Schema definition for Google SDK
+  const googleSchema = {
     type: Type.OBJECT,
     properties: {
       structure: { type: Type.STRING },
@@ -64,29 +136,48 @@ export const explainCharacter = async (char: string): Promise<AIExplanation> => 
     required: ["structure", "composition", "memoryTip", "words", "sentenceData"]
   };
 
+  // String Schema for OpenAI-compatible prompts
+  const schemaDescription = `
+  {
+    "structure": "string",
+    "composition": "string",
+    "compositionParts": [{"char": "string", "pinyin": "string"}],
+    "memoryTip": "string",
+    "words": [{"word": "string", "pinyin": "string"}],
+    "sentenceData": [{"char": "string", "pinyin": "string"}]
+  }
+  `;
+
   const envKey = process.env.API_KEY || '';
   const effectiveKey = settings.apiKey || envKey;
 
   if (!effectiveKey) return getErrorState();
 
   try {
-    const ai = new GoogleGenAI({ apiKey: effectiveKey });
-    const response = await ai.models.generateContent({
-      model: settings.model.includes('gemini') ? settings.model : "gemini-2.5-flash",
-      contents: userPrompt,
-      config: {
-        systemInstruction: systemPrompt,
-        responseMimeType: "application/json",
-        responseSchema: responseSchema
-      }
-    });
+    // SWITCH: If apiBaseUrl is set and NOT empty, use Generic Provider. Otherwise Google.
+    if (settings.apiBaseUrl && settings.apiBaseUrl.trim() !== '') {
+        const data = await callOpenAICompatible(settings, systemPrompt, userPrompt, schemaDescription);
+        return data as AIExplanation;
+    } else {
+        // GOOGLE NATIVE SDK
+        const ai = new GoogleGenAI({ apiKey: effectiveKey });
+        const response = await ai.models.generateContent({
+            model: settings.model.includes('gemini') ? settings.model : "gemini-2.5-flash",
+            contents: userPrompt,
+            config: {
+                systemInstruction: systemPrompt,
+                responseMimeType: "application/json",
+                responseSchema: googleSchema
+            }
+        });
 
-    if (response.text) {
-      return JSON.parse(response.text) as AIExplanation;
+        if (response.text) {
+            return JSON.parse(response.text) as AIExplanation;
+        }
     }
     throw new Error("No data returned");
   } catch (error) {
-    console.error("Gemini API Error:", error);
+    console.error("AI Service Error:", error);
     return getErrorState();
   }
 };
@@ -95,7 +186,7 @@ const getErrorState = (): AIExplanation => ({
   structure: "未知结构",
   composition: "暂无拆解",
   compositionParts: [],
-  memoryTip: "AI老师暂时无法连接，请检查设置。",
+  memoryTip: "AI老师连接失败，请检查设置中的API配置。",
   words: [],
   sentenceData: []
 });
@@ -109,7 +200,6 @@ export const generateStory = async (availableChars: Character[], keywords?: stri
 
   if (!effectiveKey) return null;
 
-  // Extract char strings, limit to random 50 to avoid token limits if too many
   const charList = availableChars.map(c => c.char).sort(() => 0.5 - Math.random()).slice(0, 50).join('，');
   const targetLength = settings.storyLength || 50;
   
@@ -133,10 +223,7 @@ export const generateStory = async (availableChars: Character[], keywords?: stri
   }
 
   userPrompt += `
-  请严格按照JSON格式返回：
-  1. title: 故事标题
-  2. content: 故事内容数组，每个对象必须只包含 *一个* char (汉字) 和 pinyin (拼音)。标点符号也作为对象，pinyin为空。
-
+  请严格按照JSON格式返回。
   JSON 格式示例：
   {
     "title": "小猫钓鱼",
@@ -144,45 +231,65 @@ export const generateStory = async (availableChars: Character[], keywords?: stri
   }
   `;
 
-  try {
-    const ai = new GoogleGenAI({ apiKey: effectiveKey });
-    const response = await ai.models.generateContent({
-      model: settings.model.includes('gemini') ? settings.model : "gemini-2.5-flash",
-      contents: userPrompt,
-      config: {
-        systemInstruction: systemPrompt,
-        responseMimeType: "application/json",
-        responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-                title: { type: Type.STRING },
-                content: {
-                    type: Type.ARRAY,
-                    items: {
-                        type: Type.OBJECT,
-                        properties: {
-                            char: { type: Type.STRING },
-                            pinyin: { type: Type.STRING }
-                        }
-                    }
-                }
-            },
-            required: ["title", "content"]
-        }
-      }
-    });
+  const schemaDescription = `
+  {
+      "title": "string",
+      "content": [{"char": "string", "pinyin": "string"}]
+  }
+  `;
 
-    if (response.text) {
-      const data = JSON.parse(response.text);
-      return {
-          id: generateId(),
-          title: data.title,
-          content: data.content,
-          createdAt: Date.now(),
-          isArchived: false,
-          readCount: 0,
-          keywords: keywords
-      };
+  try {
+    if (settings.apiBaseUrl && settings.apiBaseUrl.trim() !== '') {
+        const data = await callOpenAICompatible(settings, systemPrompt, userPrompt, schemaDescription);
+        return {
+            id: generateId(),
+            title: data.title,
+            content: data.content,
+            createdAt: Date.now(),
+            isArchived: false,
+            readCount: 0,
+            keywords: keywords
+        };
+    } else {
+        const ai = new GoogleGenAI({ apiKey: effectiveKey });
+        const response = await ai.models.generateContent({
+            model: settings.model.includes('gemini') ? settings.model : "gemini-2.5-flash",
+            contents: userPrompt,
+            config: {
+                systemInstruction: systemPrompt,
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        title: { type: Type.STRING },
+                        content: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    char: { type: Type.STRING },
+                                    pinyin: { type: Type.STRING }
+                                }
+                            }
+                        }
+                    },
+                    required: ["title", "content"]
+                }
+            }
+        });
+
+        if (response.text) {
+            const data = JSON.parse(response.text);
+            return {
+                id: generateId(),
+                title: data.title,
+                content: data.content,
+                createdAt: Date.now(),
+                isArchived: false,
+                readCount: 0,
+                keywords: keywords
+            };
+        }
     }
     return null;
 
@@ -196,9 +303,18 @@ export const testConnection = async (settings: AppSettings): Promise<boolean> =>
     const envKey = process.env.API_KEY || '';
     const effectiveKey = settings.apiKey || envKey;
     if (!effectiveKey) return false;
+    
     try {
-        const ai = new GoogleGenAI({ apiKey: effectiveKey });
-        await ai.models.generateContent({ model: settings.model || "gemini-2.5-flash", contents: "Hi" });
-        return true;
-    } catch { return false; }
+        if (settings.apiBaseUrl && settings.apiBaseUrl.trim() !== '') {
+             await callOpenAICompatible(settings, "You are a helper.", "Say hi", "{}");
+             return true;
+        } else {
+            const ai = new GoogleGenAI({ apiKey: effectiveKey });
+            await ai.models.generateContent({ model: settings.model || "gemini-2.5-flash", contents: "Hi" });
+            return true;
+        }
+    } catch (e) { 
+        console.error("Connection Test Failed:", e);
+        return false; 
+    }
 };

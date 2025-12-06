@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { User, Save, Download, Upload, Check, Activity, Wifi, HelpCircle, Info, Book, Zap, ArrowLeft, Sliders, FileText } from 'lucide-react';
+import { User, Save, Download, Upload, Check, Activity, Wifi, HelpCircle, Info, Book, Zap, ArrowLeft, Sliders, FileText, Server, Eye, EyeOff, WifiOff } from 'lucide-react';
 import { AppSettings } from '../types';
 import { getSettings, saveSettings, exportUserData, importUserData } from '../services/storage';
 import { testConnection } from '../services/geminiService';
 import { APP_DATA } from '../data';
+
+const PROVIDERS = {
+    GOOGLE: { name: 'Google Gemini', url: '', model: 'gemini-2.5-flash' },
+    DEEPSEEK: { name: 'DeepSeek (Official)', url: 'https://api.deepseek.com', model: 'deepseek-chat' },
+    SILICON: { name: 'SiliconFlow (硅基流动)', url: 'https://api.siliconflow.cn/v1', model: 'deepseek-ai/DeepSeek-V3' },
+    CUSTOM: { name: '自定义 / OpenAI 兼容', url: '', model: '' }
+};
 
 export const ProfileView: React.FC = () => {
   const [view, setView] = useState<'MAIN' | 'HELP'>('MAIN');
@@ -19,6 +26,8 @@ export const ProfileView: React.FC = () => {
     selectedGradeId: ''
   });
   
+  const [activeProvider, setActiveProvider] = useState<string>('GOOGLE');
+  const [showKey, setShowKey] = useState(false);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [testStatus, setTestStatus] = useState<'IDLE' | 'TESTING' | 'SUCCESS' | 'FAIL'>('IDLE');
   const [importStatus, setImportStatus] = useState<'IDLE' | 'SUCCESS' | 'ERROR'>('IDLE');
@@ -26,7 +35,20 @@ export const ProfileView: React.FC = () => {
   const [importText, setImportText] = useState('');
 
   useEffect(() => {
-    setConfig(getSettings());
+    const saved = getSettings();
+    setConfig(saved);
+    
+    // Determine provider from saved URL
+    if (!saved.apiBaseUrl) {
+        setActiveProvider('GOOGLE');
+    } else if (saved.apiBaseUrl.includes('deepseek.com')) {
+        setActiveProvider('DEEPSEEK');
+    } else if (saved.apiBaseUrl.includes('siliconflow')) {
+        setActiveProvider('SILICON');
+    } else {
+        setActiveProvider('CUSTOM');
+    }
+
     const updateVoices = () => {
       const voices = window.speechSynthesis.getVoices();
       const zhVoices = voices.filter(v => v.lang.includes('zh') || v.lang.includes('CN'));
@@ -35,6 +57,18 @@ export const ProfileView: React.FC = () => {
     updateVoices();
     window.speechSynthesis.onvoiceschanged = updateVoices;
   }, []);
+
+  const handleProviderChange = (providerKey: string) => {
+      setActiveProvider(providerKey);
+      const provider = PROVIDERS[providerKey as keyof typeof PROVIDERS];
+      if (providerKey !== 'CUSTOM') {
+          setConfig(prev => ({
+              ...prev,
+              apiBaseUrl: provider.url,
+              model: provider.model
+          }));
+      }
+  };
 
   const handleSave = () => {
     saveSettings(config);
@@ -199,45 +233,93 @@ export const ProfileView: React.FC = () => {
              </div>
           </div>
 
-          {/* AI */}
+          {/* AI Settings */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-             <h3 className="font-bold text-gray-800 border-b pb-3 mb-4">🧠 AI 配置</h3>
-             <div className="space-y-3">
-                <input
-                    type="text"
-                    placeholder="API Base URL (Optional)"
-                    className="w-full p-3 rounded-xl border border-gray-300 text-sm"
-                    value={config.apiBaseUrl}
-                    onChange={e => setConfig({ ...config, apiBaseUrl: e.target.value })}
-                />
-                <input
-                    type="password"
-                    placeholder="API Key"
-                    className="w-full p-3 rounded-xl border border-gray-300 text-sm"
-                    value={config.apiKey}
-                    onChange={e => setConfig({ ...config, apiKey: e.target.value })}
-                />
-                <div className="flex justify-between items-center">
+             <h3 className="font-bold text-gray-800 border-b pb-3 mb-4 flex items-center gap-2">
+                 <Server size={18} className="text-indigo-600"/> AI 模型配置
+             </h3>
+             
+             {/* Provider Selector */}
+            <div className="mb-4">
+                <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">AI 服务商</label>
+                <div className="grid grid-cols-2 gap-2">
+                    {Object.entries(PROVIDERS).map(([key, provider]) => (
+                        <button
+                            key={key}
+                            onClick={() => handleProviderChange(key)}
+                            className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all truncate ${
+                                activeProvider === key 
+                                ? 'bg-indigo-600 text-white border-indigo-600' 
+                                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
+                            }`}
+                        >
+                            {provider.name}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+             <div className="space-y-4">
+                <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">API 代理地址 (Host)</label>
                     <input
                         type="text"
-                        placeholder="Model Name (e.g., gemini-2.5-flash)"
-                        className="w-2/3 p-3 rounded-xl border border-gray-300 text-sm"
-                        value={config.model}
-                        onChange={e => setConfig({ ...config, model: e.target.value })}
+                        placeholder={activeProvider === 'GOOGLE' ? '默认无需填写' : 'https://api.example.com/v1'}
+                        className="w-full p-3 rounded-xl border border-gray-300 text-sm font-mono"
+                        value={config.apiBaseUrl}
+                        onChange={e => {
+                            setConfig({ ...config, apiBaseUrl: e.target.value });
+                            if(activeProvider !== 'CUSTOM') setActiveProvider('CUSTOM');
+                        }}
                     />
-                    <button
-                        onClick={handleTestConnection}
-                        disabled={testStatus === 'TESTING'}
-                        className={`ml-2 px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2 border ${
-                            testStatus === 'SUCCESS' ? 'bg-green-50 border-green-200 text-green-600' :
-                            testStatus === 'FAIL' ? 'bg-red-50 border-red-200 text-red-600' :
-                            'bg-gray-50 border-gray-200 text-gray-600'
-                        }`}
-                    >
-                        {testStatus === 'TESTING' ? <Activity className="animate-spin" size={16} /> : 
-                         testStatus === 'SUCCESS' ? <Wifi size={16} /> : <Activity size={16} />}
-                        {testStatus === 'SUCCESS' ? '成功' : testStatus === 'FAIL' ? '失败' : '测试'}
-                    </button>
+                </div>
+                
+                <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">API Key (密钥)</label>
+                    <div className="relative">
+                        <input
+                            type={showKey ? "text" : "password"}
+                            placeholder="sk-..."
+                            className="w-full p-3 pr-10 rounded-xl border border-gray-300 text-sm font-mono"
+                            value={config.apiKey}
+                            onChange={e => setConfig({ ...config, apiKey: e.target.value })}
+                        />
+                        <button 
+                            onClick={() => setShowKey(!showKey)}
+                            className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                        >
+                            {showKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                    </div>
+                </div>
+
+                <div className="flex flex-col md:flex-row gap-4">
+                    <div className="flex-1">
+                         <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">模型名称 (Model)</label>
+                        <input
+                            type="text"
+                            placeholder="如: gemini-2.5-flash"
+                            className="w-full p-3 rounded-xl border border-gray-300 text-sm font-mono"
+                            value={config.model}
+                            onChange={e => setConfig({ ...config, model: e.target.value })}
+                        />
+                    </div>
+                    <div className="self-end w-full md:w-auto">
+                         <button
+                            onClick={handleTestConnection}
+                            disabled={testStatus === 'TESTING'}
+                            className={`w-full md:w-auto px-6 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 border ${
+                                testStatus === 'SUCCESS' ? 'bg-green-50 border-green-200 text-green-600' :
+                                testStatus === 'FAIL' ? 'bg-red-50 border-red-200 text-red-600' :
+                                'bg-gray-50 border-gray-200 text-gray-600'
+                            }`}
+                        >
+                            {testStatus === 'TESTING' ? <Activity className="animate-spin" size={16} /> : 
+                            testStatus === 'SUCCESS' ? <Wifi size={16} /> : 
+                            testStatus === 'FAIL' ? <WifiOff size={16} /> : <Activity size={16} />}
+                            {testStatus === 'SUCCESS' ? '连接成功' : testStatus === 'FAIL' ? '连接失败' : '测试连接'}
+                        </button>
+                    </div>
                 </div>
              </div>
           </div>

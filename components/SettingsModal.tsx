@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Settings as SettingsIcon, Download, Upload, Check, Activity, Wifi, WifiOff, HelpCircle } from 'lucide-react';
+import { X, Save, Settings as SettingsIcon, Download, Upload, Check, Activity, Wifi, WifiOff, HelpCircle, Eye, EyeOff, Server } from 'lucide-react';
 import { AppSettings, Curriculum } from '../types';
 import { getSettings, saveSettings, exportUserData, importUserData } from '../services/storage';
 import { testConnection } from '../services/geminiService';
@@ -9,6 +9,13 @@ interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+const PROVIDERS = {
+    GOOGLE: { name: 'Google Gemini', url: '', model: 'gemini-2.5-flash' },
+    DEEPSEEK: { name: 'DeepSeek (Official)', url: 'https://api.deepseek.com', model: 'deepseek-chat' },
+    SILICON: { name: 'SiliconFlow (硅基流动)', url: 'https://api.siliconflow.cn/v1', model: 'deepseek-ai/DeepSeek-V3' },
+    CUSTOM: { name: '自定义 / OpenAI 兼容', url: '', model: '' }
+};
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const [config, setConfig] = useState<AppSettings>({
@@ -22,6 +29,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     selectedCurriculumId: '',
     selectedGradeId: ''
   });
+  
+  const [activeProvider, setActiveProvider] = useState<string>('GOOGLE');
+  const [showKey, setShowKey] = useState(false);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [importText, setImportText] = useState('');
   const [showImportArea, setShowImportArea] = useState(false);
@@ -31,8 +41,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   useEffect(() => {
     if (isOpen) {
-      setConfig(getSettings());
+      const saved = getSettings();
+      setConfig(saved);
       setTestStatus('IDLE');
+      
+      // Determine provider from saved URL
+      if (!saved.apiBaseUrl) {
+          setActiveProvider('GOOGLE');
+      } else if (saved.apiBaseUrl.includes('deepseek.com')) {
+          setActiveProvider('DEEPSEEK');
+      } else if (saved.apiBaseUrl.includes('siliconflow')) {
+          setActiveProvider('SILICON');
+      } else {
+          setActiveProvider('CUSTOM');
+      }
       
       const updateVoices = () => {
         const voices = window.speechSynthesis.getVoices();
@@ -45,10 +67,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     }
   }, [isOpen]);
 
+  const handleProviderChange = (providerKey: string) => {
+      setActiveProvider(providerKey);
+      const provider = PROVIDERS[providerKey as keyof typeof PROVIDERS];
+      if (providerKey !== 'CUSTOM') {
+          setConfig(prev => ({
+              ...prev,
+              apiBaseUrl: provider.url,
+              model: provider.model
+          }));
+      }
+  };
+
   const handleSave = () => {
     saveSettings(config);
-    // Removed window.location.reload() to prevent "file not found" errors in some environments.
-    // The parent component (SelectionView) will re-render when the modal closes, picking up the new settings.
     onClose();
   };
 
@@ -57,7 +89,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const success = await testConnection(config);
     setTestStatus(success ? 'SUCCESS' : 'FAIL');
     
-    // Clear status after a few seconds
     setTimeout(() => {
         if (isOpen) setTestStatus('IDLE');
     }, 3000);
@@ -81,14 +112,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     if (success) {
       setImportStatus('SUCCESS');
       setTimeout(() => {
-         window.location.reload(); // Import might need reload to fully clear/reset all states cleanly, we can keep this or handle it better. Keep for now as import is rare.
+         window.location.reload(); 
       }, 1000);
     } else {
       setImportStatus('ERROR');
     }
   };
 
-  // Helper to get grades for currently selected curriculum
   const currentCurriculum = APP_DATA.find(c => c.id === config.selectedCurriculumId);
 
   if (!isOpen) return null;
@@ -151,53 +181,95 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           </div>
 
           {/* AI Settings */}
-          <div className="space-y-4">
-            <h3 className="font-bold text-gray-800 border-b pb-2">🧠 AI 配置</h3>
+          <div className="space-y-4 bg-gray-50 p-4 rounded-2xl border border-gray-200">
+            <h3 className="font-bold text-gray-800 border-b pb-2 flex items-center gap-2">
+                <Server size={18} className="text-indigo-600"/> AI 模型配置
+            </h3>
+            
+            {/* Provider Selector */}
             <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1">API BASE URL (可选)</label>
+                <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">AI 服务商</label>
+                <div className="grid grid-cols-2 gap-2">
+                    {Object.entries(PROVIDERS).map(([key, provider]) => (
+                        <button
+                            key={key}
+                            onClick={() => handleProviderChange(key)}
+                            className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all truncate ${
+                                activeProvider === key 
+                                ? 'bg-indigo-600 text-white border-indigo-600' 
+                                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
+                            }`}
+                        >
+                            {provider.name}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* API Base URL */}
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">
+                  API 代理地址 (API Host)
+                  {activeProvider === 'GOOGLE' && <span className="text-gray-400 font-normal ml-2">(默认为空)</span>}
+              </label>
               <input
                 type="text"
-                placeholder="https://api.openai.com/v1"
-                className="w-full p-3 rounded-xl border border-gray-300 focus:border-indigo-500 outline-none text-sm"
+                placeholder={activeProvider === 'GOOGLE' ? '默认无需填写' : 'https://api.example.com/v1'}
+                className="w-full p-3 rounded-xl border border-gray-300 focus:border-indigo-500 outline-none text-sm font-mono"
                 value={config.apiBaseUrl}
-                onChange={e => setConfig({ ...config, apiBaseUrl: e.target.value })}
+                onChange={e => {
+                    setConfig({ ...config, apiBaseUrl: e.target.value });
+                    if(activeProvider !== 'CUSTOM') setActiveProvider('CUSTOM');
+                }}
               />
             </div>
+
+            {/* API Key */}
             <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1">API KEY</label>
-              <input
-                type="password"
-                placeholder="sk-..."
-                className="w-full p-3 rounded-xl border border-gray-300 focus:border-indigo-500 outline-none text-sm"
-                value={config.apiKey}
-                onChange={e => setConfig({ ...config, apiKey: e.target.value })}
-              />
+              <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">API Key (密钥)</label>
+              <div className="relative">
+                  <input
+                    type={showKey ? "text" : "password"}
+                    placeholder="sk-..."
+                    className="w-full p-3 pr-10 rounded-xl border border-gray-300 focus:border-indigo-500 outline-none text-sm font-mono"
+                    value={config.apiKey}
+                    onChange={e => setConfig({ ...config, apiKey: e.target.value })}
+                  />
+                  <button 
+                    onClick={() => setShowKey(!showKey)}
+                    className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                  >
+                      {showKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+              </div>
             </div>
+
+            {/* Model Name */}
             <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1">模型名称 (Model)</label>
+              <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">模型名称 (Model)</label>
               <input
                 type="text"
-                placeholder="如: gemini-2.5-flash 或 gpt-4o"
-                className="w-full p-3 rounded-xl border border-gray-300 focus:border-indigo-500 outline-none text-sm"
+                placeholder="如: gemini-2.5-flash 或 deepseek-chat"
+                className="w-full p-3 rounded-xl border border-gray-300 focus:border-indigo-500 outline-none text-sm font-mono"
                 value={config.model}
                 onChange={e => setConfig({ ...config, model: e.target.value })}
               />
             </div>
 
             {/* Test Connection Button */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 pt-2">
                 <button
                     onClick={handleTestConnection}
                     disabled={testStatus === 'TESTING'}
-                    className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors border ${
+                    className={`w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors border shadow-sm ${
                         testStatus === 'SUCCESS' ? 'bg-green-50 border-green-200 text-green-600' :
                         testStatus === 'FAIL' ? 'bg-red-50 border-red-200 text-red-600' :
-                        'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                        'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
                     }`}
                 >
                     {testStatus === 'TESTING' ? (
                         <>
-                            <Activity className="animate-spin" size={16} /> 测试中...
+                            <Activity className="animate-spin" size={16} /> 连接测试中...
                         </>
                     ) : testStatus === 'SUCCESS' ? (
                         <>
@@ -209,7 +281,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         </>
                     ) : (
                         <>
-                            <Activity size={16} /> 测试连接
+                            <Activity size={16} /> 测试 AI 连接
                         </>
                     )}
                 </button>
@@ -224,7 +296,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                {/* Daily Limit */}
                <div>
                  <div className="flex justify-between items-center mb-2">
-                    <label className="text-xs font-bold text-gray-500">每日挑战卡片数量</label>
+                    <label className="text-xs font-bold text-gray-500">每日挑战复习量</label>
                     <span className="text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{config.dailyLimit || 10} 张</span>
                  </div>
                  <input
@@ -287,9 +359,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 <li><span className="font-bold">1：</span> 每天复习 <span className="underline">1天前</span>（昨天）学习的汉字。</li>
                 <li><span className="font-bold">3：</span> 每天学习 <span className="underline">3个</span>（或更多）新汉字。</li>
              </ul>
-             <p className="text-xs text-blue-700 mt-2">
-                每日挑战功能会自动为您挑选这三类字卡，帮助孩子高效巩固，拒绝死记硬背。
-             </p>
           </div>
 
           {/* Data Management */}
@@ -330,7 +399,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             onClick={handleSave}
             className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2"
           >
-            <Save size={20} /> 保存
+            <Save size={20} /> 保存配置
           </button>
         </div>
       </div>

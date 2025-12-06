@@ -44,7 +44,7 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
     return { todo, done };
   }, [currentGrade, knownChars]);
 
-  const handleStart = (unitId: string, unitName: string, chars: Character[]) => {
+  const handleStartGame = (unitId: string, unitName: string, chars: Character[]) => {
     onStartGame({
       mode: 'UNIT',
       title: unitName,
@@ -149,7 +149,7 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
         {displayUnits.map((unit, index) => (
           <button
             key={unit.id}
-            onClick={() => handleStart(unit.id, unit.name, unit.characters)}
+            onClick={() => handleStartGame(unit.id, unit.name, unit.characters)}
             className="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:border-blue-200 hover:shadow-md active:scale-[0.98] transition-all group"
           >
              <div className="flex items-center gap-4 overflow-hidden">
@@ -172,7 +172,7 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
     <div className="max-w-7xl mx-auto min-h-screen bg-gray-50 flex flex-col pb-24 relative transition-all">
       
       {/* --- Header --- */}
-      <div className="bg-white px-4 py-4 md:px-6 md:py-6 rounded-b-[2rem] shadow-sm flex justify-between items-center z-10 sticky top-0">
+      <div className="bg-white px-4 py-3 md:px-6 md:py-6 rounded-b-[2rem] shadow-sm flex justify-between items-center z-10 sticky top-0 transition-all">
         <div>
            <div className="flex items-center gap-2">
              <span className="text-3xl">🐼</span>
@@ -227,22 +227,22 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
           <div className="lg:col-span-8">
              <div className="bg-white p-6 rounded-3xl shadow-sm min-h-[500px] border border-gray-100">
                 {/* Header: Stack vertically on mobile, row on desktop */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-                   <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 md:mb-6 gap-4">
+                   <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2 shrink-0">
                      <Grid className="w-6 h-6 text-blue-500" /> 学习单元
                    </h2>
                    
                    {/* Tabs Switch */}
-                   <div className="bg-gray-100 p-1 rounded-xl flex text-sm font-bold self-start md:self-auto">
+                   <div className="bg-gray-100 p-1 rounded-xl flex text-sm font-bold self-start md:self-auto w-full md:w-auto">
                       <button 
                         onClick={() => setActiveTab('TODO')}
-                        className={`px-4 py-2 rounded-lg transition-all ${activeTab === 'TODO' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                        className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-all ${activeTab === 'TODO' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
                       >
                         待学习 ({processedUnits.todo.length})
                       </button>
                       <button 
                         onClick={() => setActiveTab('DONE')}
-                        className={`px-4 py-2 rounded-lg transition-all ${activeTab === 'DONE' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                        className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-all ${activeTab === 'DONE' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
                       >
                         已完成 ({processedUnits.done.length})
                       </button>
@@ -253,7 +253,6 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
                    <div className="flex flex-col items-center justify-center py-20 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
                       <Book size={48} className="text-gray-300 mb-4"/>
                       <p className="text-gray-500 font-bold mb-2">还没有设置教材</p>
-                      {/* Note: User must go to "Profile" tab to settings now */}
                       <p className="text-xs text-gray-400">请前往"我的"页面进行设置</p>
                    </div>
                 ) : (
