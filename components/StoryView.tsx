@@ -614,7 +614,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
          // Reader View - Full Screen Fixed Layer
          <div className="fixed inset-0 z-50 bg-white flex flex-col h-full animate-fade-in">
              {/* Sticky/Fixed Header */}
-             <div className="bg-white/95 backdrop-blur-md p-4 shadow-sm flex items-center justify-between z-10 border-b border-gray-100 shrink-0">
+             <div className="bg-white p-4 shadow-sm flex items-center justify-between z-10 border-b border-gray-100 shrink-0">
                  <button onClick={() => setCurrentStory(null)} className="text-gray-500 font-bold px-2 flex items-center gap-1 hover:text-gray-800">
                     <RotateCcw size={18}/> 返回
                  </button>
@@ -642,33 +642,37 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                             <Edit2 size={14} className="text-gray-300 group-hover:text-amber-500" />
                         </div>
                      )}
-                     {!isEditingTitle && currentStory.tags && (
-                        <div className="flex gap-1 overflow-hidden mt-1">
-                            {currentStory.tags.map((t,i) => (
-                                <span key={i} className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded whitespace-nowrap">{t}</span>
-                            ))}
-                        </div>
-                     )}
                  </div>
                  <button onClick={readStory} className="p-2 bg-amber-100 text-amber-600 rounded-full hover:bg-amber-200 transition-colors">
                     <Volume2 size={20} />
                  </button>
              </div>
 
-             <div className="flex-1 p-4 overflow-y-auto pb-32">
-                 <div className="max-w-2xl mx-auto">
-                     <div className="leading-loose">
+             {/* 
+                 READER CONTENT 
+                 Notebook Style: White background, continuous grid.
+             */}
+             <div className="flex-1 overflow-y-auto bg-white custom-scrollbar pb-32">
+                 <div className="max-w-4xl mx-auto p-4 sm:p-8">
+                     {/* 
+                        Container Border and Padding Fix:
+                        - border-red-300 to match cell borders.
+                        - p-px padding prevents clipping of the rightmost/bottommost cell borders 
+                          which are pushed out by negative margins (-mr-px, -mb-px).
+                     */}
+                     <div className="border border-red-300 shadow-sm bg-white overflow-hidden p-px box-content">
                          {getParagraphs(currentStory.content).map((paragraph, pIdx) => (
-                             <div key={pIdx} className="flex flex-wrap gap-x-2 gap-y-4 mb-6 relative">
-                                 {/* Paragraph Indentation: Placeholder div width ~2 chars */}
-                                 {/* w-20 corresponds to 5rem ~ 80px, approx 2 grid boxes on mobile (w-10 = 2.5rem) */}
-                                 <div className="w-20 sm:w-28 h-1 shrink-0 pointer-events-none" aria-hidden="true" />
+                             <div key={pIdx} className="flex flex-wrap gap-0">
+                                 {/* Paragraph Indentation: 2 Empty Grids (Notebook style) */}
+                                 <WritingGrid char="" pinyin="" variant="notebook" />
+                                 <WritingGrid char="" pinyin="" variant="notebook" />
                                  
                                  {paragraph.map((item, idx) => (
                                      <WritingGrid 
                                        key={`${pIdx}-${idx}`}
                                        char={item.char}
                                        pinyin={item.pinyin}
+                                       variant="notebook"
                                        onClick={() => handleCharClick(item)} 
                                      />
                                  ))}

@@ -27,50 +27,97 @@ interface WritingGridProps {
   pinyin: string;
   isTarget?: boolean;
   onClick?: () => void;
+  variant?: 'card' | 'notebook'; // New prop to switch styles
 }
 
-export const WritingGrid: React.FC<WritingGridProps> = ({ char, pinyin, isTarget = false, onClick }) => {
+export const WritingGrid: React.FC<WritingGridProps> = ({ char, pinyin, isTarget = false, onClick, variant = 'card' }) => {
   // Use local click handler if provided, otherwise default to speaking the char
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (onClick) {
+    if (char && onClick) {
       onClick();
-    } else {
+    } else if (char) {
       speakText(char);
     }
   };
 
   // Check if character is punctuation (no pinyin usually)
   const isPunctuation = !pinyin && char.length === 1 && !char.match(/[\u4e00-\u9fa5a-zA-Z0-9]/);
+  const isEmpty = !char; // For indentation
 
-  return (
-    <div className="flex flex-col items-center cursor-pointer group" onClick={handleClick}>
-      {/* Pinyin Grid (4 lines) - Hide for punctuation to look cleaner */}
-      <div className={`relative w-10 h-8 sm:w-14 sm:h-10 mb-0.5 flex items-center justify-center ${isPunctuation ? 'opacity-0' : 'opacity-100'}`}>
-         <div className="absolute inset-x-0 top-[20%] border-t border-red-300/40"></div>
-         <div className="absolute inset-x-0 top-[40%] border-t border-red-300/40"></div>
-         <div className="absolute inset-x-0 top-[60%] border-t border-red-400/60"></div> {/* Baseline */}
-         <div className="absolute inset-x-0 top-[80%] border-t border-red-300/40"></div>
-         <span className={`relative z-10 text-sm sm:text-base font-medium font-sans -mt-1 ${isTarget ? 'text-blue-600 font-bold' : 'text-gray-600'}`}>{pinyin}</span>
-      </div>
-      
-      {/* Hanzi Tianzi Ge (田字格) - Now wraps everything including punctuation */}
-      <div className={`relative w-10 h-10 sm:w-14 sm:h-14 bg-white border border-red-400 flex items-center justify-center shadow-sm transition-transform group-hover:scale-105 ${isTarget ? 'ring-2 ring-blue-300 ring-offset-1' : ''}`}>
-        {/* Diagonals and Cross lines for Tianzi Ge */}
-        <div className="absolute inset-0" 
-          style={{ 
-            backgroundImage: `
-              linear-gradient(to right, transparent 49%, #fca5a5 50%, transparent 51%), 
-              linear-gradient(to bottom, transparent 49%, #fca5a5 50%, transparent 51%),
-              linear-gradient(45deg, transparent 49%, #fca5a5 50%, transparent 51%),
-              linear-gradient(-45deg, transparent 49%, #fca5a5 50%, transparent 51%)
-            `,
-            backgroundSize: '100% 100%' 
-          }}
-        ></div>
+  // --- CARD STYLE (Rounded, Shadow, Spaced) ---
+  if (variant === 'card') {
+    return (
+      <div className="flex flex-col items-center cursor-pointer group" onClick={handleClick}>
+        {/* Pinyin Grid (4 lines) */}
+        <div className={`relative w-10 h-8 sm:w-14 sm:h-10 mb-0.5 flex items-center justify-center ${isPunctuation ? 'opacity-0' : 'opacity-100'}`}>
+           <div className="absolute inset-x-0 top-[20%] border-t border-red-300/40"></div>
+           <div className="absolute inset-x-0 top-[40%] border-t border-red-300/40"></div>
+           <div className="absolute inset-x-0 top-[60%] border-t border-red-400/60"></div> {/* Baseline */}
+           <div className="absolute inset-x-0 top-[80%] border-t border-red-300/40"></div>
+           <span className={`relative z-10 text-sm sm:text-base font-medium font-sans -mt-1 ${isTarget ? 'text-blue-600 font-bold' : 'text-gray-600'}`}>{pinyin}</span>
+        </div>
         
-        <span className={`relative z-10 font-fun text-xl sm:text-2xl leading-none ${isTarget ? 'text-blue-600' : 'text-gray-800'}`}>{char}</span>
+        {/* Hanzi Tianzi Ge */}
+        <div className={`relative w-10 h-10 sm:w-14 sm:h-14 bg-white border border-red-400 flex items-center justify-center shadow-sm transition-transform group-hover:scale-105 ${isTarget ? 'ring-2 ring-blue-300 ring-offset-1' : ''}`}>
+          {/* Diagonals */}
+          <div className="absolute inset-0" 
+            style={{ 
+              backgroundImage: `
+                linear-gradient(to right, transparent 49%, #fca5a5 50%, transparent 51%), 
+                linear-gradient(to bottom, transparent 49%, #fca5a5 50%, transparent 51%),
+                linear-gradient(45deg, transparent 49%, #fca5a5 50%, transparent 51%),
+                linear-gradient(-45deg, transparent 49%, #fca5a5 50%, transparent 51%)
+              `,
+              backgroundSize: '100% 100%' 
+            }}
+          ></div>
+          <span className={`relative z-10 font-fun text-xl sm:text-2xl leading-none ${isTarget ? 'text-blue-600' : 'text-gray-800'}`}>{char}</span>
+        </div>
       </div>
+    );
+  }
+
+  // --- NOTEBOOK STYLE (Square, Continuous Border, No Gaps) ---
+  // Fix: Use full border + negative left/top margins to ensure rightmost/bottommost borders are visible
+  // and dashed lines for the inner Mi grid.
+  return (
+    <div 
+      className={`flex flex-col items-center group relative -ml-[1px] -mt-[1px] border border-red-300 box-border ${isEmpty ? '' : 'cursor-pointer hover:bg-red-50/30'}`} 
+      onClick={!isEmpty ? handleClick : undefined}
+    >
+        {/* Pinyin Area (4 lines) */}
+        <div className="relative w-14 h-8 sm:w-20 sm:h-10 border-b border-red-300 box-border w-full">
+           {/* Inner lines - Solid/Dashed mix for 4-line grid */}
+           <div className="absolute inset-x-0 top-[25%] border-t border-red-300/50 border-dashed"></div>
+           <div className="absolute inset-x-0 top-[50%] border-t border-red-300/80"></div> {/* Middle line slightly darker */}
+           <div className="absolute inset-x-0 top-[75%] border-t border-red-300/50 border-dashed"></div>
+           
+           {!isEmpty && !isPunctuation && (
+             <span className={`absolute inset-0 flex items-center justify-center text-sm sm:text-lg font-medium font-sans pt-1 text-gray-700`}>
+                {pinyin}
+             </span>
+           )}
+        </div>
+
+        {/* Hanzi Area (Mi Zi Ge - Dashed) */}
+        <div className="relative w-14 h-14 sm:w-20 sm:h-20 box-border bg-white w-full">
+           {/* SVG Lines for "Mi" character (Dashed) */}
+           <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+               {/* Diagonals - Dashed */}
+               <line x1="0" y1="0" x2="100" y2="100" stroke="#fca5a5" strokeWidth="1" strokeDasharray="4,2" />
+               <line x1="100" y1="0" x2="0" y2="100" stroke="#fca5a5" strokeWidth="1" strokeDasharray="4,2" />
+               {/* Cross - Dashed (Vertical and Horizontal centers) */}
+               <line x1="50" y1="0" x2="50" y2="100" stroke="#fca5a5" strokeWidth="1" strokeDasharray="4,2" />
+               <line x1="0" y1="50" x2="100" y2="50" stroke="#fca5a5" strokeWidth="1" strokeDasharray="4,2" />
+           </svg>
+          
+          {!isEmpty && (
+             <span className={`relative z-10 flex items-center justify-center w-full h-full font-fun text-3xl sm:text-4xl leading-none text-gray-800`}>
+               {char}
+             </span>
+          )}
+        </div>
     </div>
   );
 };
