@@ -51,6 +51,7 @@ export interface CharPair {
 }
 
 export interface AIExplanation {
+  pinyin?: string; // New: Returns the pinyin of the character itself
   structure: string; 
   composition: string; // e.g. "日 + 月"
   compositionParts?: CharPair[]; // New: Structured parts for grid display
@@ -82,6 +83,8 @@ export interface Story {
   content: CharPair[]; // The story content parsed into chars
   createdAt: number;
   isArchived: boolean;
-  readCount: number; // New: Number of times read
-  keywords?: string; // New: Keywords used to generate
+  readCount: number; 
+  keywords?: string;
+  tags?: string[]; // For grading/categorization e.g. "Level 1", "Fable"
+  source?: 'AI' | 'MANUAL' | 'OCR'; // How it was created
 }

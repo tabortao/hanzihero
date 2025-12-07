@@ -10,6 +10,18 @@ interface CharacterBankViewProps {
   onStudy?: (char: Character) => void;
 }
 
+// Helper to get normalized initial (A-Z) from pinyin
+const getPinyinInitial = (pinyin: string): string => {
+    if (!pinyin) return '#';
+    // Normalize unicode to separate tone marks then remove them
+    // e.g. "á" -> "a" + tone mark -> "a"
+    const normalized = pinyin.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const initial = normalized.charAt(0).toUpperCase();
+    // Check if it's a letter
+    if (/[A-Z]/.test(initial)) return initial;
+    return '#';
+};
+
 export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack, onStudy }) => {
   const [activeTab, setActiveTab] = useState<'KNOWN' | 'UNKNOWN' | 'ALL'>('KNOWN');
   const [knownList, setKnownList] = useState<Character[]>([]);
@@ -34,7 +46,7 @@ export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack, on
   };
 
   // Prepare the "All" list (Memoized to prevent recalc)
-  // Sort by Pinyin A-Z
+  // Sort by Pinyin A-Z (ignoring tones for major sort)
   const allDictionaryList = useMemo(() => {
     const rawChars = getAllDictionaryChars();
     
@@ -44,8 +56,23 @@ export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack, on
        pinyin: findCharacterPinyin(c) 
     }));
 
-    // Sort by pinyin (using localeCompare for Chinese which handles Pinyin approx)
-    return charObjects.sort((a, b) => a.pinyin.localeCompare(b.pinyin, 'zh-CN'));
+    // Sort by pinyin
+    return charObjects.sort((a, b) => {
+        // Simple comparison first
+        if (!a.pinyin && !b.pinyin) return 0;
+        if (!a.pinyin) return 1;
+        if (!b.pinyin) return -1;
+
+        // Compare normalized strings to group by A-Z
+        const normA = a.pinyin.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const normB = b.pinyin.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        
+        const cmp = normA.localeCompare(normB);
+        if (cmp !== 0) return cmp;
+        
+        // If normalized same, sort by tone (original pinyin)
+        return a.pinyin.localeCompare(b.pinyin);
+    });
   }, []);
 
   const handleAction = (action: 'READ' | 'STUDY' | 'KNOWN' | 'UNKNOWN') => {
@@ -181,7 +208,7 @@ export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack, on
             <p>暂无相关汉字</p>
           </div>
         ) : (
-          <div className="grid grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-3 md:gap-4">
+          <div className="grid grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-3 md:gap-4 content-start">
             {paginatedList.map((char, idx) => {
               const learnCount = getCharacterLearnCount(char.char);
               const status = getCharStatus(char.char);
@@ -197,23 +224,45 @@ export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack, on
                   cardStyle = "bg-orange-50 border-orange-200";
               }
 
-              return (
-                <div 
-                  key={`${char.char}-${idx}`} 
-                  onClick={() => setSelectedChar(char)}
-                  className={`
-                      aspect-square rounded-xl border-2 flex flex-col items-center justify-center cursor-pointer transition-all relative select-none shadow-sm active:scale-95
-                      ${cardStyle}
-                  `}
-                >
-                  <span className="font-fun text-2xl text-gray-800">{char.char}</span>
-                  <span className="text-[10px] text-gray-400 mt-1">{char.pinyin || ' '}</span>
+              // Determine if we need a section header (only for ALL tab)
+              // Logic: Compare Normalized Initial
+              let showHeader = false;
+              if (activeTab === 'ALL' && !searchQuery) {
+                  const currentInitial = getPinyinInitial(char.pinyin);
+                  const prevChar = paginatedList[idx - 1];
+                  const prevInitial = prevChar ? getPinyinInitial(prevChar.pinyin) : null;
                   
-                  {/* Learn Count Badge (Only show if significant) */}
-                  {learnCount > 5 && (
-                    <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
-                  )}
-                </div>
+                  if (idx === 0 || currentInitial !== prevInitial) {
+                      showHeader = true;
+                  }
+              }
+
+              return (
+                <React.Fragment key={`${char.char}-${idx}`}>
+                   {showHeader && (
+                       <div className="col-span-5 md:col-span-8 lg:col-span-10 mt-4 mb-2 pb-1 border-b border-gray-200 flex items-center">
+                           <span className="text-lg font-bold text-indigo-500">
+                               {getPinyinInitial(char.pinyin)}
+                           </span>
+                       </div>
+                   )}
+                    <div 
+                      onClick={() => setSelectedChar(char)}
+                      className={`
+                          aspect-square rounded-xl border-2 flex flex-col items-center justify-center cursor-pointer transition-all relative select-none shadow-sm active:scale-95
+                          ${cardStyle}
+                      `}
+                    >
+                      <span className="font-fun text-2xl text-gray-800">{char.char}</span>
+                      {/* Ensure Pinyin is always displayed */}
+                      <span className="text-[10px] text-gray-400 mt-1">{char.pinyin || ' '}</span>
+                      
+                      {/* Learn Count Badge (Only show if significant) */}
+                      {learnCount > 5 && (
+                        <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                      )}
+                    </div>
+                </React.Fragment>
               );
             })}
           </div>

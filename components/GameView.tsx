@@ -46,6 +46,8 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
 
   // User clicked "I Know It"
   const handleKnown = () => {
+    // Note: If the character didn't have Pinyin in the dictionary, it might still not here.
+    // But usually "Known" flow implies less data filling than "Unknown" flow.
     addKnownCharacter(currentCharacter);
     markLearned();
     setScore(prev => prev + 10);
@@ -55,6 +57,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
 
   // User clicked "I Don't Know"
   const handleUnknown = async () => {
+    // Add to unknown immediately (will update later with AI info if needed)
     addUnknownCharacter(currentCharacter);
     markLearned();
     setViewState('LEARNING');
@@ -70,6 +73,14 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
     try {
         const data = await explainCharacter(currentCharacter.char, forceAI);
         setAiExplanation(data);
+        
+        // --- Critical Update: Save Pinyin if it was missing ---
+        if (!currentCharacter.pinyin && data.pinyin) {
+            // Update current character in config (local state) so UI updates
+            currentCharacter.pinyin = data.pinyin;
+            // Update in storage as "Unknown" with the new pinyin info
+            addUnknownCharacter({ ...currentCharacter, pinyin: data.pinyin });
+        }
     } catch (e) {
         console.error(e);
     } finally {
@@ -134,6 +145,9 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
 
   const progress = ((currentIndex + 1) / config.characters.length) * 100;
 
+  // Use pinyin from char or from AI if loaded
+  const displayPinyin = currentCharacter.pinyin || aiExplanation?.pinyin || '';
+
   return (
     <div className="max-w-3xl mx-auto p-4 min-h-screen flex flex-col bg-[#ecfdf5] pb-24">
       {/* Header */}
@@ -169,7 +183,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
           {viewState === 'LEARNING' && (
               <div className="mb-4 text-center">
                   <h2 className="text-4xl font-bold text-gray-800 flex items-center justify-center gap-2">
-                  {currentCharacter.pinyin}
+                  {displayPinyin}
                   <button onClick={() => speakText(currentCharacter.char)} className="p-1 bg-gray-100 rounded-full text-gray-500 hover:text-blue-500">
                     <Volume2 size={20} />
                   </button>

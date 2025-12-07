@@ -76,18 +76,20 @@ export const explainCharacter = async (char: string, forceAI: boolean = false): 
   const userPrompt = `
   请分析汉字 "${char}"，供小学生识字学习使用。
   请严格按照JSON格式返回以下内容：
-  1. structure: 字形结构 (如：左右结构、上下结构、独体字)。
-  2. composition: 部件拆解 (如："日 + 月")。请务必使用 "+" 号连接部件。
-  3. compositionParts: 拆解后的部件数组，如果部件是汉字则提供拼音，否则拼音为空。
-  4. memoryTip: 一个非常简短、有趣好记的顺口溜或一句话故事（20字以内），方便朗读给孩子听。
-  5. words: 两个常见组词，每个组词包含 word (词语) 和 pinyin (拼音)。
-  6. sentenceData: 一个包含该字的简单例句。注意：必须将句子严格拆解为单个汉字对象的数组。例如“爸爸”必须拆分为 [{"char":"爸","pinyin":"bà"}, {"char":"爸","pinyin":"ba"}]，绝对不允许将多个字合并在一个对象中。
+  1. pinyin: 该汉字的拼音 (例如: "hǎo")。
+  2. structure: 字形结构 (如：左右结构、上下结构、独体字)。
+  3. composition: 部件拆解 (如："日 + 月")。请务必使用 "+" 号连接部件。
+  4. compositionParts: 拆解后的部件数组，如果部件是汉字则提供拼音，否则拼音为空。
+  5. memoryTip: 一个非常简短、有趣好记的顺口溜或一句话故事（20字以内），方便朗读给孩子听。
+  6. words: 两个常见组词，每个组词包含 word (词语) 和 pinyin (拼音)。
+  7. sentenceData: 一个包含该字的简单例句。注意：必须将句子严格拆解为单个汉字对象的数组。例如“爸爸”必须拆分为 [{"char":"爸","pinyin":"bà"}, {"char":"爸","pinyin":"ba"}]，绝对不允许将多个字合并在一个对象中。
   `;
 
   // Schema definition for Google SDK
   const googleSchema = {
     type: Type.OBJECT,
     properties: {
+      pinyin: { type: Type.STRING },
       structure: { type: Type.STRING },
       composition: { type: Type.STRING },
       compositionParts: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { char: { type: Type.STRING }, pinyin: { type: Type.STRING } } } },
@@ -95,10 +97,10 @@ export const explainCharacter = async (char: string, forceAI: boolean = false): 
       words: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { word: { type: Type.STRING }, pinyin: { type: Type.STRING } } } },
       sentenceData: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { char: { type: Type.STRING }, pinyin: { type: Type.STRING } } } }
     },
-    required: ["structure", "composition", "memoryTip", "words", "sentenceData"]
+    required: ["pinyin", "structure", "composition", "memoryTip", "words", "sentenceData"]
   };
 
-  const schemaDescription = `{"structure": "string", "composition": "string", "compositionParts": [{"char": "string", "pinyin": "string"}], "memoryTip": "string", "words": [{"word": "string", "pinyin": "string"}], "sentenceData": [{"char": "string", "pinyin": "string"}]}`;
+  const schemaDescription = `{"pinyin": "string", "structure": "string", "composition": "string", "compositionParts": [{"char": "string", "pinyin": "string"}], "memoryTip": "string", "words": [{"word": "string", "pinyin": "string"}], "sentenceData": [{"char": "string", "pinyin": "string"}]}`;
 
   const envKey = process.env.API_KEY || '';
   const effectiveKey = settings.apiKey || envKey;
@@ -247,7 +249,6 @@ export const generateStoryStream = async (
             }
         });
 
-        // Fixed iteration: use 'result' directly (it is the iterable), and 'chunk.text' (property)
         for await (const chunk of result) {
             const text = chunk.text;
             if (text) onChunk(text);
@@ -257,6 +258,64 @@ export const generateStoryStream = async (
     console.error("Generate Story Error:", error);
     throw error;
   }
+};
+
+/**
+ * Recognize text from an image (OCR) for story generation
+ */
+export const recognizeTextFromImage = async (base64Image: string): Promise<{title: string, content: string}> => {
+    const settings = getSettings();
+    const envKey = process.env.API_KEY || '';
+    const effectiveKey = settings.apiKey || envKey;
+
+    if (!effectiveKey) throw new Error("Missing API Key");
+
+    const systemPrompt = "你是一个智能OCR助手，请提取图片中的故事内容。";
+    const userPrompt = "请识别这张图片中的文字内容。如果包含标题，请提取标题。请以JSON格式返回：{title: '标题(如果没有则自己起一个)', content: '故事正文'}。只返回JSON，不要其他内容。";
+
+    // Only support Gemini for multimodal for now due to complexity of custom endpoints with images
+    // Fallback to text if using custom endpoint (or throw error)
+    if (settings.apiBaseUrl && settings.apiBaseUrl.trim() !== '' && !settings.apiBaseUrl.includes('google')) {
+       // Simple warning, complex to implement generic multimodal fetch in one go
+       throw new Error("图片识别目前仅支持 Google Gemini 模型"); 
+    }
+
+    try {
+        const ai = new GoogleGenAI({ apiKey: effectiveKey });
+        // Gemini expects base64 without the header prefix for inlineData
+        const base64Data = base64Image.split(',')[1]; 
+        
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash", // Use flash for speed/cost
+            contents: [
+                {
+                    role: 'user',
+                    parts: [
+                        { text: userPrompt },
+                        { inlineData: { mimeType: 'image/jpeg', data: base64Data } }
+                    ]
+                }
+            ],
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        title: { type: Type.STRING },
+                        content: { type: Type.STRING }
+                    }
+                }
+            }
+        });
+
+        if (response.text) {
+             return JSON.parse(response.text);
+        }
+        throw new Error("Recognition failed");
+    } catch (error) {
+        console.error("OCR Error:", error);
+        throw error;
+    }
 };
 
 export const testConnection = async (settings: AppSettings): Promise<boolean> => {
