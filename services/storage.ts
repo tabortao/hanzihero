@@ -160,8 +160,13 @@ export const getDailyActivity = (): Record<string, number> => {
 // --- Stories ---
 
 export const getStories = (): Story[] => {
-  // Validate stories have at least an ID and Title
-  return safeParseArray<Story>(STORAGE_KEY_STORIES, (s) => s && typeof s.id === 'string' && typeof s.title === 'string');
+  // Validate stories have at least an ID, Title, and valid Content array
+  return safeParseArray<Story>(STORAGE_KEY_STORIES, (s) => 
+      s && 
+      typeof s.id === 'string' && 
+      typeof s.title === 'string' && 
+      Array.isArray(s.content)
+  );
 };
 
 export const saveStory = (story: Story): void => {
@@ -234,8 +239,8 @@ export const importUserData = (jsonStr: string): boolean => {
             .map(c => ({
                 char: c.char,
                 pinyin: c.pinyin || '',
-                // Ensure learnedAt is a number if it exists, otherwise undefined
-                learnedAt: typeof c.learnedAt === 'number' ? c.learnedAt : undefined
+                // Ensure learnedAt is a valid number if it exists, otherwise undefined (handle NaN)
+                learnedAt: (typeof c.learnedAt === 'number' && !isNaN(c.learnedAt)) ? c.learnedAt : undefined
             }));
     };
 
@@ -246,10 +251,16 @@ export const importUserData = (jsonStr: string): boolean => {
         localStorage.setItem(STORAGE_KEY_KNOWN, JSON.stringify(sanitizeCharList(data.known)));
     }
 
-    // 4. Stories
+    // 4. Stories (Deep Sanitization)
     if (Array.isArray(data.stories)) {
-        // Basic check for stories
-        const cleanStories = data.stories.filter((s: any) => s && s.id && s.title && Array.isArray(s.content));
+        // Filter valid stories and deep clean content to prevent nulls in char array
+        const cleanStories = data.stories
+            .filter((s: any) => s && s.id && s.title && Array.isArray(s.content))
+            .map((s: any) => ({
+                ...s,
+                // Ensure every content item is a valid object with a char string
+                content: s.content.filter((c: any) => c && typeof c.char === 'string')
+            }));
         localStorage.setItem(STORAGE_KEY_STORIES, JSON.stringify(cleanStories));
     }
     
