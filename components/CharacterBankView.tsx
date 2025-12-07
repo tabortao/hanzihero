@@ -1,16 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Book, CheckCircle, XCircle, RotateCcw } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ArrowLeft, Book, CheckCircle, XCircle, Search, GraduationCap, Volume2, Check, X, Library } from 'lucide-react';
 import { Character } from '../types';
 import { getKnownCharacters, getUnknownCharacters, addKnownCharacter, addUnknownCharacter, getCharacterLearnCount } from '../services/storage';
+import { getAllDictionaryChars, findCharacterPinyin } from '../data/dictionary';
+import { speakText } from './SharedComponents';
 
 interface CharacterBankViewProps {
   onBack: () => void;
+  onStudy?: (char: Character) => void;
 }
 
-export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack }) => {
-  const [activeTab, setActiveTab] = useState<'KNOWN' | 'UNKNOWN'>('KNOWN');
+export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack, onStudy }) => {
+  const [activeTab, setActiveTab] = useState<'KNOWN' | 'UNKNOWN' | 'ALL'>('KNOWN');
   const [knownList, setKnownList] = useState<Character[]>([]);
   const [unknownList, setUnknownList] = useState<Character[]>([]);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // For 'ALL' tab - Pagination
+  const [allCharsPage, setAllCharsPage] = useState(0);
+  const PAGE_SIZE = 100;
+
+  // Modal State
+  const [selectedChar, setSelectedChar] = useState<Character | null>(null);
 
   useEffect(() => {
     refreshLists();
@@ -21,108 +33,290 @@ export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack }) 
     setUnknownList(getUnknownCharacters());
   };
 
-  const toggleStatus = (char: Character, toStatus: 'KNOWN' | 'UNKNOWN') => {
-    if (toStatus === 'KNOWN') {
-      addKnownCharacter(char);
-    } else {
-      addUnknownCharacter(char);
+  // Prepare the "All" list (Memoized to prevent recalc)
+  // Sort by Pinyin A-Z
+  const allDictionaryList = useMemo(() => {
+    const rawChars = getAllDictionaryChars();
+    
+    // Create objects first to get pinyin for sorting
+    const charObjects = rawChars.map(c => ({
+       char: c,
+       pinyin: findCharacterPinyin(c) 
+    }));
+
+    // Sort by pinyin (using localeCompare for Chinese which handles Pinyin approx)
+    return charObjects.sort((a, b) => a.pinyin.localeCompare(b.pinyin, 'zh-CN'));
+  }, []);
+
+  const handleAction = (action: 'READ' | 'STUDY' | 'KNOWN' | 'UNKNOWN') => {
+    if (!selectedChar) return;
+    
+    switch (action) {
+      case 'READ':
+        speakText(selectedChar.char);
+        break;
+      case 'STUDY':
+        if (onStudy) onStudy(selectedChar);
+        setSelectedChar(null);
+        break;
+      case 'KNOWN':
+        addKnownCharacter(selectedChar);
+        refreshLists();
+        speakText('认识');
+        setSelectedChar(null);
+        break;
+      case 'UNKNOWN':
+        addUnknownCharacter(selectedChar);
+        refreshLists();
+        speakText('不认识');
+        setSelectedChar(null);
+        break;
     }
-    refreshLists();
   };
 
-  const currentList = activeTab === 'KNOWN' ? knownList : unknownList;
+  const getCharStatus = (charStr: string): 'KNOWN' | 'UNKNOWN' | 'NONE' => {
+      if (knownList.some(c => c.char === charStr)) return 'KNOWN';
+      if (unknownList.some(c => c.char === charStr)) return 'UNKNOWN';
+      return 'NONE';
+  };
+
+  // Filter Data based on Tab and Search
+  const getDisplayData = () => {
+      let source: Character[] = [];
+      if (activeTab === 'KNOWN') source = knownList;
+      else if (activeTab === 'UNKNOWN') source = unknownList;
+      else source = allDictionaryList;
+
+      // Filter by Search
+      if (searchQuery.trim()) {
+          return source.filter(c => c.char.includes(searchQuery) || c.pinyin.includes(searchQuery));
+      }
+      return source;
+  };
+
+  const displayList = getDisplayData();
+  
+  // Pagination Logic
+  const isPaginated = activeTab === 'ALL' && !searchQuery;
+  const paginatedList = isPaginated 
+      ? displayList.slice(allCharsPage * PAGE_SIZE, (allCharsPage + 1) * PAGE_SIZE)
+      : displayList;
+
+  const totalPages = Math.ceil(displayList.length / PAGE_SIZE);
 
   return (
-    <div className="max-w-6xl mx-auto p-4 min-h-screen animate-fade-in pb-24">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <button 
-          onClick={onBack}
-          className="p-3 bg-white rounded-full shadow-md hover:bg-gray-50 text-gray-600 transition-all"
-        >
-          <ArrowLeft />
-        </button>
-        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <Book className="text-blue-500" />
-          我的字库
-        </h1>
+    <div className="max-w-6xl mx-auto min-h-screen bg-gray-50 flex flex-col pb-24">
+      
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-30 bg-white shadow-sm px-4 py-4 rounded-b-2xl">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+                <button 
+                onClick={onBack}
+                className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 text-gray-600 transition-all"
+                >
+                <ArrowLeft size={20} />
+                </button>
+                <h1 className="text-xl md:text-2xl font-bold text-gray-800 flex items-center gap-2">
+                <Library className="text-indigo-500" />
+                我的字库
+                </h1>
+            </div>
+            <button 
+                onClick={() => setShowSearch(!showSearch)}
+                className={`p-2 rounded-full transition-all ${showSearch ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-500'}`}
+            >
+                <Search size={20} />
+            </button>
+          </div>
+
+          {/* Search Bar */}
+          {showSearch && (
+              <div className="mb-4 animate-slide-up">
+                  <input 
+                      type="text" 
+                      placeholder="搜索汉字或拼音..." 
+                      className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-indigo-400 outline-none transition-all"
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      autoFocus
+                  />
+              </div>
+          )}
+
+          {/* Tabs */}
+          <div className="flex bg-gray-100 p-1 rounded-xl">
+            <button
+            onClick={() => { setActiveTab('KNOWN'); setAllCharsPage(0); }}
+            className={`flex-1 py-2 rounded-lg text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-1 ${
+                activeTab === 'KNOWN' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-400'
+            }`}
+            >
+            <CheckCircle size={16} /> 已认识 ({knownList.length})
+            </button>
+            <button
+            onClick={() => { setActiveTab('UNKNOWN'); setAllCharsPage(0); }}
+            className={`flex-1 py-2 rounded-lg text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-1 ${
+                activeTab === 'UNKNOWN' ? 'bg-white text-orange-500 shadow-sm' : 'text-gray-400'
+            }`}
+            >
+            <XCircle size={16} /> 生字本 ({unknownList.length})
+            </button>
+            <button
+            onClick={() => { setActiveTab('ALL'); setAllCharsPage(0); }}
+            className={`flex-1 py-2 rounded-lg text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-1 ${
+                activeTab === 'ALL' ? 'bg-white text-indigo-500 shadow-sm' : 'text-gray-400'
+            }`}
+            >
+            <Book size={16} /> 字库字典 ({allDictionaryList.length})
+            </button>
+          </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-gray-100 mb-6 max-w-lg mx-auto">
-        <button
-          onClick={() => setActiveTab('KNOWN')}
-          className={`flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
-            activeTab === 'KNOWN' 
-              ? 'bg-green-100 text-green-700 shadow-sm' 
-              : 'text-gray-400 hover:text-gray-600'
-          }`}
-        >
-          <CheckCircle size={20} />
-          已认识 ({knownList.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('UNKNOWN')}
-          className={`flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
-            activeTab === 'UNKNOWN' 
-              ? 'bg-orange-100 text-orange-700 shadow-sm' 
-              : 'text-gray-400 hover:text-gray-600'
-          }`}
-        >
-          <XCircle size={20} />
-          生字本 ({unknownList.length})
-        </button>
-      </div>
-
-      {/* Grid */}
-      <div className="bg-white rounded-3xl shadow-lg p-6 min-h-[50vh] border-2 border-gray-100">
-        {currentList.length === 0 ? (
+      {/* Grid Content */}
+      <div className="p-4 flex-1">
+        {paginatedList.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-400">
             <span className="text-4xl mb-4">📭</span>
-            <p>这里还是空的哦</p>
+            <p>暂无相关汉字</p>
           </div>
         ) : (
-          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-4">
-            {currentList.map((char, idx) => {
+          <div className="grid grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-3 md:gap-4">
+            {paginatedList.map((char, idx) => {
               const learnCount = getCharacterLearnCount(char.char);
+              const status = getCharStatus(char.char);
+              
+              // Dynamic Style based on status
+              let cardStyle = "bg-white border-gray-200 hover:border-indigo-300";
+              if (activeTab === 'ALL') {
+                  if (status === 'KNOWN') cardStyle = "bg-green-50 border-green-200 hover:border-green-400";
+                  if (status === 'UNKNOWN') cardStyle = "bg-orange-50 border-orange-200 hover:border-orange-400";
+              } else if (activeTab === 'KNOWN') {
+                  cardStyle = "bg-green-50 border-green-200";
+              } else if (activeTab === 'UNKNOWN') {
+                  cardStyle = "bg-orange-50 border-orange-200";
+              }
+
               return (
-                <div key={`${char.char}-${idx}`} className="relative group">
-                  <div className="aspect-square bg-gray-50 rounded-xl border border-gray-100 flex flex-col items-center justify-center cursor-default relative">
-                    <span className="font-fun text-2xl text-gray-800">{char.char}</span>
-                    <span className="text-[10px] text-gray-400">{char.pinyin}</span>
-                    
-                    {/* Learn Count Badge - Fixed positioning and z-index */}
-                    {learnCount > 0 && (
-                      <div className="absolute top-1 right-1 flex items-center gap-0.5 bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full text-[9px] font-bold z-10 shadow-sm">
-                        <RotateCcw size={8} />
-                        {learnCount}
-                      </div>
-                    )}
-                  </div>
+                <div 
+                  key={`${char.char}-${idx}`} 
+                  onClick={() => setSelectedChar(char)}
+                  className={`
+                      aspect-square rounded-xl border-2 flex flex-col items-center justify-center cursor-pointer transition-all relative select-none shadow-sm active:scale-95
+                      ${cardStyle}
+                  `}
+                >
+                  <span className="font-fun text-2xl text-gray-800">{char.char}</span>
+                  <span className="text-[10px] text-gray-400 mt-1">{char.pinyin || ' '}</span>
                   
-                  {/* Overlay Action - Ensure z-index is higher but doesn't clip badge if badge is outside */}
-                  <button
-                    onClick={() => toggleStatus(char, activeTab === 'KNOWN' ? 'UNKNOWN' : 'KNOWN')}
-                    className="absolute inset-0 bg-black/60 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-xs font-bold z-20"
-                  >
-                    {activeTab === 'KNOWN' ? (
-                      <>
-                        <XCircle className="mb-1 text-orange-300" />
-                        <span>标为生字</span>
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="mb-1 text-green-300" />
-                        <span>标为认识</span>
-                      </>
-                    )}
-                  </button>
+                  {/* Learn Count Badge (Only show if significant) */}
+                  {learnCount > 5 && (
+                    <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                  )}
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* Pagination Controls (Only for ALL tab) */}
+      {isPaginated && totalPages > 1 && (
+          <div className="flex justify-center items-center gap-4 py-6">
+              <button 
+                onClick={() => setAllCharsPage(Math.max(0, allCharsPage - 1))}
+                disabled={allCharsPage === 0}
+                className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold disabled:opacity-50 hover:bg-gray-50"
+              >
+                  上一页
+              </button>
+              <span className="text-xs font-bold text-gray-400">
+                  {allCharsPage + 1} / {totalPages}
+              </span>
+              <button 
+                onClick={() => setAllCharsPage(Math.min(totalPages - 1, allCharsPage + 1))}
+                disabled={allCharsPage === totalPages - 1}
+                className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold disabled:opacity-50 hover:bg-gray-50"
+              >
+                  下一页
+              </button>
+          </div>
+      )}
+
+      {/* --- Action Modal --- */}
+      {selectedChar && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedChar(null)}>
+              <div 
+                className="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 relative animate-bounce-in"
+                onClick={e => e.stopPropagation()}
+              >
+                  {/* Close Button */}
+                  <button 
+                    onClick={() => setSelectedChar(null)}
+                    className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200"
+                  >
+                      <X size={20} />
+                  </button>
+
+                  {/* Character Preview */}
+                  <div className="flex flex-col items-center mb-8 pt-4">
+                      <div className="text-xl font-bold text-gray-500 mb-2">{selectedChar.pinyin}</div>
+                      <div className="w-32 h-32 bg-gray-50 rounded-2xl border-2 border-gray-200 flex items-center justify-center mb-4 relative">
+                          {/* TianZiGe Lines */}
+                          <div className="absolute inset-0 pointer-events-none opacity-20" style={{
+                              backgroundImage: `linear-gradient(to right, transparent 49%, #f87171 50%, transparent 51%), linear-gradient(to bottom, transparent 49%, #f87171 50%, transparent 51%), linear-gradient(45deg, transparent 49%, #f87171 50%, transparent 51%), linear-gradient(-45deg, transparent 49%, #f87171 50%, transparent 51%)`,
+                              backgroundSize: '100% 100%'
+                          }}></div>
+                          <span className="font-fun text-7xl text-gray-800 relative z-10">{selectedChar.char}</span>
+                      </div>
+                      
+                      {/* Current Status Badge */}
+                      {getCharStatus(selectedChar.char) === 'KNOWN' && <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"><CheckCircle size={12}/> 已认识</span>}
+                      {getCharStatus(selectedChar.char) === 'UNKNOWN' && <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"><XCircle size={12}/> 生字本</span>}
+                  </div>
+
+                  {/* Actions Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                      <button 
+                        onClick={() => handleAction('READ')}
+                        className="flex flex-col items-center justify-center p-4 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-colors gap-2"
+                      >
+                          <Volume2 size={24} />
+                          <span className="font-bold text-sm">朗读</span>
+                      </button>
+                      
+                      <button 
+                        onClick={() => handleAction('STUDY')}
+                        className="flex flex-col items-center justify-center p-4 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-100 transition-colors gap-2"
+                      >
+                          <GraduationCap size={24} />
+                          <span className="font-bold text-sm">学习</span>
+                      </button>
+
+                      <button 
+                        onClick={() => handleAction('KNOWN')}
+                        className={`flex flex-col items-center justify-center p-4 rounded-2xl transition-colors gap-2 border-2 ${
+                            getCharStatus(selectedChar.char) === 'KNOWN' ? 'bg-green-100 border-green-300 text-green-700' : 'bg-white border-green-100 text-green-600 hover:bg-green-50'
+                        }`}
+                      >
+                          <Check size={24} />
+                          <span className="font-bold text-sm">认识</span>
+                      </button>
+
+                      <button 
+                        onClick={() => handleAction('UNKNOWN')}
+                        className={`flex flex-col items-center justify-center p-4 rounded-2xl transition-colors gap-2 border-2 ${
+                            getCharStatus(selectedChar.char) === 'UNKNOWN' ? 'bg-orange-100 border-orange-300 text-orange-700' : 'bg-white border-orange-100 text-orange-600 hover:bg-orange-50'
+                        }`}
+                      >
+                          <X size={24} />
+                          <span className="font-bold text-sm">不认识</span>
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
     </div>
   );
 };

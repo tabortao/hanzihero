@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ViewState, GameConfig } from './types';
+import { ViewState, GameConfig, Character } from './types';
 import { SelectionView } from './components/SelectionView';
 import { GameView } from './components/GameView';
 import { ReviewView } from './components/ReviewView';
@@ -29,6 +29,15 @@ const App: React.FC = () => {
     setStars(newTotalStars);
     setView('TAB_HOME');
     setGameConfig(null);
+  };
+
+  const handleStudySingleChar = (char: Character) => {
+    setGameConfig({
+        mode: 'CHALLENGE',
+        title: `学习生字：${char.char}`,
+        characters: [char]
+    });
+    setView('GAME');
   };
 
   // When inside a tab, switch sub-views
@@ -74,6 +83,7 @@ const App: React.FC = () => {
         {view === 'BANK' && (
           <CharacterBankView 
             onBack={handleBackToHome} 
+            onStudy={handleStudySingleChar}
           />
         )}
       </main>

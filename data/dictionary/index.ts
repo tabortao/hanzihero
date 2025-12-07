@@ -1,4 +1,5 @@
 import { AIExplanation } from "../../types";
+import { APP_DATA } from "../../data";
 import { DICT_CHUNK_1 } from "./chunk1";
 import { DICT_CHUNK_2 } from "./chunk2";
 import { DICT_CHUNK_3 } from "./chunk3";
@@ -32,10 +33,6 @@ import { DICT_CHUNK_30 } from "./chunk30";
 import { DICT_CHUNK_31 } from "./chunk31";
 import { DICT_CHUNK_32 } from "./chunk32";
 import { DICT_CHUNK_33 } from "./chunk33";
-
-// Aggregate all chunks into a single lookup function or object
-// Using a function is better for memory if we implement lazy loading later, 
-// but for now, we merge them for O(1) access.
 
 const MASTER_DICT: Record<string, AIExplanation> = {
   ...DICT_CHUNK_1,
@@ -79,4 +76,41 @@ export const getOfflineDict = (): Record<string, AIExplanation> => {
 
 export const getOfflineCharacter = (char: string): AIExplanation | undefined => {
     return MASTER_DICT[char];
+};
+
+export const getAllDictionaryChars = (): string[] => {
+    return Object.keys(MASTER_DICT);
+};
+
+// Global Helper to find Pinyin for any character
+export const findCharacterPinyin = (char: string): string => {
+  // 1. Check Curriculum Data (Textbooks) - Most accurate for grade level
+  for (const curriculum of APP_DATA) {
+    for (const grade of curriculum.grades) {
+      for (const unit of grade.units) {
+        const found = unit.characters.find(c => c.char === char);
+        if (found && found.pinyin) return found.pinyin;
+      }
+    }
+  }
+
+  // 2. Check Dictionary Data (AI Explanations)
+  // Check the char's own entry if it has pinyin in sentenceData or words
+  const dictEntry = MASTER_DICT[char];
+  if (dictEntry) {
+      // Try to find self in sentenceData
+      const inSentence = dictEntry.sentenceData?.find(c => c.char === char);
+      if (inSentence && inSentence.pinyin) return inSentence.pinyin;
+      
+      // Try to find self in composition parts
+      if (dictEntry.compositionParts) {
+         const inParts = dictEntry.compositionParts.find(c => c.char === char);
+         if (inParts && inParts.pinyin) return inParts.pinyin;
+      }
+  }
+
+  // 3. Fallback: Search OTHER dictionary entries for this character
+  // (Expensive operation, maybe skip or optimize in future)
+  
+  return '';
 };

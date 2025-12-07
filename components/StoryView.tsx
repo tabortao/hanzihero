@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { BookOpen, Sparkles, Trash2, Volume2, Save, Plus, Archive, RotateCcw, Check } from 'lucide-react';
-import { Story } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { BookOpen, Sparkles, Trash2, Volume2, Save, Plus, Archive, RotateCcw, Check, Loader2 } from 'lucide-react';
+import { Story, CharPair } from '../types';
 import { getStories, saveStory, deleteStory, getKnownCharacters, getUnknownCharacters } from '../services/storage';
-import { generateStory } from '../services/geminiService';
+import { generateStoryStream } from '../services/geminiService';
 import { speakText, WritingGrid } from './SharedComponents';
+import { findCharacterPinyin } from '../data/dictionary';
+
+// Helper to generate a UUID
+const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
 
 export const StoryView: React.FC = () => {
   const [stories, setStories] = useState<Story[]>([]);
@@ -11,6 +15,9 @@ export const StoryView: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [keywords, setKeywords] = useState('');
   const [showInput, setShowInput] = useState(false);
+  
+  // Streaming state
+  const [streamText, setStreamText] = useState('');
 
   useEffect(() => {
     setStories(getStories());
@@ -18,29 +25,93 @@ export const StoryView: React.FC = () => {
 
   const handleGenerate = async () => {
     setLoading(true);
+    setStreamText(''); // Reset buffer
+    
     const known = getKnownCharacters();
     const unknown = getUnknownCharacters();
     const available = [...known, ...unknown];
     
-    // If user has no words, add a few simple ones manually so AI can work
+    // Fallback if empty
     if (available.length < 5) {
         available.push(
             {char:'天', pinyin:'tiān'}, {char:'地', pinyin:'dì'}, {char:'人', pinyin:'rén'}
         );
     }
 
-    const newStory = await generateStory(available, keywords);
-    if (newStory) {
-        saveStory(newStory);
-        setStories([newStory, ...stories]);
-        setCurrentStory(newStory);
-        setShowInput(false);
-        setKeywords('');
-    } else {
+    try {
+        await generateStoryStream(available, keywords, (chunk) => {
+            setStreamText(prev => prev + chunk);
+        });
+
+        // Processing after stream finishes
+        // Wait a tick to ensure state is updated (though in promise chain it uses closure usually, 
+        // here we rely on the final text being in streamText which reacts, 
+        // but inside async function we need access to the accumulated result. 
+        // Actually the `generateStoryStream` promise resolves when done. 
+        // But `streamText` state update is async. 
+        // We can capture full text in a local var for processing.
+    } catch (e) {
         alert("生成失败，请检查网络或 AI 设置");
+        setLoading(false);
+        return;
     }
+    
+    // We need to access the final text. Since state update is async, 
+    // we can't just read `streamText` immediately here reliably if we relied purely on state.
+    // However, the cleanest way is to use a mutable ref or let the user see the text and then "Save/Confirm".
+    // But to match previous UX, let's process it. 
+    // We will just process the `streamText` from the state in a `useEffect` or 
+    // modify `generateStoryStream` to return the full text? 
+    // Better: maintain a local variable during stream.
     setLoading(false);
   };
+
+  // Helper to parse raw text into Story object
+  const finalizeStory = () => {
+      if (!streamText.trim()) return;
+
+      const lines = streamText.split('\n').filter(l => l.trim() !== '');
+      const title = lines[0]?.replace(/^#+\s*/, '') || '无题'; // Remove Markdown headers if any
+      const contentText = lines.slice(1).join('\n');
+      
+      // Convert content to CharPairs with Pinyin lookup
+      const content: CharPair[] = contentText.split('').map(char => {
+          // If it's a known punctuation or whitespace, use empty pinyin
+          if (/[\s\n\r\t,。！？.?!:：]/.test(char)) {
+              return { char, pinyin: '' };
+          }
+          return {
+              char,
+              pinyin: findCharacterPinyin(char) || ''
+          };
+      });
+
+      const newStory: Story = {
+          id: generateId(),
+          title,
+          content,
+          createdAt: Date.now(),
+          isArchived: false,
+          readCount: 0,
+          keywords
+      };
+
+      saveStory(newStory);
+      setStories([newStory, ...stories]);
+      setCurrentStory(newStory);
+      
+      // Reset UI
+      setShowInput(false);
+      setKeywords('');
+      setStreamText('');
+  };
+
+  // Trigger finalization when loading stops if we have text
+  useEffect(() => {
+      if (!loading && streamText.length > 10 && !currentStory) {
+          finalizeStory();
+      }
+  }, [loading]);
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -59,7 +130,6 @@ export const StoryView: React.FC = () => {
   };
 
   const openStory = (story: Story) => {
-      // Increment read count
       const updated = { ...story, readCount: (story.readCount || 0) + 1 };
       saveStory(updated);
       setStories(stories.map(s => s.id === updated.id ? updated : s));
@@ -87,27 +157,44 @@ export const StoryView: React.FC = () => {
                  <p className="text-gray-500 text-sm mb-4">用你学过的汉字，编写有趣的小故事</p>
                  
                  {showInput ? (
-                     <div className="mb-4 space-y-2 animate-slide-up">
-                         <input 
-                            type="text" 
-                            className="w-full p-3 rounded-xl border border-amber-200 focus:border-amber-400 outline-none text-sm bg-amber-50"
-                            placeholder="输入关键词（如：小狗、春天）..."
-                            value={keywords}
-                            onChange={e => setKeywords(e.target.value)}
-                         />
+                     <div className="mb-4 space-y-4 animate-slide-up">
+                         {/* Live Preview during Generation */}
+                         {streamText && (
+                             <div className="bg-amber-50 p-4 rounded-xl text-left text-sm text-gray-600 max-h-40 overflow-y-auto whitespace-pre-wrap border border-amber-200">
+                                 {streamText}
+                                 <span className="inline-block w-2 h-4 bg-amber-500 ml-1 animate-pulse"/>
+                             </div>
+                         )}
+
+                         {!loading && (
+                            <input 
+                                type="text" 
+                                className="w-full p-3 rounded-xl border border-amber-200 focus:border-amber-400 outline-none text-sm bg-amber-50"
+                                placeholder="输入关键词（如：小狗、春天）..."
+                                value={keywords}
+                                onChange={e => setKeywords(e.target.value)}
+                            />
+                         )}
+                         
                          <div className="flex gap-2">
                              <button 
-                               onClick={() => setShowInput(false)}
+                               onClick={() => { setShowInput(false); setStreamText(''); }}
                                className="flex-1 py-2 text-gray-500 bg-gray-100 rounded-lg text-sm font-bold"
+                               disabled={loading}
                              >
                                取消
                              </button>
                              <button 
                                onClick={handleGenerate}
                                disabled={loading}
-                               className="flex-1 py-2 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-lg font-bold shadow-md"
+                               className="flex-1 py-2 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-lg font-bold shadow-md flex items-center justify-center gap-2"
                              >
-                               {loading ? "创作中..." : "开始生成"}
+                               {loading ? (
+                                   <>
+                                     <Loader2 className="animate-spin" size={18} />
+                                     创作中...
+                                   </>
+                               ) : "开始生成"}
                              </button>
                          </div>
                      </div>
@@ -206,7 +293,7 @@ export const StoryView: React.FC = () => {
                  <button onClick={() => setCurrentStory(null)} className="text-gray-500 font-bold px-3">
                     返回
                  </button>
-                 <h2 className="font-bold text-lg">{currentStory.title}</h2>
+                 <h2 className="font-bold text-lg max-w-[60%] truncate">{currentStory.title}</h2>
                  <button onClick={readStory} className="p-2 bg-amber-100 text-amber-600 rounded-full hover:bg-amber-200">
                     <Volume2 size={20} />
                  </button>

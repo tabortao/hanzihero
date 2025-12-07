@@ -367,20 +367,26 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                     />
                  </div>
                  
-                 {/* Story Length - Modified to Number Input with 10000 max */}
+                 {/* Story Length - Fixed input handling */}
                  <div>
                     <div className="flex justify-between text-xs font-bold text-gray-500 mb-1">
-                        <label>短文最大字数 (上限 10000)</label>
+                        <label>阅读最大字数 (上限 10000)</label>
                     </div>
                     <div className="flex items-center gap-2">
                         <input
                             type="number"
-                            min="20"
+                            min="10"
                             max="10000"
                             className="w-full p-3 rounded-xl border border-gray-300 focus:border-indigo-500 outline-none font-mono"
-                            value={config.storyLength || 50}
+                            value={config.storyLength || ''}
                             onChange={e => {
-                                let val = parseInt(e.target.value);
+                                const strVal = e.target.value;
+                                if (strVal === '') {
+                                    // Set to 0 to represent empty state in number type
+                                    setConfig({ ...config, storyLength: 0 });
+                                    return;
+                                }
+                                let val = parseInt(strVal);
                                 if (isNaN(val)) val = 0;
                                 if (val > 10000) val = 10000;
                                 setConfig({ ...config, storyLength: val });

@@ -189,7 +189,7 @@ interface BottomNavProps {
 export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onChange }) => {
     const navItems = [
         { id: 'TAB_HOME', label: '识字', icon: Grid },
-        { id: 'TAB_STORY', label: '短文', icon: BookOpen },
+        { id: 'TAB_STORY', label: '阅读', icon: BookOpen },
         { id: 'TAB_STATS', label: '统计', icon: BarChart3 },
         { id: 'TAB_PROFILE', label: '我的', icon: User },
     ];

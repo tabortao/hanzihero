@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Book, Grid, Star, PlayCircle, Trophy, CheckCircle, List, X, Library } from 'lucide-react';
+import { Book, Grid, Star, PlayCircle, Trophy, CheckCircle, List, X, Library, BookOpen } from 'lucide-react';
 import { GameConfig, Character, Unit } from '../types';
 import { APP_DATA } from '../data';
 import { getSettings, getUnknownCharacters, getKnownCharacters } from '../services/storage';
@@ -182,9 +182,11 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
              {currentCurriculum ? `${currentCurriculum.name} · ${currentGrade?.name}` : '请先设置教材'}
            </p>
         </div>
-        <div className="flex items-center space-x-2 bg-yellow-100 px-3 py-1.5 rounded-full border border-yellow-200 shadow-sm">
-            <Star className="text-yellow-600 fill-yellow-500 w-5 h-5" />
-            <span className="font-bold text-yellow-800 text-lg">{stars}</span>
+        
+        {/* Known Characters Count Badge */}
+        <div className="flex items-center space-x-2 bg-green-100 px-3 py-1.5 rounded-full border border-green-200 shadow-sm text-green-800" title="已认识的汉字">
+            <CheckCircle size={18} className="text-green-600" />
+            <span className="font-bold text-lg">{knownChars.length}</span>
         </div>
       </div>
 
