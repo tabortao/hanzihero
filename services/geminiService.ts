@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIExplanation, AppSettings, Character, Story } from "../types";
-import { getSettings } from "./storage";
+import { getSettings, getCharacterCache, saveCharacterCache } from "./storage";
 import { getOfflineCharacter } from "../data/dictionary";
 
 // Helper for simple ID
@@ -71,6 +71,14 @@ export const explainCharacter = async (char: string, forceAI: boolean = false): 
       }
   }
 
+  // 2. Check Local Storage Cache (unless forced)
+  if (!forceAI) {
+      const cached = getCharacterCache(char);
+      if (cached) {
+          return cached;
+      }
+  }
+
   const settings = getSettings();
   const systemPrompt = "你是一位专业的小学语文老师，请用生动有趣的中文为小学生讲解汉字。";
   const userPrompt = `
@@ -108,9 +116,10 @@ export const explainCharacter = async (char: string, forceAI: boolean = false): 
   if (!effectiveKey) return getErrorState();
 
   try {
+    let result: AIExplanation;
     if (settings.apiBaseUrl && settings.apiBaseUrl.trim() !== '') {
         const data = await callOpenAICompatible(settings, systemPrompt, userPrompt, schemaDescription);
-        return data as AIExplanation;
+        result = data as AIExplanation;
     } else {
         const ai = new GoogleGenAI({ apiKey: effectiveKey });
         const response = await ai.models.generateContent({
@@ -122,9 +131,17 @@ export const explainCharacter = async (char: string, forceAI: boolean = false): 
                 responseSchema: googleSchema
             }
         });
-        if (response.text) return JSON.parse(response.text) as AIExplanation;
+        if (response.text) {
+             result = JSON.parse(response.text) as AIExplanation;
+        } else {
+             throw new Error("No data returned");
+        }
     }
-    throw new Error("No data returned");
+    
+    // Save to cache after successful fetch
+    saveCharacterCache(char, result);
+    return result;
+
   } catch (error) {
     console.error("AI Service Error:", error);
     return getErrorState();

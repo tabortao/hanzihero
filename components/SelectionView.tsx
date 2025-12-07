@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Book, Grid, Star, PlayCircle, Trophy, CheckCircle, List, X, Library, BookOpen } from 'lucide-react';
+import { Book, Grid, Star, PlayCircle, Trophy, CheckCircle, List, X, Library, BookOpen, Sparkles } from 'lucide-react';
 import { GameConfig, Character, Unit } from '../types';
 import { APP_DATA } from '../data';
 import { getSettings, getUnknownCharacters, getKnownCharacters } from '../services/storage';
@@ -8,10 +8,11 @@ interface SelectionViewProps {
   onStartGame: (config: GameConfig) => void;
   onReview: () => void;
   onOpenBank: () => void;
+  onGenerateUnitStory?: (unit: Unit) => void;
   stars: number;
 }
 
-export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onReview, onOpenBank, stars }) => {
+export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onReview, onOpenBank, onGenerateUnitStory, stars }) => {
   const [isAllUnitsOpen, setIsAllUnitsOpen] = useState(false); // Modal for all units
   
   const [activeTab, setActiveTab] = useState<'TODO' | 'DONE'>('TODO');
@@ -147,12 +148,14 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {displayUnits.map((unit, index) => (
-          <button
+          <div
             key={unit.id}
-            onClick={() => handleStartGame(unit.id, unit.name, unit.characters)}
-            className="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:border-blue-200 hover:shadow-md active:scale-[0.98] transition-all group"
+            className="flex items-center justify-between bg-white p-3 md:p-4 rounded-2xl shadow-sm border border-gray-100 hover:border-blue-200 hover:shadow-md transition-all group relative"
           >
-             <div className="flex items-center gap-4 overflow-hidden">
+             <div 
+               className="flex items-center gap-3 md:gap-4 overflow-hidden flex-1 cursor-pointer"
+               onClick={() => handleStartGame(unit.id, unit.name, unit.characters)}
+             >
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg shrink-0 ${activeTab === 'DONE' ? 'bg-green-100 text-green-600' : 'bg-blue-50 text-blue-500'}`}>
                    {limit ? index + 1 : units.indexOf(unit) + 1}
                 </div>
@@ -161,8 +164,29 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
                    <p className="text-xs text-gray-400">{unit.characters.length} 个生字</p>
                 </div>
              </div>
-             <PlayCircle size={24} className={`${activeTab === 'DONE' ? 'text-green-400' : 'text-blue-400'} shrink-0 group-hover:scale-110 transition-transform`} />
-          </button>
+
+             <div className="flex items-center gap-1">
+                 {/* Story Generation Button */}
+                 <button 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if(onGenerateUnitStory) onGenerateUnitStory(unit);
+                    }}
+                    className="p-2 text-amber-400 hover:text-amber-600 hover:bg-amber-50 rounded-full transition-colors"
+                    title="生成单元故事"
+                 >
+                    <BookOpen size={20} />
+                 </button>
+
+                 <button
+                    onClick={() => handleStartGame(unit.id, unit.name, unit.characters)}
+                    className="p-2 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                    title="开始学习"
+                 >
+                    <PlayCircle size={24} className={`${activeTab === 'DONE' ? 'text-green-400' : 'text-blue-400'} shrink-0 group-hover:scale-110 transition-transform`} />
+                 </button>
+             </div>
+          </div>
         ))}
       </div>
     );

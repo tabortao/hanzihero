@@ -41,16 +41,12 @@ export const WritingGrid: React.FC<WritingGridProps> = ({ char, pinyin, isTarget
   };
 
   // Check if character is punctuation (no pinyin usually)
-  const isPunctuation = !pinyin && char.length === 1 && !char.match(/[\u4e00-\u9fa5]/);
-
-  if (isPunctuation) {
-      return <span className="text-4xl self-end mb-4 font-fun text-gray-400">{char}</span>;
-  }
+  const isPunctuation = !pinyin && char.length === 1 && !char.match(/[\u4e00-\u9fa5a-zA-Z0-9]/);
 
   return (
     <div className="flex flex-col items-center cursor-pointer group" onClick={handleClick}>
-      {/* Pinyin Grid (4 lines) */}
-      <div className="relative w-10 h-8 sm:w-14 sm:h-10 mb-0.5 flex items-center justify-center">
+      {/* Pinyin Grid (4 lines) - Hide for punctuation to look cleaner */}
+      <div className={`relative w-10 h-8 sm:w-14 sm:h-10 mb-0.5 flex items-center justify-center ${isPunctuation ? 'opacity-0' : 'opacity-100'}`}>
          <div className="absolute inset-x-0 top-[20%] border-t border-red-300/40"></div>
          <div className="absolute inset-x-0 top-[40%] border-t border-red-300/40"></div>
          <div className="absolute inset-x-0 top-[60%] border-t border-red-400/60"></div> {/* Baseline */}
@@ -58,7 +54,7 @@ export const WritingGrid: React.FC<WritingGridProps> = ({ char, pinyin, isTarget
          <span className={`relative z-10 text-sm sm:text-base font-medium font-sans -mt-1 ${isTarget ? 'text-blue-600 font-bold' : 'text-gray-600'}`}>{pinyin}</span>
       </div>
       
-      {/* Hanzi Tianzi Ge (田字格) */}
+      {/* Hanzi Tianzi Ge (田字格) - Now wraps everything including punctuation */}
       <div className={`relative w-10 h-10 sm:w-14 sm:h-14 bg-white border border-red-400 flex items-center justify-center shadow-sm transition-transform group-hover:scale-105 ${isTarget ? 'ring-2 ring-blue-300 ring-offset-1' : ''}`}>
         {/* Diagonals and Cross lines for Tianzi Ge */}
         <div className="absolute inset-0" 

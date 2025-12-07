@@ -14,29 +14,36 @@ export const StatsView: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   // --- Ebbinghaus Data Calculation ---
+  // Re-defined buckets for clearer mapping
+  // 刚学 (New): < 24 hours
+  // 1天 (1 Day): 1 - 3 days
+  // 3天 (3 Days): 3 - 7 days
+  // 7天 (7 Days): 7 - 15 days
+  // 15天+ (Long term): > 15 days
   const ebbinghausData = useMemo(() => {
     const now = Date.now();
     const buckets = {
-        new: 0,   // < 24 hours
-        day1: 0,  // 1-2 days
-        day3: 0,  // 3-6 days
-        day7: 0,  // 7-30 days
-        old: 0    // > 30 days
+        new: 0,    // < 1 day
+        day1: 0,   // 1-3 days
+        day3: 0,   // 3-7 days
+        day7: 0,   // 7-15 days
+        day15: 0   // > 15 days
     };
 
     known.forEach(char => {
-        if (!char.learnedAt) {
-            buckets.old++; 
+        // Safety check: ensure learnedAt is a valid number
+        if (!char.learnedAt || typeof char.learnedAt !== 'number') {
+            buckets.day15++; 
             return;
         }
-        const diffHours = (now - char.learnedAt) / (1000 * 60 * 60);
+        // Difference in days (float)
+        const diffDays = (now - char.learnedAt) / (1000 * 60 * 60 * 24);
         
-        if (diffHours < 24) buckets.new++;
-        else if (diffHours < 48) buckets.day1++; // approx 1 day
-        else if (diffHours < 24 * 3) buckets.day1++; // buffer
-        else if (diffHours < 24 * 7) buckets.day3++;
-        else if (diffHours < 24 * 30) buckets.day7++;
-        else buckets.old++;
+        if (diffDays < 1.0) buckets.new++;
+        else if (diffDays < 3.0) buckets.day1++;
+        else if (diffDays < 7.0) buckets.day3++;
+        else if (diffDays < 15.0) buckets.day7++;
+        else buckets.day15++;
     });
 
     return buckets;
@@ -156,6 +163,26 @@ export const StatsView: React.FC = () => {
       return `${currentDate.getFullYear()}年`;
   };
 
+  // --- CHART CONFIGURATION ---
+  // Canvas Size: 600 x 250
+  // X-Axis Distribution: New(0-1d), 1d(1-3d), 3d(3-7d), 7d(7-15d), 15d+
+  const POINTS = {
+      p0:  { cx: 60,  cy: 40,  color: '#10b981', label: '刚学', count: ebbinghausData.new },   // 100% - Green
+      p1:  { cx: 180, cy: 140, color: '#3b82f6', label: '1天',  count: ebbinghausData.day1 },  // ~45% - Blue
+      p2:  { cx: 300, cy: 180, color: '#f59e0b', label: '3天',  count: ebbinghausData.day3 },  // ~35% - Orange
+      p3:  { cx: 420, cy: 200, color: '#ef4444', label: '7天',  count: ebbinghausData.day7 },  // ~25% - Red
+      p4:  { cx: 540, cy: 220, color: '#8b5cf6', label: '15天+', count: ebbinghausData.day15 } // ~20% - Purple
+  };
+
+  // Smooth Curve: Steep drop initially, then flattening out
+  const curvePath = `
+    M ${POINTS.p0.cx},${POINTS.p0.cy}
+    C ${POINTS.p0.cx + 40},${POINTS.p0.cy + 10} ${POINTS.p1.cx - 40},${POINTS.p1.cy - 20} ${POINTS.p1.cx},${POINTS.p1.cy}
+    S ${POINTS.p2.cx - 40},${POINTS.p2.cy} ${POINTS.p2.cx},${POINTS.p2.cy}
+    S ${POINTS.p3.cx - 40},${POINTS.p3.cy} ${POINTS.p3.cx},${POINTS.p3.cy}
+    S ${POINTS.p4.cx - 40},${POINTS.p4.cy} ${POINTS.p4.cx},${POINTS.p4.cy}
+  `;
+
   return (
     <div className="max-w-4xl mx-auto min-h-screen bg-gray-50 pb-24">
         {/* Header */}
@@ -192,85 +219,73 @@ export const StatsView: React.FC = () => {
                </div>
                
                {/* SVG Visualization */}
-               <div className="relative h-56 w-full border-l border-b border-gray-200">
-                   <svg className="absolute inset-0 w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 600 300">
-                       {/* Background Grid Lines */}
-                       <line x1="0" y1="75" x2="600" y2="75" stroke="#f3f4f6" strokeDasharray="4"/>
-                       <line x1="0" y1="150" x2="600" y2="150" stroke="#f3f4f6" strokeDasharray="4"/>
-                       <line x1="0" y1="225" x2="600" y2="225" stroke="#f3f4f6" strokeDasharray="4"/>
+               <div className="relative h-64 w-full border-b border-gray-200">
+                   <svg className="absolute inset-0 w-full h-full overflow-visible" preserveAspectRatio="xMidYMid meet" viewBox="0 0 600 280">
                        
-                       {/* The Curve (Theoretical) */}
+                       {/* The Curve */}
                        <path 
-                         d="M0,20 Q 50,250 600,280" 
+                         d={curvePath}
                          fill="none" 
                          stroke="#ec4899" 
                          strokeWidth="3"
                          strokeOpacity="0.3"
+                         strokeLinecap="round"
                          vectorEffect="non-scaling-stroke"
                        />
 
-                       {/* DATA BUBBLES - Overlaying real user distribution on the curve timeline */}
-                       {/* Point 1: New (0 time) -> High retention (y=20) */}
-                       {ebbinghausData.new > 0 && (
-                          <g>
-                             <circle cx="10" cy="20" r={Math.min(30, 10 + ebbinghausData.new)} fill="#10b981" opacity="0.8" />
-                             <text x="10" y="24" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">{ebbinghausData.new}</text>
-                          </g>
-                       )}
-
-                       {/* Point 2: 1 Day -> ~70% retention visual (x=80, y=90) */}
-                       {ebbinghausData.day1 > 0 && (
-                          <g>
-                             <circle cx="80" cy="90" r={Math.min(30, 10 + ebbinghausData.day1)} fill="#3b82f6" opacity="0.8" />
-                             <text x="80" y="94" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">{ebbinghausData.day1}</text>
-                          </g>
-                       )}
-
-                       {/* Point 3: 3 Days -> ~50% retention visual (x=180, y=150) */}
-                       {ebbinghausData.day3 > 0 && (
-                          <g>
-                             <circle cx="180" cy="150" r={Math.min(30, 10 + ebbinghausData.day3)} fill="#f59e0b" opacity="0.8" />
-                             <text x="180" y="154" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">{ebbinghausData.day3}</text>
-                          </g>
-                       )}
-                       
-                       {/* Point 4: 7 Days -> ~30% retention visual (x=300, y=220) */}
-                       {ebbinghausData.day7 > 0 && (
-                          <g>
-                             <circle cx="300" cy="220" r={Math.min(30, 10 + ebbinghausData.day7)} fill="#ef4444" opacity="0.8" />
-                             <text x="300" y="224" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">{ebbinghausData.day7}</text>
-                          </g>
-                       )}
-                       
-                        {/* Point 5: Old -> Long tail (x=500, y=280) */}
-                       {ebbinghausData.old > 0 && (
-                          <g>
-                             <circle cx="500" cy="280" r={Math.min(30, 10 + ebbinghausData.old)} fill="#6b7280" opacity="0.8" />
-                             <text x="500" y="284" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">{ebbinghausData.old}</text>
-                          </g>
-                       )}
+                       {/* DATA BUBBLES */}
+                       {Object.values(POINTS).map((pt, idx) => (
+                           <g key={idx}>
+                               {pt.count > 0 && (
+                                   <>
+                                     <circle 
+                                        cx={pt.cx} cy={pt.cy} 
+                                        r={Math.min(30, 14 + pt.count * 0.5)} 
+                                        fill={pt.color} 
+                                        opacity="0.9" 
+                                        className="animate-bounce-in"
+                                     />
+                                     <text 
+                                        x={pt.cx} y={pt.cy + 4} 
+                                        textAnchor="middle" 
+                                        fill="white" 
+                                        fontSize="12" 
+                                        fontWeight="bold"
+                                        pointerEvents="none"
+                                     >
+                                         {pt.count}
+                                     </text>
+                                   </>
+                               )}
+                               
+                               {/* Always show X-axis Ticks for context */}
+                               <line x1={pt.cx} y1="250" x2={pt.cx} y2="260" stroke="#e5e7eb" strokeWidth="2" />
+                           </g>
+                       ))}
 
                    </svg>
                    
-                   {/* X Axis Labels */}
-                   <div className="absolute bottom-[-20px] left-0 text-[10px] text-gray-500 font-bold">刚学</div>
-                   <div className="absolute bottom-[-20px] left-[13%] text-[10px] text-gray-400">1天</div>
-                   <div className="absolute bottom-[-20px] left-[30%] text-[10px] text-gray-400">3天</div>
-                   <div className="absolute bottom-[-20px] left-[50%] text-[10px] text-gray-400">7天+</div>
-                   <div className="absolute bottom-[-20px] right-0 text-[10px] text-gray-400">稳定期</div>
+                   {/* X Axis Labels - Now Colored to match bubbles */}
+                   <div className="absolute bottom-0 w-full h-6 text-[10px] font-bold">
+                       {Object.values(POINTS).map((pt, idx) => (
+                           <div 
+                              key={idx}
+                              className="absolute -translate-x-1/2 text-center transition-colors" 
+                              style={{ 
+                                  left: `${(pt.cx / 600) * 100}%`,
+                                  color: pt.color 
+                              }}
+                           >
+                               {pt.label}
+                           </div>
+                       ))}
+                   </div>
                </div>
                
-               {/* Legend */}
-               <div className="mt-8 flex flex-wrap justify-center gap-3 text-[10px] text-gray-500">
-                   <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500"></div>新学</div>
-                   <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500"></div>1天前</div>
-                   <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-500"></div>3天前</div>
-                   <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div>需复习</div>
-               </div>
-               
+               {/* Legend / Info */}
                <p className="text-xs text-gray-400 mt-4 text-center bg-gray-50 p-3 rounded-xl border border-gray-100">
                    气泡中的数字代表处于该遗忘阶段的汉字数量。<br/>
-                   <span className="text-pink-500 font-bold">系统会自动安排复习</span>，将它们移回“刚学”状态。
+                   <span className="text-pink-500 font-bold">系统会自动安排复习</span>，防止遗忘。
                </p>
            </div>
 
@@ -377,8 +392,6 @@ export const StatsView: React.FC = () => {
                                     ${d.isToday ? 'ring-2 ring-indigo-400 ring-offset-1' : ''}
                                 `}
                             >
-                                {/* REMOVED REPETITIVE DAY LABEL */}
-                                {/* Show Date Number nicely */}
                                 <span className={`text-sm sm:text-lg font-bold ${d.count > 0 ? 'text-green-700' : 'text-gray-300'}`}>
                                     {heatmapMode === 'WEEK' ? d.dateNum : d.dayLabel}
                                 </span>

@@ -3,16 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#ffffff">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="汉字小英雄">
     <title>汉字小英雄 - Hanzi Hero</title>
     
-    <!-- Favicon & Apple Touch Icon: A cute Panda -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐼</text></svg>">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22white%22/><text x=%2250%22 y=%2250%22 dominant-baseline=%22central%22 text-anchor=%22middle%22 font-size=%2270%22>🐼</text></svg>">
-    
+    <!-- Favicon & PWA Icons -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="manifest" href="/manifest.json">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
     <!-- Hanzi Writer for Stroke Order -->
@@ -22,6 +24,7 @@
         font-family: 'Noto Sans SC', sans-serif;
         background-color: #f0f9ff;
         touch-action: pan-x pan-y; /* Disable double-tap zoom */
+        overscroll-behavior-y: none; /* Prevent pull-to-refresh on mobile PWA */
       }
       .font-fun {
         font-family: 'ZCOOL KuaiLe', cursive;
@@ -33,6 +36,29 @@
       .no-scrollbar {
         -ms-overflow-style: none;
         scrollbar-width: none;
+      }
+      /* Animations */
+      @keyframes fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      .animate-fade-in {
+        animation: fade-in 0.3s ease-out forwards;
+      }
+      @keyframes slide-up {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+      }
+      .animate-slide-up {
+        animation: slide-up 0.3s ease-out forwards;
+      }
+      @keyframes bounce-in {
+         0% { transform: scale(0.8); opacity: 0; }
+         50% { transform: scale(1.05); }
+         100% { transform: scale(1); opacity: 1; }
+      }
+      .animate-bounce-in {
+          animation: bounce-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
       }
     </style>
   <script type="importmap">

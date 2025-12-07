@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ViewState, GameConfig, Character } from './types';
+import { ViewState, GameConfig, Character, Unit } from './types';
 import { SelectionView } from './components/SelectionView';
 import { GameView } from './components/GameView';
 import { ReviewView } from './components/ReviewView';
@@ -14,6 +14,9 @@ const App: React.FC = () => {
   const [view, setView] = useState<ViewState>('TAB_HOME');
   const [gameConfig, setGameConfig] = useState<GameConfig | null>(null);
   const [stars, setStars] = useState(0);
+  
+  // New: State to pass specific unit data to StoryView
+  const [storyGenContext, setStoryGenContext] = useState<{chars: Character[], topic: string} | null>(null);
 
   useEffect(() => {
     // Load initial stars
@@ -40,6 +43,15 @@ const App: React.FC = () => {
     setView('GAME');
   };
 
+  // Generate a story based on a specific unit
+  const handleGenerateUnitStory = (unit: Unit) => {
+      setStoryGenContext({
+          chars: unit.characters,
+          topic: `${unit.name}的故事`
+      });
+      setView('TAB_STORY');
+  };
+
   // When inside a tab, switch sub-views
   const handleReview = () => setView('REVIEW');
   const handleOpenBank = () => setView('BANK');
@@ -58,11 +70,17 @@ const App: React.FC = () => {
           <SelectionView 
             onStartGame={handleStartGame} 
             onReview={handleReview}
-            onOpenBank={handleOpenBank} 
+            onOpenBank={handleOpenBank}
+            onGenerateUnitStory={handleGenerateUnitStory}
             stars={stars}
           />
         )}
-        {view === 'TAB_STORY' && <StoryView />}
+        {view === 'TAB_STORY' && (
+          <StoryView 
+             initialContext={storyGenContext} 
+             onClearContext={() => setStoryGenContext(null)}
+          />
+        )}
         {view === 'TAB_STATS' && <StatsView />}
         {view === 'TAB_PROFILE' && (
             <ProfileView onSave={() => setView('TAB_HOME')} />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Save, Download, Upload, Activity, Wifi, HelpCircle, Book, Zap, ArrowLeft, Server, Eye, EyeOff, WifiOff, Check } from 'lucide-react';
+import { User, Save, Download, Upload, Activity, Wifi, HelpCircle, Book, Zap, ArrowLeft, Server, Eye, EyeOff, WifiOff, Check, FileJson } from 'lucide-react';
 import { AppSettings } from '../types';
 import { getSettings, saveSettings, exportUserData, importUserData } from '../services/storage';
 import { testConnection } from '../services/geminiService';
@@ -35,9 +35,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [testStatus, setTestStatus] = useState<'IDLE' | 'TESTING' | 'SUCCESS' | 'FAIL'>('IDLE');
   const [saveStatus, setSaveStatus] = useState<'IDLE' | 'SAVED'>('IDLE');
-  const [importStatus, setImportStatus] = useState<'IDLE' | 'SUCCESS' | 'ERROR'>('IDLE');
+  
+  // Import State
   const [showImport, setShowImport] = useState(false);
-  const [importText, setImportText] = useState('');
+  const [importStatus, setImportStatus] = useState<'IDLE' | 'READING' | 'SUCCESS' | 'ERROR'>('IDLE');
+  const [importErrorMsg, setImportErrorMsg] = useState('');
 
   useEffect(() => {
     const saved = getSettings();
@@ -113,13 +115,42 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
     document.body.removeChild(a);
   };
 
-  const handleImport = () => {
-    if (importUserData(importText)) {
-        setImportStatus('SUCCESS');
-        setTimeout(() => window.location.reload(), 1000);
-    } else {
-        setImportStatus('ERROR');
-    }
+  const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImportStatus('READING');
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+        try {
+            const jsonStr = e.target?.result as string;
+            if (!jsonStr) throw new Error("File is empty");
+            
+            // Validate JSON
+            const data = JSON.parse(jsonStr);
+            if (!data || typeof data !== 'object') throw new Error("Invalid JSON format");
+
+            // Attempt Import
+            const success = importUserData(jsonStr);
+            if (success) {
+                setImportStatus('SUCCESS');
+                setTimeout(() => {
+                    window.location.reload(); 
+                }, 1500);
+            } else {
+                throw new Error("Import logic failed");
+            }
+        } catch (err: any) {
+            console.error("Import error:", err);
+            setImportStatus('ERROR');
+            setImportErrorMsg(err.message || "Unknown error");
+        }
+    };
+    
+    reader.readAsText(file);
+    // Reset input value so same file can be selected again if needed
+    event.target.value = ''; 
   };
 
   // Safe access to current curriculum
@@ -367,7 +398,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                     />
                  </div>
                  
-                 {/* Story Length - Fixed input handling */}
+                 {/* Story Length */}
                  <div>
                     <div className="flex justify-between text-xs font-bold text-gray-500 mb-1">
                         <label>阅读最大字数 (上限 10000)</label>
@@ -382,7 +413,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                             onChange={e => {
                                 const strVal = e.target.value;
                                 if (strVal === '') {
-                                    // Set to 0 to represent empty state in number type
                                     setConfig({ ...config, storyLength: 0 });
                                     return;
                                 }
@@ -425,7 +455,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
              </div>
            </div>
 
-           {/* Data */}
+           {/* Data Management */}
            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                <h3 className="font-bold text-gray-800 border-b pb-3 mb-4">💾 数据管理</h3>
                <div className="flex gap-4 mb-4">
@@ -437,24 +467,27 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                   </button>
                </div>
                
-               <button 
-                  onClick={() => setView('HELP')} 
-                  className="w-full py-3 border border-blue-100 text-blue-600 rounded-xl hover:bg-blue-50 font-bold flex justify-center gap-2 mb-4"
-               >
-                  <HelpCircle size={18} /> 帮助与设计理念
-               </button>
-
                {showImport && (
-                   <div className="bg-gray-50 p-3 rounded-xl">
-                       <textarea 
-                           className="w-full h-20 p-2 text-xs border rounded mb-2"
-                           placeholder="Paste JSON here..."
-                           value={importText}
-                           onChange={e => setImportText(e.target.value)}
+                   <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 animate-slide-up">
+                       <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                           <FileJson size={18} className="text-indigo-500" /> 
+                           选择备份文件 (.json)
+                       </label>
+                       
+                       <input 
+                           type="file" 
+                           accept=".json"
+                           onChange={handleFileImport}
+                           className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 mb-3"
                        />
-                       <button onClick={handleImport} className="w-full py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm">
-                           {importStatus === 'SUCCESS' ? '导入成功' : importStatus === 'ERROR' ? '格式错误' : '确认导入'}
-                       </button>
+                       
+                       <div className="text-xs text-gray-400 mb-2">
+                           注意：导入数据将覆盖当前的所有学习进度和设置，请谨慎操作。
+                       </div>
+
+                       {importStatus === 'READING' && <div className="text-indigo-500 font-bold text-sm flex items-center gap-2"><Activity className="animate-spin" size={14}/> 正在读取文件...</div>}
+                       {importStatus === 'SUCCESS' && <div className="text-green-600 font-bold text-sm flex items-center gap-2"><Check size={14}/> 导入成功! 正在刷新...</div>}
+                       {importStatus === 'ERROR' && <div className="text-red-500 font-bold text-sm flex items-center gap-2"><WifiOff size={14}/> 导入失败: {importErrorMsg}</div>}
                    </div>
                )}
            </div>
@@ -471,6 +504,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
               {saveStatus === 'SAVED' ? <Check /> : <Save />} 
               {saveStatus === 'SAVED' ? '设置已保存' : '保存设置'}
            </button>
+           
+           <button 
+                onClick={() => setView('HELP')} 
+                className="w-full mt-6 py-3 border border-blue-100 text-blue-600 rounded-xl hover:bg-blue-50 font-bold flex justify-center gap-2"
+            >
+                <HelpCircle size={18} /> 帮助与设计理念
+            </button>
        </div>
     </div>
   );

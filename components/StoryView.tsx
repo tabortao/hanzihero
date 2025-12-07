@@ -1,30 +1,39 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { BookOpen, Sparkles, Trash2, Volume2, Save, Plus, Archive, RotateCcw, Check, Loader2, Camera, PenTool, Search, Tag, X, CheckCircle, GraduationCap } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { BookOpen, Sparkles, Trash2, Volume2, Save, Plus, Archive, RotateCcw, Check, Loader2, PenTool, Search, Tag, X, CheckCircle, GraduationCap, Edit2 } from 'lucide-react';
 import { Story, CharPair, Character } from '../types';
 import { getStories, saveStory, deleteStory, getKnownCharacters, getUnknownCharacters, addUnknownCharacter, addKnownCharacter, isCharacterKnown } from '../services/storage';
-import { generateStoryStream, recognizeTextFromImage } from '../services/geminiService';
+import { generateStoryStream } from '../services/geminiService';
 import { speakText, WritingGrid } from './SharedComponents';
 import { findCharacterPinyin } from '../data/dictionary';
 
 // Helper to generate a UUID
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
 
-const AVAILABLE_TAGS = ["一年级", "二年级", "三年级", "寓言", "童话", "古诗", "日常", "动物", "植物"];
+const AVAILABLE_TAGS = ["一年级", "二年级", "三年级", "寓言", "童话", "古诗", "日常", "动物", "植物", "单元复习"];
 
-export const StoryView: React.FC = () => {
+interface StoryViewProps {
+    initialContext?: { chars: Character[], topic: string } | null;
+    onClearContext?: () => void;
+}
+
+export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearContext }) => {
   const [stories, setStories] = useState<Story[]>([]);
   const [currentStory, setCurrentStory] = useState<Story | null>(null);
   
   // Create/Input State
   const [showInputModal, setShowInputModal] = useState(false);
-  const [inputType, setInputType] = useState<'AI' | 'MANUAL' | 'OCR'>('AI');
+  const [inputType, setInputType] = useState<'AI' | 'MANUAL'>('AI');
   const [manualTitle, setManualTitle] = useState('');
   const [manualContent, setManualContent] = useState('');
   const [keywords, setKeywords] = useState(''); // For AI
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [customTagInput, setCustomTagInput] = useState(''); 
   const [loading, setLoading] = useState(false);
   const [streamText, setStreamText] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Reader Edit State
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitleValue, setEditTitleValue] = useState('');
 
   // Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -37,16 +46,46 @@ export const StoryView: React.FC = () => {
     setStories(getStories());
   }, []);
 
+  // Handle Initial Context (e.g., coming from Unit selection)
+  useEffect(() => {
+      if (initialContext) {
+          setShowInputModal(true);
+          setInputType('AI');
+          setKeywords(initialContext.topic);
+          setSelectedTags(['单元复习']);
+      }
+  }, [initialContext]);
+
+  const handleCloseModal = () => {
+      setShowInputModal(false);
+      setKeywords('');
+      setStreamText('');
+      setManualTitle('');
+      setManualContent('');
+      setSelectedTags([]);
+      setCustomTagInput('');
+      setLoading(false);
+      if(onClearContext) onClearContext();
+  };
+
   // --- Actions ---
 
   const handleGenerateAI = async () => {
     setLoading(true);
     setStreamText(''); 
     
-    const known = getKnownCharacters();
-    const unknown = getUnknownCharacters();
-    const available = [...known, ...unknown];
+    let available: Character[] = [];
     
+    // Priority: Use initial context chars if available, otherwise use Known/Unknown lists
+    if (initialContext && initialContext.chars.length > 0) {
+        available = initialContext.chars;
+    } else {
+        const known = getKnownCharacters();
+        const unknown = getUnknownCharacters();
+        available = [...known, ...unknown];
+    }
+    
+    // Fallback if empty
     if (available.length < 5) {
         available.push({char:'天', pinyin:'tiān'}, {char:'地', pinyin:'dì'}, {char:'人', pinyin:'rén'});
     }
@@ -71,43 +110,24 @@ export const StoryView: React.FC = () => {
       saveNewStory(manualTitle, manualContent, 'MANUAL');
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-          const base64 = reader.result as string;
-          setLoading(true);
-          try {
-              const result = await recognizeTextFromImage(base64);
-              setManualTitle(result.title);
-              setManualContent(result.content);
-              setInputType('MANUAL'); // Switch to manual view to edit/confirm
-          } catch (err) {
-              alert("图片识别失败，请重试");
-          } finally {
-              setLoading(false);
-          }
-      };
-      reader.readAsDataURL(file);
-  };
-
   // Common finalization for all methods
   const saveNewStory = (title: string, contentStr: string, source: 'AI' | 'MANUAL' | 'OCR') => {
-      const content: CharPair[] = contentStr.split('').map(char => {
-          // Keep alphanumeric and chinese chars, split others
-          // 0-9 are now allowed
-          if (!char.match(/[\u4e00-\u9fa5a-zA-Z0-9]/)) {
-               // Treat as punctuation
-               if (char.trim() === '') return { char: '', pinyin: '' }; // skip pure whitespace
-               return { char, pinyin: '' };
+      const content: CharPair[] = [];
+      // Normalize newlines
+      const normalizedStr = contentStr.replace(/\r\n/g, '\n');
+      
+      for (let i = 0; i < normalizedStr.length; i++) {
+          const char = normalizedStr[i];
+          if (char === '\n') {
+              // Preserve newline as a special char token for paragraph breaking
+              content.push({ char: '\n', pinyin: '' });
+          } else if (char.match(/[\u4e00-\u9fa5a-zA-Z0-9]/)) {
+              content.push({ char, pinyin: findCharacterPinyin(char) || '' });
+          } else if (char.trim() !== '') {
+              // Treat as punctuation (keep it)
+              content.push({ char, pinyin: '' });
           }
-          return {
-              char,
-              pinyin: findCharacterPinyin(char) || ''
-          };
-      });
+      }
 
       const newStory: Story = {
           id: generateId(),
@@ -125,22 +145,24 @@ export const StoryView: React.FC = () => {
       setStories([newStory, ...stories]);
       setCurrentStory(newStory);
       
-      // Reset
-      setShowInputModal(false);
-      setKeywords('');
-      setStreamText('');
-      setManualTitle('');
-      setManualContent('');
-      setSelectedTags([]);
+      handleCloseModal();
   };
 
-  // Watch for AI stream finish
+  // Watch for AI stream finish to Populate Manual Edit Fields
   useEffect(() => {
       if (!loading && streamText.length > 10 && inputType === 'AI' && showInputModal) {
           const lines = streamText.split('\n').filter(l => l.trim() !== '');
           const title = lines[0]?.replace(/^#+\s*/, '') || '无题';
           const content = lines.slice(1).join('\n');
-          saveNewStory(title, content, 'AI');
+          
+          // Switch to manual mode to allow editing before save
+          setManualTitle(title);
+          setManualContent(content);
+          setInputType('MANUAL');
+          // Add 'AI Created' tag if not present
+          if (!selectedTags.includes('AI生成')) {
+              setSelectedTags(prev => [...prev, 'AI生成']);
+          }
       }
   }, [loading, streamText]);
 
@@ -169,10 +191,28 @@ export const StoryView: React.FC = () => {
       setCurrentStory(updated);
   };
 
+  const saveTitleEdit = () => {
+    if (currentStory && editTitleValue.trim()) {
+        const updated = { ...currentStory, title: editTitleValue };
+        saveStory(updated);
+        setStories(stories.map(s => s.id === updated.id ? updated : s));
+        setCurrentStory(updated);
+    }
+    setIsEditingTitle(false);
+  };
+
   const readStory = () => {
       if(!currentStory) return;
-      const text = currentStory.content.map(c => c.char).join('');
+      // Filter out newlines for reading
+      const text = currentStory.content.filter(c => c.char !== '\n').map(c => c.char).join('');
       speakText(text);
+  };
+
+  const addCustomTag = () => {
+      if (customTagInput && !selectedTags.includes(customTagInput)) {
+          setSelectedTags([...selectedTags, customTagInput]);
+          setCustomTagInput('');
+      }
   };
 
   // --- Character Interaction ---
@@ -194,12 +234,7 @@ export const StoryView: React.FC = () => {
               speakText(selectedCharPair.char);
               break;
           case 'STUDY':
-              // Since StoryView is inside App, we need a way to trigger GameView.
-              // Currently not strictly wired via props in this simplified component tree.
-              // In a real app, we'd use a context or callback.
-              // For this version, we will simulate by speaking and maybe saving to Unknown
               speakText(`学习: ${selectedCharPair.char}`);
-              // Note: Ideally this would navigate to GameView with this char
               break;
           case 'UNKNOWN':
               addUnknownCharacter(charObj);
@@ -226,6 +261,26 @@ export const StoryView: React.FC = () => {
   const activeStories = filteredStories.filter(s => !s.isArchived);
   const archivedStories = filteredStories.filter(s => s.isArchived);
 
+  // --- Helper: Group Content into Paragraphs ---
+  const getParagraphs = (content: CharPair[]) => {
+      const paragraphs: CharPair[][] = [];
+      let currentP: CharPair[] = [];
+      
+      content.forEach(item => {
+          if (item.char === '\n') {
+              if (currentP.length > 0) {
+                  paragraphs.push(currentP);
+                  currentP = [];
+              }
+          } else {
+              currentP.push(item);
+          }
+      });
+      // Add last paragraph if exists
+      if (currentP.length > 0) paragraphs.push(currentP);
+      return paragraphs;
+  };
+
   // --- Renders ---
 
   const renderInputModal = () => (
@@ -235,10 +290,9 @@ export const StoryView: React.FC = () => {
                   <h3 className="font-bold text-lg text-amber-900 flex items-center gap-2">
                       {inputType === 'AI' && <Sparkles size={20}/>}
                       {inputType === 'MANUAL' && <PenTool size={20}/>}
-                      {inputType === 'OCR' && <Camera size={20}/>}
-                      {inputType === 'AI' ? 'AI 创作故事' : '录入新故事'}
+                      {inputType === 'AI' ? 'AI 创作故事' : '录入/编辑故事'}
                   </h3>
-                  <button onClick={() => setShowInputModal(false)} className="p-2 hover:bg-amber-100 rounded-full"><X size={20}/></button>
+                  <button onClick={handleCloseModal} className="p-2 hover:bg-amber-100 rounded-full"><X size={20}/></button>
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -247,8 +301,6 @@ export const StoryView: React.FC = () => {
                       <div className="flex bg-gray-100 p-1 rounded-xl mb-4">
                           <button onClick={() => setInputType('AI')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${inputType === 'AI' ? 'bg-white shadow text-amber-600' : 'text-gray-400'}`}>AI 生成</button>
                           <button onClick={() => setInputType('MANUAL')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${inputType === 'MANUAL' ? 'bg-white shadow text-blue-600' : 'text-gray-400'}`}>手动录入</button>
-                          <button onClick={() => fileInputRef.current?.click()} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${inputType === 'OCR' ? 'bg-white shadow text-green-600' : 'text-gray-400'}`}>拍照识别</button>
-                          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
                       </div>
                   )}
 
@@ -270,12 +322,15 @@ export const StoryView: React.FC = () => {
                                       value={keywords}
                                       onChange={e => setKeywords(e.target.value)}
                                   />
+                                  {initialContext && (
+                                     <p className="text-xs text-green-600 mt-2 flex items-center gap-1"><CheckCircle size={12}/> 已根据选择的单元设置了识字范围</p>
+                                  )}
                               </div>
                           )}
                       </div>
                   )}
 
-                  {/* Manual Mode */}
+                  {/* Manual Mode (Also used for Editing AI result) */}
                   {inputType === 'MANUAL' && (
                       <div className="space-y-3">
                           <input 
@@ -298,7 +353,7 @@ export const StoryView: React.FC = () => {
                   {!streamText && (
                       <div>
                           <label className="block text-sm font-bold text-gray-500 mb-2 flex items-center gap-1"><Tag size={14}/> 分类标签 (分级)</label>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-2 mb-2">
                               {AVAILABLE_TAGS.map(tag => (
                                   <button
                                       key={tag}
@@ -311,6 +366,34 @@ export const StoryView: React.FC = () => {
                                       {tag}
                                   </button>
                               ))}
+                              {selectedTags.filter(t => !AVAILABLE_TAGS.includes(t)).map(tag => (
+                                  <button
+                                      key={tag}
+                                      onClick={() => setSelectedTags(prev => prev.filter(t => t !== tag))}
+                                      className="px-3 py-1 rounded-full text-xs font-bold border bg-indigo-100 border-indigo-300 text-indigo-700 flex items-center gap-1"
+                                  >
+                                      {tag} <X size={10} />
+                                  </button>
+                              ))}
+                          </div>
+                          
+                          {/* Custom Tag Input */}
+                          <div className="flex items-center gap-2">
+                              <input 
+                                type="text" 
+                                className="flex-1 p-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-indigo-300"
+                                placeholder="添加自定义标签..."
+                                value={customTagInput}
+                                onChange={e => setCustomTagInput(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && addCustomTag()}
+                              />
+                              <button 
+                                onClick={addCustomTag}
+                                disabled={!customTagInput}
+                                className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 disabled:opacity-50"
+                              >
+                                  <Plus size={14} />
+                              </button>
                           </div>
                       </div>
                   )}
@@ -443,7 +526,7 @@ export const StoryView: React.FC = () => {
                          <div className="flex justify-between items-start">
                              <div className="flex items-center gap-3">
                                  <div className="w-10 h-10 bg-amber-50 rounded-full flex items-center justify-center text-amber-500">
-                                     {story.source === 'MANUAL' ? <PenTool size={18}/> : story.source === 'OCR' ? <Camera size={18}/> : <Sparkles size={18}/>}
+                                     {story.source === 'MANUAL' ? <PenTool size={18}/> : <Sparkles size={18}/>}
                                  </div>
                                  <div>
                                      <h3 className="font-bold text-gray-800 text-lg line-clamp-1">{story.title}</h3>
@@ -528,31 +611,68 @@ export const StoryView: React.FC = () => {
 
          </div>
        ) : (
-         // Reader View
-         <div className="flex flex-col h-full animate-fade-in bg-white min-h-screen">
-             <div className="bg-white p-4 shadow-sm flex items-center justify-between sticky top-0 z-10 border-b border-gray-100">
-                 <button onClick={() => setCurrentStory(null)} className="text-gray-500 font-bold px-2 flex items-center gap-1">
-                    <RotateCcw size={16}/> 返回
+         // Reader View - Full Screen Fixed Layer
+         <div className="fixed inset-0 z-50 bg-white flex flex-col h-full animate-fade-in">
+             {/* Sticky/Fixed Header */}
+             <div className="bg-white/95 backdrop-blur-md p-4 shadow-sm flex items-center justify-between z-10 border-b border-gray-100 shrink-0">
+                 <button onClick={() => setCurrentStory(null)} className="text-gray-500 font-bold px-2 flex items-center gap-1 hover:text-gray-800">
+                    <RotateCcw size={18}/> 返回
                  </button>
-                 <div className="flex flex-col items-center">
-                     <h2 className="font-bold text-lg max-w-[150px] truncate">{currentStory.title}</h2>
-                     {currentStory.tags && <span className="text-[10px] text-gray-400">{currentStory.tags.join(', ')}</span>}
+                 <div className="flex flex-col items-center flex-1 mx-4 overflow-hidden">
+                     {isEditingTitle ? (
+                         <input 
+                            autoFocus
+                            type="text" 
+                            className="text-lg font-bold text-center border-b-2 border-amber-300 outline-none w-full bg-transparent"
+                            value={editTitleValue}
+                            onChange={e => setEditTitleValue(e.target.value)}
+                            onBlur={saveTitleEdit}
+                            onKeyDown={e => e.key === 'Enter' && saveTitleEdit()}
+                         />
+                     ) : (
+                        <div 
+                           onClick={() => {
+                               setEditTitleValue(currentStory.title);
+                               setIsEditingTitle(true);
+                           }}
+                           className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-3 py-1 rounded-lg group"
+                           title="点击修改标题"
+                        >
+                            <h2 className="font-bold text-lg truncate">{currentStory.title}</h2>
+                            <Edit2 size={14} className="text-gray-300 group-hover:text-amber-500" />
+                        </div>
+                     )}
+                     {!isEditingTitle && currentStory.tags && (
+                        <div className="flex gap-1 overflow-hidden mt-1">
+                            {currentStory.tags.map((t,i) => (
+                                <span key={i} className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded whitespace-nowrap">{t}</span>
+                            ))}
+                        </div>
+                     )}
                  </div>
-                 <button onClick={readStory} className="p-2 bg-amber-100 text-amber-600 rounded-full hover:bg-amber-200">
+                 <button onClick={readStory} className="p-2 bg-amber-100 text-amber-600 rounded-full hover:bg-amber-200 transition-colors">
                     <Volume2 size={20} />
                  </button>
              </div>
 
              <div className="flex-1 p-4 overflow-y-auto pb-32">
                  <div className="max-w-2xl mx-auto">
-                     <div className="flex flex-wrap gap-x-2 gap-y-4 leading-loose justify-center content-start">
-                         {currentStory.content.map((item, idx) => (
-                             <WritingGrid 
-                               key={idx}
-                               char={item.char}
-                               pinyin={item.pinyin}
-                               onClick={() => handleCharClick(item)} // Open modal instead of just speaking
-                             />
+                     <div className="leading-loose">
+                         {getParagraphs(currentStory.content).map((paragraph, pIdx) => (
+                             <div key={pIdx} className="flex flex-wrap gap-x-2 gap-y-4 mb-6 relative">
+                                 {/* Paragraph Indentation: Placeholder div width ~2 chars */}
+                                 {/* w-20 corresponds to 5rem ~ 80px, approx 2 grid boxes on mobile (w-10 = 2.5rem) */}
+                                 <div className="w-20 sm:w-28 h-1 shrink-0 pointer-events-none" aria-hidden="true" />
+                                 
+                                 {paragraph.map((item, idx) => (
+                                     <WritingGrid 
+                                       key={`${pIdx}-${idx}`}
+                                       char={item.char}
+                                       pinyin={item.pinyin}
+                                       onClick={() => handleCharClick(item)} 
+                                     />
+                                 ))}
+                             </div>
                          ))}
                      </div>
                      
