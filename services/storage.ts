@@ -1,4 +1,5 @@
-import { Character, AppSettings, LearningStats, UserProgress, Story, AIExplanation } from '../types';
+
+import { Character, AppSettings, LearningStats, UserProgress, Story, AIExplanation, Curriculum, Grade, Unit } from '../types';
 
 const STORAGE_KEY_UNKNOWN = 'hanzi_hero_unknown';
 const STORAGE_KEY_KNOWN = 'hanzi_hero_known';
@@ -7,6 +8,7 @@ const STORAGE_KEY_SETTINGS = 'hanzi_hero_settings';
 const STORAGE_KEY_STATS = 'hanzi_hero_stats';
 const STORAGE_KEY_STORIES = 'hanzi_hero_stories';
 const STORAGE_KEY_CACHE = 'hanzi_hero_ai_cache';
+const STORAGE_KEY_CUSTOM_CURRICULA = 'hanzi_hero_custom_curricula';
 
 // --- Helper: Safe JSON Parse to prevent crashes ---
 const safeParse = <T>(key: string, fallback: T): T => {
@@ -126,6 +128,45 @@ export const saveSettings = (settings: AppSettings): void => {
   localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
 };
 
+// --- Custom Curricula ---
+
+export const getCustomCurricula = (): Curriculum[] => {
+    return safeParseArray<Curriculum>(STORAGE_KEY_CUSTOM_CURRICULA, (c) => 
+        c && typeof c.id === 'string' && Array.isArray(c.grades)
+    );
+};
+
+export const saveCustomUnit = (currName: string, gradeName: string, unitName: string, chars: Character[]): { curriculumId: string, gradeId: string } => {
+    const customs = getCustomCurricula();
+    
+    // Find or create Curriculum
+    let curr = customs.find(c => c.name === currName);
+    if (!curr) {
+        curr = { id: `custom-c-${Date.now()}`, name: currName, grades: [] };
+        customs.push(curr);
+    }
+    
+    // Find or create Grade
+    let grade = curr.grades.find(g => g.name === gradeName);
+    if (!grade) {
+        grade = { id: `custom-g-${Date.now()}-${Math.random()}`, name: gradeName, units: [] };
+        curr.grades.push(grade);
+    }
+    
+    // Create Unit (Always append new unit)
+    const newUnit: Unit = {
+        id: `custom-u-${Date.now()}-${Math.random()}`,
+        name: unitName,
+        characters: chars
+    };
+    
+    grade.units.push(newUnit);
+    
+    localStorage.setItem(STORAGE_KEY_CUSTOM_CURRICULA, JSON.stringify(customs));
+
+    return { curriculumId: curr.id, gradeId: grade.id };
+};
+
 // --- Stats ---
 
 const getStats = (): LearningStats => {
@@ -208,6 +249,7 @@ export const exportUserData = (): string => {
     known: getKnownCharacters(),
     stats: getStats(),
     stories: getStories(),
+    customs: getCustomCurricula(),
   };
   return JSON.stringify(data, null, 2);
 };
@@ -272,6 +314,11 @@ export const importUserData = (jsonStr: string): boolean => {
             dailyActivity: data.stats.dailyActivity || {}
         };
         localStorage.setItem(STORAGE_KEY_STATS, JSON.stringify(cleanStats));
+    }
+
+    // 6. Custom Curricula
+    if (Array.isArray(data.customs)) {
+        localStorage.setItem(STORAGE_KEY_CUSTOM_CURRICULA, JSON.stringify(data.customs));
     }
     
     return true;

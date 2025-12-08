@@ -1,14 +1,26 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, Suspense } from 'react';
 import { ViewState, GameConfig, Character, Unit } from './types';
 import { SelectionView } from './components/SelectionView';
-import { GameView } from './components/GameView';
-import { ReviewView } from './components/ReviewView';
-import { CharacterBankView } from './components/CharacterBankView';
-import { StatsView } from './components/StatsView';
-import { StoryView } from './components/StoryView';
-import { ProfileView } from './components/ProfileView';
 import { BottomNav } from './components/SharedComponents';
 import { getStars } from './services/storage';
+
+// Lazy Load Heavy Components to speed up initial rendering
+// The Dictionary data is huge, so views depending on it should be loaded lazily
+const GameView = React.lazy(() => import('./components/GameView').then(module => ({ default: module.GameView })));
+const ReviewView = React.lazy(() => import('./components/ReviewView').then(module => ({ default: module.ReviewView })));
+const CharacterBankView = React.lazy(() => import('./components/CharacterBankView').then(module => ({ default: module.CharacterBankView })));
+const StatsView = React.lazy(() => import('./components/StatsView').then(module => ({ default: module.StatsView })));
+const StoryView = React.lazy(() => import('./components/StoryView').then(module => ({ default: module.StoryView })));
+const ProfileView = React.lazy(() => import('./components/ProfileView').then(module => ({ default: module.ProfileView })));
+
+// Simple Loading Spinner for Suspense Fallback
+const LoadingScreen = () => (
+  <div className="flex items-center justify-center min-h-screen bg-[#ecfdf5]">
+    <div className="loader"></div>
+    <span className="ml-3 text-indigo-600 font-bold">正在加载...</span>
+  </div>
+);
 
 const App: React.FC = () => {
   const [view, setView] = useState<ViewState>('TAB_HOME');
@@ -75,35 +87,39 @@ const App: React.FC = () => {
             stars={stars}
           />
         )}
-        {view === 'TAB_STORY' && (
-          <StoryView 
-             initialContext={storyGenContext} 
-             onClearContext={() => setStoryGenContext(null)}
-          />
-        )}
-        {view === 'TAB_STATS' && <StatsView />}
-        {view === 'TAB_PROFILE' && (
-            <ProfileView onSave={() => setView('TAB_HOME')} />
-        )}
+        
+        {/* Lazy Loaded Views */}
+        <Suspense fallback={<LoadingScreen />}>
+          {view === 'TAB_STORY' && (
+            <StoryView 
+               initialContext={storyGenContext} 
+               onClearContext={() => setStoryGenContext(null)}
+            />
+          )}
+          {view === 'TAB_STATS' && <StatsView />}
+          {view === 'TAB_PROFILE' && (
+              <ProfileView onSave={() => setView('TAB_HOME')} />
+          )}
 
-        {/* Sub Views */}
-        {view === 'GAME' && gameConfig && (
-          <GameView 
-            config={gameConfig} 
-            onExit={handleExitGame} 
-          />
-        )}
-        {view === 'REVIEW' && (
-          <ReviewView 
-            onBack={handleBackToHome} 
-          />
-        )}
-        {view === 'BANK' && (
-          <CharacterBankView 
-            onBack={handleBackToHome} 
-            onStudy={handleStudySingleChar}
-          />
-        )}
+          {/* Sub Views */}
+          {view === 'GAME' && gameConfig && (
+            <GameView 
+              config={gameConfig} 
+              onExit={handleExitGame} 
+            />
+          )}
+          {view === 'REVIEW' && (
+            <ReviewView 
+              onBack={handleBackToHome} 
+            />
+          )}
+          {view === 'BANK' && (
+            <CharacterBankView 
+              onBack={handleBackToHome} 
+              onStudy={handleStudySingleChar}
+            />
+          )}
+        </Suspense>
       </main>
 
       {showNav && (

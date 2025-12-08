@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, Book, CheckCircle, XCircle, Search, GraduationCap, Volume2, Check, X, Library } from 'lucide-react';
+import { ArrowLeft, Book, CheckCircle, XCircle, Search, GraduationCap, Volume2, Check, X, Library, User } from 'lucide-react';
 import { Character } from '../types';
 import { getKnownCharacters, getUnknownCharacters, addKnownCharacter, addUnknownCharacter, getCharacterLearnCount } from '../services/storage';
-import { getAllDictionaryChars, findCharacterPinyin } from '../data/dictionary';
+import { getOfflineDict, findCharacterPinyin } from '../data/dictionary';
 import { speakText } from './SharedComponents';
 
 interface CharacterBankViewProps {
@@ -13,11 +14,8 @@ interface CharacterBankViewProps {
 // Helper to get normalized initial (A-Z) from pinyin
 const getPinyinInitial = (pinyin: string): string => {
     if (!pinyin) return '#';
-    // Normalize unicode to separate tone marks then remove them
-    // e.g. "á" -> "a" + tone mark -> "a"
     const normalized = pinyin.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     const initial = normalized.charAt(0).toUpperCase();
-    // Check if it's a letter
     if (/[A-Z]/.test(initial)) return initial;
     return '#';
 };
@@ -45,35 +43,41 @@ export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack, on
     setUnknownList(getUnknownCharacters());
   };
 
-  // Prepare the "All" list (Memoized to prevent recalc)
-  // Sort by Pinyin A-Z (ignoring tones for major sort)
+  // Prepare the "All" list (Memoized)
+  // This combines the offline dictionary with any user-added characters
   const allDictionaryList = useMemo(() => {
-    const rawChars = getAllDictionaryChars();
+    const dict = getOfflineDict();
+    const dictChars = Object.keys(dict);
     
-    // Create objects first to get pinyin for sorting
-    const charObjects = rawChars.map(c => ({
+    // Get unique chars from user lists that might not be in dict
+    const userKnownChars = knownList.map(c => c.char);
+    const userUnknownChars = unknownList.map(c => c.char);
+    
+    // Combine all unique characters
+    const allCharsSet = new Set([...dictChars, ...userKnownChars, ...userUnknownChars]);
+    
+    const charObjects = Array.from(allCharsSet).map(c => ({
        char: c,
-       pinyin: findCharacterPinyin(c) 
+       pinyin: findCharacterPinyin(c),
+       // Flag if not in built-in dictionary
+       isCustom: !dict[c] 
     }));
 
     // Sort by pinyin
     return charObjects.sort((a, b) => {
-        // Simple comparison first
         if (!a.pinyin && !b.pinyin) return 0;
         if (!a.pinyin) return 1;
         if (!b.pinyin) return -1;
 
-        // Compare normalized strings to group by A-Z
         const normA = a.pinyin.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         const normB = b.pinyin.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         
         const cmp = normA.localeCompare(normB);
         if (cmp !== 0) return cmp;
         
-        // If normalized same, sort by tone (original pinyin)
         return a.pinyin.localeCompare(b.pinyin);
     });
-  }, []);
+  }, [knownList, unknownList]); // Refresh if user lists change
 
   const handleAction = (action: 'READ' | 'STUDY' | 'KNOWN' | 'UNKNOWN') => {
     if (!selectedChar) return;
@@ -109,7 +113,7 @@ export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack, on
 
   // Filter Data based on Tab and Search
   const getDisplayData = () => {
-      let source: Character[] = [];
+      let source: any[] = []; // Using any to accommodate isCustom property
       if (activeTab === 'KNOWN') source = knownList;
       else if (activeTab === 'UNKNOWN') source = unknownList;
       else source = allDictionaryList;
@@ -209,7 +213,7 @@ export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack, on
           </div>
         ) : (
           <div className="grid grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-3 md:gap-4 content-start">
-            {paginatedList.map((char, idx) => {
+            {paginatedList.map((char: any, idx: number) => {
               const learnCount = getCharacterLearnCount(char.char);
               const status = getCharStatus(char.char);
               
@@ -225,11 +229,10 @@ export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack, on
               }
 
               // Determine if we need a section header (only for ALL tab)
-              // Logic: Compare Normalized Initial
               let showHeader = false;
               if (activeTab === 'ALL' && !searchQuery) {
                   const currentInitial = getPinyinInitial(char.pinyin);
-                  const prevChar = paginatedList[idx - 1];
+                  const prevChar = paginatedList[idx - 1] as any;
                   const prevInitial = prevChar ? getPinyinInitial(prevChar.pinyin) : null;
                   
                   if (idx === 0 || currentInitial !== prevInitial) {
@@ -254,12 +257,18 @@ export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack, on
                       `}
                     >
                       <span className="font-fun text-2xl text-gray-800">{char.char}</span>
-                      {/* Ensure Pinyin is always displayed */}
                       <span className="text-[10px] text-gray-400 mt-1">{char.pinyin || ' '}</span>
                       
                       {/* Learn Count Badge (Only show if significant) */}
                       {learnCount > 5 && (
                         <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                      )}
+                      
+                      {/* Custom User Character Badge */}
+                      {(char.isCustom) && (
+                         <div className="absolute top-1 right-1 text-blue-500" title="用户自定义">
+                             <User size={10} fill="currentColor" />
+                         </div>
                       )}
                     </div>
                 </React.Fragment>
@@ -299,7 +308,6 @@ export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack, on
                 className="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 relative animate-bounce-in"
                 onClick={e => e.stopPropagation()}
               >
-                  {/* Close Button */}
                   <button 
                     onClick={() => setSelectedChar(null)}
                     className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200"
@@ -307,7 +315,6 @@ export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack, on
                       <X size={20} />
                   </button>
 
-                  {/* Character Preview */}
                   <div className="flex flex-col items-center mb-8 pt-4">
                       <div className="text-xl font-bold text-gray-500 mb-2">{selectedChar.pinyin}</div>
                       <div className="w-32 h-32 bg-gray-50 rounded-2xl border-2 border-gray-200 flex items-center justify-center mb-4 relative">
@@ -319,12 +326,14 @@ export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack, on
                           <span className="font-fun text-7xl text-gray-800 relative z-10">{selectedChar.char}</span>
                       </div>
                       
-                      {/* Current Status Badge */}
-                      {getCharStatus(selectedChar.char) === 'KNOWN' && <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"><CheckCircle size={12}/> 已认识</span>}
-                      {getCharStatus(selectedChar.char) === 'UNKNOWN' && <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"><XCircle size={12}/> 生字本</span>}
+                      {/* Status Badges */}
+                      <div className="flex gap-2">
+                        {getCharStatus(selectedChar.char) === 'KNOWN' && <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"><CheckCircle size={12}/> 已认识</span>}
+                        {getCharStatus(selectedChar.char) === 'UNKNOWN' && <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"><XCircle size={12}/> 生字本</span>}
+                        {(selectedChar as any).isCustom && <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"><User size={12}/> 自定义</span>}
+                      </div>
                   </div>
 
-                  {/* Actions Grid */}
                   <div className="grid grid-cols-2 gap-3">
                       <button 
                         onClick={() => handleAction('READ')}

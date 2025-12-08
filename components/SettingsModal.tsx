@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Save, Settings as SettingsIcon, Download, Upload, Check, Activity, Wifi, WifiOff, HelpCircle, Eye, EyeOff, Server } from 'lucide-react';
 import { AppSettings, Curriculum } from '../types';
-import { getSettings, saveSettings, exportUserData, importUserData } from '../services/storage';
+import { getSettings, saveSettings, exportUserData, importUserData, getCustomCurricula } from '../services/storage';
 import { testConnection } from '../services/geminiService';
 import { APP_DATA } from '../data';
 
@@ -38,6 +39,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [importStatus, setImportStatus] = useState<'IDLE' | 'SUCCESS' | 'ERROR'>('IDLE');
   
   const [testStatus, setTestStatus] = useState<'IDLE' | 'TESTING' | 'SUCCESS' | 'FAIL'>('IDLE');
+
+  // Combine static and custom curricula
+  const allCurricula = useMemo(() => {
+     const custom = getCustomCurricula();
+     return [...APP_DATA, ...custom];
+  }, [isOpen]); // Refresh when modal opens
 
   useEffect(() => {
     if (isOpen) {
@@ -119,7 +126,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     }
   };
 
-  const currentCurriculum = APP_DATA.find(c => c.id === config.selectedCurriculumId);
+  const currentCurriculum = allCurricula.find(c => c.id === config.selectedCurriculumId);
 
   if (!isOpen) return null;
 
@@ -148,7 +155,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                      className="w-full p-3 rounded-xl border border-gray-300 focus:border-indigo-500 outline-none bg-white"
                      value={config.selectedCurriculumId}
                      onChange={e => {
-                        const newCurr = APP_DATA.find(c => c.id === e.target.value);
+                        const newCurr = allCurricula.find(c => c.id === e.target.value);
                         setConfig({
                           ...config, 
                           selectedCurriculumId: e.target.value,
@@ -158,7 +165,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                      }}
                    >
                      <option value="">请选择教材</option>
-                     {APP_DATA.map(c => (
+                     {allCurricula.map(c => (
                        <option key={c.id} value={c.id}>{c.name}</option>
                      ))}
                    </select>

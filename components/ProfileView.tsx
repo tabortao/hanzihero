@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { User, Save, Download, Upload, Activity, Wifi, HelpCircle, Book, Zap, ArrowLeft, Server, Eye, EyeOff, WifiOff, Check, FileJson } from 'lucide-react';
 import { AppSettings } from '../types';
-import { getSettings, saveSettings, exportUserData, importUserData } from '../services/storage';
+import { getSettings, saveSettings, exportUserData, importUserData, getCustomCurricula } from '../services/storage';
 import { testConnection } from '../services/geminiService';
 import { APP_DATA } from '../data';
 
@@ -40,6 +41,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
   const [showImport, setShowImport] = useState(false);
   const [importStatus, setImportStatus] = useState<'IDLE' | 'READING' | 'SUCCESS' | 'ERROR'>('IDLE');
   const [importErrorMsg, setImportErrorMsg] = useState('');
+
+  // Merge APP_DATA and Custom Data
+  const allCurricula = useMemo(() => {
+      const customs = getCustomCurricula();
+      return [...APP_DATA, ...customs];
+  }, []); // Reload only on mount is acceptable here as profile usually re-mounts
 
   useEffect(() => {
     const saved = getSettings();
@@ -154,7 +161,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
   };
 
   // Safe access to current curriculum
-  const currentCurriculum = APP_DATA.find(c => c.id === config.selectedCurriculumId);
+  const currentCurriculum = allCurricula.find(c => c.id === config.selectedCurriculumId);
 
   if (view === 'HELP') {
       return (
@@ -253,7 +260,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                      value={config.selectedCurriculumId}
                      onChange={e => {
                         const newCurrId = e.target.value;
-                        const newCurr = APP_DATA.find(c => c.id === newCurrId);
+                        const newCurr = allCurricula.find(c => c.id === newCurrId);
                         setConfig({
                           ...config, 
                           selectedCurriculumId: newCurrId,
@@ -263,7 +270,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                      }}
                    >
                      <option value="">请选择教材</option>
-                     {APP_DATA.map(c => (
+                     {allCurricula.map(c => (
                        <option key={c.id} value={c.id}>{c.name}</option>
                      ))}
                    </select>
