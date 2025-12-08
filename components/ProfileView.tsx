@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, Save, Download, Upload, Activity, Wifi, HelpCircle, Book, Zap, ArrowLeft, Server, Eye, EyeOff, WifiOff, Check, FileJson, Database } from 'lucide-react';
 import { AppSettings } from '../types';
@@ -163,10 +162,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
   // Safe access to current curriculum
   const currentCurriculum = allCurricula.find(c => c.id === config.selectedCurriculumId);
 
-  // Helper to generate Grade options
-  // We want to show:
-  // 1. Grades defined in the selected curriculum (with their IDs)
-  // 2. All GRADE_PRESETS (as fallback if not defined in curriculum, using name as ID)
   const gradeOptions = useMemo(() => {
       const options: {id: string, name: string}[] = [];
       const existingNames = new Set<string>();
@@ -189,7 +184,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
 
   if (view === 'HELP') {
       return (
-          <div className="max-w-4xl mx-auto min-h-screen bg-white pb-24 animate-fade-in">
+          <div className="max-w-7xl mx-auto min-h-screen bg-white pb-24 animate-fade-in">
              <div className="bg-indigo-50 px-6 py-6 shadow-sm border-b border-indigo-100 sticky top-0 z-10">
                 <button onClick={() => setView('MAIN')} className="flex items-center gap-2 text-indigo-700 font-bold">
                     <ArrowLeft size={20} /> 返回设置
@@ -197,7 +192,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                 <h1 className="text-2xl font-bold text-indigo-900 mt-4">帮助与设计理念</h1>
              </div>
              
-             <div className="p-6 space-y-8">
+             <div className="p-6 space-y-8 max-w-4xl mx-auto">
                  {/* 3-1-3 Method */}
                  <div>
                      <h4 className="font-bold text-blue-800 text-lg flex items-center gap-2 mb-3">
@@ -263,7 +258,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto min-h-screen bg-gray-50 pb-24">
+    <div className="max-w-7xl mx-auto min-h-screen bg-gray-50 pb-24">
        <div className="bg-white px-6 py-8 shadow-sm">
           <h1 className="text-2xl font-bold flex items-center gap-2 mb-2">
               <User className="text-indigo-600" /> 我的设置
@@ -271,10 +266,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
           <p className="text-gray-400 text-sm">配置学习计划与AI参数</p>
        </div>
 
-       <div className="p-4 space-y-6">
+       <div className="p-4 md:p-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* Textbook */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-full">
              <h3 className="font-bold text-gray-800 border-b pb-3 mb-4">📚 教材选择</h3>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -317,7 +312,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
           </div>
 
           {/* AI Settings */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 row-span-2">
              <h3 className="font-bold text-gray-800 border-b pb-3 mb-4 flex items-center gap-2">
                  <Server size={18} className="text-indigo-600"/> AI 模型配置
              </h3>
@@ -481,7 +476,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
            </div>
 
            {/* Data Management */}
-           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 lg:col-span-2">
                <h3 className="font-bold text-gray-800 border-b pb-3 mb-4 flex items-center gap-2">
                    <Database size={18} className="text-indigo-600"/> 数据备份与恢复
                </h3>
@@ -527,26 +522,28 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                    </div>
                )}
            </div>
-           
-           <button 
-             onClick={handleSave}
-             disabled={saveStatus === 'SAVED'}
-             className={`w-full py-4 font-bold rounded-2xl shadow-lg flex justify-center gap-2 transition-all ${
-                saveStatus === 'SAVED' 
-                ? 'bg-green-500 text-white scale-95' 
-                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-             }`}
-           >
-              {saveStatus === 'SAVED' ? <Check /> : <Save />} 
-              {saveStatus === 'SAVED' ? '设置已保存' : '保存设置'}
-           </button>
-           
-           <button 
-                onClick={() => setView('HELP')} 
-                className="w-full mt-6 py-3 border border-blue-100 text-blue-600 rounded-xl hover:bg-blue-50 font-bold flex justify-center gap-2"
-            >
-                <HelpCircle size={18} /> 帮助与设计理念
-            </button>
+
+           <div className="lg:col-span-2 space-y-4">
+                <button 
+                    onClick={handleSave}
+                    disabled={saveStatus === 'SAVED'}
+                    className={`w-full py-4 font-bold rounded-2xl shadow-lg flex justify-center gap-2 transition-all ${
+                        saveStatus === 'SAVED' 
+                        ? 'bg-green-500 text-white scale-95' 
+                        : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                    }`}
+                >
+                    {saveStatus === 'SAVED' ? <Check /> : <Save />} 
+                    {saveStatus === 'SAVED' ? '设置已保存' : '保存设置'}
+                </button>
+                
+                <button 
+                        onClick={() => setView('HELP')} 
+                        className="w-full py-3 border border-blue-100 text-blue-600 rounded-xl hover:bg-blue-50 font-bold flex justify-center gap-2"
+                    >
+                        <HelpCircle size={18} /> 帮助与设计理念
+                </button>
+           </div>
        </div>
     </div>
   );

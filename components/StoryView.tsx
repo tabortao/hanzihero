@@ -460,7 +460,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
   };
 
   return (
-    <div className="max-w-4xl mx-auto min-h-screen bg-amber-50 pb-24 flex flex-col relative">
+    <div className="max-w-7xl mx-auto min-h-screen bg-amber-50 pb-24 flex flex-col relative">
        
        {/* --- Top Bar (Search & Filter) --- */}
        {!currentStory && (
@@ -507,9 +507,9 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
        {!currentStory ? (
          // List View
          <div className="p-4 space-y-4 animate-fade-in relative min-h-[50vh]">
-             <div className="grid gap-4 pb-20">
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-20">
                  {activeStories.length === 0 && (
-                     <div className="text-center py-20 text-gray-400 flex flex-col items-center">
+                     <div className="col-span-full text-center py-20 text-gray-400 flex flex-col items-center">
                          <BookOpen size={48} className="mb-4 opacity-20"/>
                          <p>没有找到相关故事</p>
                          <button onClick={() => setShowInputModal(true)} className="mt-4 text-amber-500 font-bold">创建一个？</button>
@@ -521,7 +521,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                      <div 
                        key={story.id} 
                        onClick={() => openStory(story)}
-                       className="bg-white p-4 rounded-2xl border border-amber-100 shadow-sm cursor-pointer hover:border-amber-300 transition-all flex flex-col gap-3 group relative overflow-hidden"
+                       className="bg-white p-4 rounded-2xl border border-amber-100 shadow-sm cursor-pointer hover:border-amber-300 transition-all flex flex-col gap-3 group relative overflow-hidden h-full"
                      >
                          <div className="flex justify-between items-start">
                              <div className="flex items-center gap-3">
@@ -562,44 +562,44 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                                  </span>
                              ))}
                          </div>
-                         <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed bg-gray-50 p-2 rounded-lg">
+                         <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed bg-gray-50 p-2 rounded-lg mt-auto">
                              {story.content.map(c => c.char).join('').substring(0, 50)}...
                          </p>
                      </div>
                  ))}
-
-                 {/* Archived Section */}
-                 {archivedStories.length > 0 && (
-                     <div className="mt-8">
-                         <h3 className="text-gray-400 font-bold text-sm mb-4 flex items-center gap-2">
-                             <Archive size={16}/> 已读完归档
-                         </h3>
-                         <div className="opacity-70 grid gap-3">
-                            {archivedStories.map(story => (
-                                <div 
-                                key={story.id} 
-                                onClick={() => openStory(story)}
-                                className="bg-gray-50 p-4 rounded-2xl border border-gray-200 flex justify-between items-center cursor-pointer"
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <div className="text-gray-400"><Check size={20} /></div>
-                                        <div>
-                                            <h3 className="font-bold text-gray-600 text-sm">{story.title}</h3>
-                                            <p className="text-xs text-gray-400">已读 {story.readCount} 次</p>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        onClick={(e) => handleArchive(story, e)}
-                                        className="p-2 text-gray-300 hover:text-blue-500 transition-colors"
-                                    >
-                                        <RotateCcw size={16} />
-                                    </button>
-                                </div>
-                            ))}
-                         </div>
-                     </div>
-                 )}
              </div>
+             
+             {/* Archived Section */}
+             {archivedStories.length > 0 && (
+                 <div className="mt-8">
+                     <h3 className="text-gray-400 font-bold text-sm mb-4 flex items-center gap-2">
+                         <Archive size={16}/> 已读完归档
+                     </h3>
+                     <div className="opacity-70 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {archivedStories.map(story => (
+                            <div 
+                            key={story.id} 
+                            onClick={() => openStory(story)}
+                            className="bg-gray-50 p-4 rounded-2xl border border-gray-200 flex justify-between items-center cursor-pointer"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="text-gray-400"><Check size={20} /></div>
+                                    <div>
+                                        <h3 className="font-bold text-gray-600 text-sm">{story.title}</h3>
+                                        <p className="text-xs text-gray-400">已读 {story.readCount} 次</p>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={(e) => handleArchive(story, e)}
+                                    className="p-2 text-gray-300 hover:text-blue-500 transition-colors"
+                                >
+                                    <RotateCcw size={16} />
+                                </button>
+                            </div>
+                        ))}
+                     </div>
+                 </div>
+             )}
 
              {/* Floating Action Button for New Story */}
              <button
@@ -653,16 +653,16 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                  Notebook Style: White background, continuous grid.
              */}
              <div className="flex-1 overflow-y-auto bg-white custom-scrollbar pb-32">
-                 <div className="max-w-4xl mx-auto p-4 sm:p-8">
+                 <div className="max-w-6xl mx-auto p-4 sm:p-8 flex flex-col items-center">
                      {/* 
                         Container Border and Padding Fix:
                         - border-red-300 to match cell borders.
                         - p-px padding prevents clipping of the rightmost/bottommost cell borders 
                           which are pushed out by negative margins (-mr-px, -mb-px).
                      */}
-                     <div className="border border-red-300 shadow-sm bg-white overflow-hidden p-px box-content">
+                     <div className="border border-red-300 shadow-sm bg-white overflow-hidden p-px box-content inline-block">
                          {getParagraphs(currentStory.content).map((paragraph, pIdx) => (
-                             <div key={pIdx} className="flex flex-wrap gap-0">
+                             <div key={pIdx} className="flex flex-wrap gap-0 justify-center">
                                  {/* Paragraph Indentation: 2 Empty Grids (Notebook style) */}
                                  <WritingGrid char="" pinyin="" variant="notebook" />
                                  <WritingGrid char="" pinyin="" variant="notebook" />
@@ -681,7 +681,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                      </div>
                      
                      {!currentStory.isArchived && (
-                         <div className="mt-16 flex justify-center pb-8">
+                         <div className="mt-16 flex justify-center pb-8 w-full">
                              <button 
                                 onClick={(e) => {
                                     handleArchive(currentStory, e);

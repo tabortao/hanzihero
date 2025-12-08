@@ -238,21 +238,23 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onChange }) =>
     ];
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-100 px-6 py-2 pb-5 flex justify-between items-center z-50 shadow-[0_-5px_15px_rgba(0,0,0,0.02)]">
-            {navItems.map(item => {
-                const isActive = currentTab === item.id;
-                const Icon = item.icon;
-                return (
-                    <button
-                        key={item.id}
-                        onClick={() => onChange(item.id as ViewState)}
-                        className={`flex flex-col items-center gap-1 p-2 transition-all duration-300 ${isActive ? 'text-indigo-600 scale-110' : 'text-gray-400 hover:text-gray-600'}`}
-                    >
-                        <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
-                        <span className={`text-[10px] font-bold ${isActive ? 'opacity-100' : 'opacity-70'}`}>{item.label}</span>
-                    </button>
-                )
-            })}
+        <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-7xl z-50">
+            <div className="bg-white/95 backdrop-blur-sm border-t border-gray-100 px-6 py-2 pb-5 flex justify-between items-center shadow-[0_-5px_15px_rgba(0,0,0,0.02)] rounded-t-[2rem]">
+                {navItems.map(item => {
+                    const isActive = currentTab === item.id;
+                    const Icon = item.icon;
+                    return (
+                        <button
+                            key={item.id}
+                            onClick={() => onChange(item.id as ViewState)}
+                            className={`flex flex-col items-center gap-1 p-2 transition-all duration-300 ${isActive ? 'text-indigo-600 scale-110' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
+                            <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
+                            <span className={`text-[10px] font-bold ${isActive ? 'opacity-100' : 'opacity-70'}`}>{item.label}</span>
+                        </button>
+                    )
+                })}
+            </div>
         </div>
     );
 };

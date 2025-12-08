@@ -14,12 +14,6 @@ export const StatsView: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   // --- Ebbinghaus Data Calculation ---
-  // Re-defined buckets for clearer mapping
-  // 刚学 (New): < 24 hours
-  // 1天 (1 Day): 1 - 3 days
-  // 3天 (3 Days): 3 - 7 days
-  // 7天 (7 Days): 7 - 15 days
-  // 15天+ (Long term): > 15 days
   const ebbinghausData = useMemo(() => {
     const now = Date.now();
     const buckets = {
@@ -31,12 +25,10 @@ export const StatsView: React.FC = () => {
     };
 
     known.forEach(char => {
-        // Safety check: ensure learnedAt is a valid number
         if (!char.learnedAt || typeof char.learnedAt !== 'number') {
             buckets.day15++; 
             return;
         }
-        // Difference in days (float)
         const diffDays = (now - char.learnedAt) / (1000 * 60 * 60 * 24);
         
         if (diffDays < 1.0) buckets.new++;
@@ -77,12 +69,9 @@ export const StatsView: React.FC = () => {
     const todayStr = new Date().toISOString().split('T')[0];
     
     if (heatmapMode === 'WEEK') {
-       // Show selected week (Mon-Sun)
-       const day = dateCursor.getDay(); // Sun=0, Mon=1...
-       // If day is 0 (Sun), we want to go back 6 days to prev Monday
-       // If day is 1 (Mon), we stay
+       const day = dateCursor.getDay(); 
        const distToMon = day === 0 ? 6 : day - 1;
-       dateCursor.setDate(dateCursor.getDate() - distToMon); // Go to Monday
+       dateCursor.setDate(dateCursor.getDate() - distToMon); 
        
        for (let i = 0; i < 7; i++) {
            const dStr = dateCursor.toISOString().split('T')[0];
@@ -90,21 +79,18 @@ export const StatsView: React.FC = () => {
                date: dStr, 
                count: activity[dStr] || 0, 
                dayLabel: ['一','二','三','四','五','六','日'][i],
-               dateNum: dateCursor.getDate(), // Display this in the box
+               dateNum: dateCursor.getDate(), 
                isToday: dStr === todayStr
            });
            dateCursor.setDate(dateCursor.getDate() + 1);
        }
     } else if (heatmapMode === 'MONTH') {
-       // Show selected month grid
-       dateCursor.setDate(1); // 1st of month
+       dateCursor.setDate(1); 
        const month = dateCursor.getMonth();
-       
-       // Calculate start day (Mon start)
-       const startDay = dateCursor.getDay(); // 0-6
+       const startDay = dateCursor.getDay(); 
        const offset = startDay === 0 ? 6 : startDay - 1;
 
-       dateCursor.setDate(dateCursor.getDate() - offset); // Back to previous monday
+       dateCursor.setDate(dateCursor.getDate() - offset); 
        
        for (let i=0; i<42; i++) {
            const dStr = dateCursor.toISOString().split('T')[0];
@@ -119,7 +105,6 @@ export const StatsView: React.FC = () => {
            dateCursor.setDate(dateCursor.getDate() + 1);
        }
     } else {
-       // YEAR: Show 12 months
        const year = dateCursor.getFullYear();
        for (let m=0; m<12; m++) {
            let count = 0;
@@ -163,18 +148,14 @@ export const StatsView: React.FC = () => {
       return `${currentDate.getFullYear()}年`;
   };
 
-  // --- CHART CONFIGURATION ---
-  // Canvas Size: 600 x 250
-  // X-Axis Distribution: New(0-1d), 1d(1-3d), 3d(3-7d), 7d(7-15d), 15d+
   const POINTS = {
-      p0:  { cx: 60,  cy: 40,  color: '#10b981', label: '刚学', count: ebbinghausData.new },   // 100% - Green
-      p1:  { cx: 180, cy: 140, color: '#3b82f6', label: '1天',  count: ebbinghausData.day1 },  // ~45% - Blue
-      p2:  { cx: 300, cy: 180, color: '#f59e0b', label: '3天',  count: ebbinghausData.day3 },  // ~35% - Orange
-      p3:  { cx: 420, cy: 200, color: '#ef4444', label: '7天',  count: ebbinghausData.day7 },  // ~25% - Red
-      p4:  { cx: 540, cy: 220, color: '#8b5cf6', label: '15天+', count: ebbinghausData.day15 } // ~20% - Purple
+      p0:  { cx: 60,  cy: 40,  color: '#10b981', label: '刚学', count: ebbinghausData.new },   
+      p1:  { cx: 180, cy: 140, color: '#3b82f6', label: '1天',  count: ebbinghausData.day1 },  
+      p2:  { cx: 300, cy: 180, color: '#f59e0b', label: '3天',  count: ebbinghausData.day3 },  
+      p3:  { cx: 420, cy: 200, color: '#ef4444', label: '7天',  count: ebbinghausData.day7 },  
+      p4:  { cx: 540, cy: 220, color: '#8b5cf6', label: '15天+', count: ebbinghausData.day15 } 
   };
 
-  // Smooth Curve: Steep drop initially, then flattening out
   const curvePath = `
     M ${POINTS.p0.cx},${POINTS.p0.cy}
     C ${POINTS.p0.cx + 40},${POINTS.p0.cy + 10} ${POINTS.p1.cx - 40},${POINTS.p1.cy - 20} ${POINTS.p1.cx},${POINTS.p1.cy}
@@ -184,7 +165,7 @@ export const StatsView: React.FC = () => {
   `;
 
   return (
-    <div className="max-w-4xl mx-auto min-h-screen bg-gray-50 pb-24">
+    <div className="max-w-7xl mx-auto min-h-screen bg-gray-50 pb-24">
         {/* Header */}
         <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-8 rounded-b-[2rem] text-white shadow-lg">
            <h1 className="text-2xl font-bold flex items-center gap-2 mb-6">
@@ -206,9 +187,9 @@ export const StatsView: React.FC = () => {
           </div>
         </div>
 
-        <div className="p-4 space-y-6 -mt-4">
-           {/* Ebbinghaus Curve with Real User Data */}
-           <div className="bg-white rounded-3xl p-6 shadow-md border border-gray-100">
+        <div className="p-4 md:p-6 -mt-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
+           {/* Ebbinghaus Curve */}
+           <div className="lg:col-span-8 bg-white rounded-3xl p-6 shadow-md border border-gray-100">
                <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-gray-700 flex items-center gap-2">
                         <Clock className="text-pink-500" size={20}/> 记忆遗忘状态
@@ -218,11 +199,8 @@ export const StatsView: React.FC = () => {
                     </span>
                </div>
                
-               {/* SVG Visualization */}
                <div className="relative h-64 w-full border-b border-gray-200">
                    <svg className="absolute inset-0 w-full h-full overflow-visible" preserveAspectRatio="xMidYMid meet" viewBox="0 0 600 280">
-                       
-                       {/* The Curve */}
                        <path 
                          d={curvePath}
                          fill="none" 
@@ -232,8 +210,6 @@ export const StatsView: React.FC = () => {
                          strokeLinecap="round"
                          vectorEffect="non-scaling-stroke"
                        />
-
-                       {/* DATA BUBBLES */}
                        {Object.values(POINTS).map((pt, idx) => (
                            <g key={idx}>
                                {pt.count > 0 && (
@@ -257,15 +233,11 @@ export const StatsView: React.FC = () => {
                                      </text>
                                    </>
                                )}
-                               
-                               {/* Always show X-axis Ticks for context */}
                                <line x1={pt.cx} y1="250" x2={pt.cx} y2="260" stroke="#e5e7eb" strokeWidth="2" />
                            </g>
                        ))}
-
                    </svg>
                    
-                   {/* X Axis Labels - Now Colored to match bubbles */}
                    <div className="absolute bottom-0 w-full h-6 text-[10px] font-bold">
                        {Object.values(POINTS).map((pt, idx) => (
                            <div 
@@ -282,7 +254,6 @@ export const StatsView: React.FC = () => {
                    </div>
                </div>
                
-               {/* Legend / Info */}
                <p className="text-xs text-gray-400 mt-4 text-center bg-gray-50 p-3 rounded-xl border border-gray-100">
                    气泡中的数字代表处于该遗忘阶段的汉字数量。<br/>
                    <span className="text-pink-500 font-bold">系统会自动安排复习</span>，防止遗忘。
@@ -290,8 +261,7 @@ export const StatsView: React.FC = () => {
            </div>
 
            {/* Progress */}
-           <div className="bg-white rounded-3xl p-6 shadow-md border border-gray-100 grid md:grid-cols-2 gap-6">
-             {/* Character Progress */}
+           <div className="lg:col-span-4 bg-white rounded-3xl p-6 shadow-md border border-gray-100 flex flex-col justify-between">
              <div>
                 <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
                     <PieChart className="text-blue-500" size={20} /> 识字进度
@@ -318,8 +288,7 @@ export const StatsView: React.FC = () => {
                 </div>
              </div>
 
-             {/* Story Progress */}
-             <div>
+             <div className="mt-6 pt-6 border-t border-gray-100">
                 <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
                     <BookOpen className="text-amber-500" size={20} /> 短文阅读
                 </h3>
@@ -327,14 +296,11 @@ export const StatsView: React.FC = () => {
                     <div className="text-4xl font-fun text-amber-600 mb-1">{stories.length}</div>
                     <div className="text-xs text-amber-800/60 font-bold">篇 AI 故事</div>
                 </div>
-                <p className="text-xs text-gray-400 mt-2 text-center">
-                    阅读短文有助于在语境中巩固汉字。
-                </p>
              </div>
            </div>
 
             {/* Interactive Heatmap */}
-           <div className="bg-white rounded-3xl p-6 shadow-md border border-gray-100">
+           <div className="lg:col-span-12 bg-white rounded-3xl p-6 shadow-md border border-gray-100">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
                 <h3 className="font-bold text-gray-700 flex items-center gap-2">
                    <Flame className="text-orange-500" size={20} /> 学习分布
@@ -361,7 +327,7 @@ export const StatsView: React.FC = () => {
 
             <div className="w-full">
                 {heatmapMode === 'YEAR' ? (
-                     <div className="grid grid-cols-6 gap-2">
+                     <div className="grid grid-cols-6 md:grid-cols-12 gap-2">
                         {gridData.map((d, i) => (
                             <div key={i} className="flex flex-col items-center gap-1">
                                 <div className="w-full bg-gray-100 rounded-t-md relative group h-24 flex items-end">
