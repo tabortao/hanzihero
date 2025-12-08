@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Book, Grid, Star, PlayCircle, Trophy, CheckCircle, List, X, Library, BookOpen, Sparkles, Plus, Save, ChevronDown, Edit3 } from 'lucide-react';
+import { Book, Grid, Star, PlayCircle, Trophy, CheckCircle, List, X, Library, BookOpen, Sparkles, Plus, Save, ChevronDown, Edit3, ArrowRightLeft } from 'lucide-react';
 import { GameConfig, Character, Unit, Curriculum } from '../types';
-import { APP_DATA } from '../data';
+import { APP_DATA, GRADE_PRESETS } from '../data';
 import { getSettings, getUnknownCharacters, getKnownCharacters, getCustomCurricula, saveCustomUnit, saveSettings } from '../services/storage';
 import { findCharacterPinyin } from '../data/dictionary';
 
@@ -14,15 +14,6 @@ interface SelectionViewProps {
   stars: number;
 }
 
-const GRADE_PRESETS = [
-    "一年级上册", "一年级下册",
-    "二年级上册", "二年级下册",
-    "三年级上册", "三年级下册",
-    "四年级上册", "四年级下册",
-    "五年级上册", "五年级下册",
-    "六年级上册", "六年级下册",
-];
-
 export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onReview, onOpenBank, onGenerateUnitStory, stars }) => {
   const [isAllUnitsOpen, setIsAllUnitsOpen] = useState(false); 
   const [activeTab, setActiveTab] = useState<'TODO' | 'DONE'>('TODO');
@@ -33,6 +24,11 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
   const [customGradeName, setCustomGradeName] = useState('');
   const [customUnitName, setCustomUnitName] = useState('');
   const [customCharsInput, setCustomCharsInput] = useState('');
+
+  // Quick Switch Modal State
+  const [showSwitchModal, setShowSwitchModal] = useState(false);
+  const [quickCurrId, setQuickCurrId] = useState('');
+  const [quickGradeId, setQuickGradeId] = useState('');
 
   // Input Modes (Select existing or Create new)
   const [currInputMode, setCurrInputMode] = useState<'SELECT' | 'INPUT'>('SELECT');
@@ -47,7 +43,7 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
   // We use a key to force refresh when custom units are added
   const [refreshKey, setRefreshKey] = useState(0);
   
-  const customCurricula = useMemo(() => getCustomCurricula(), [refreshKey, showCustomModal]);
+  const customCurricula = useMemo(() => getCustomCurricula(), [refreshKey, showCustomModal, showSwitchModal]);
   
   const allCurricula = useMemo(() => {
       return [...APP_DATA, ...customCurricula];
@@ -135,6 +131,15 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
       setShowCustomModal(false);
       
       alert("单元创建成功！已自动切换到该教材。");
+  };
+
+  const handleQuickSwitch = () => {
+      if (quickCurrId && quickGradeId) {
+          const newSettings = { ...settings, selectedCurriculumId: quickCurrId, selectedGradeId: quickGradeId };
+          saveSettings(newSettings);
+          setRefreshKey(prev => prev + 1);
+          setShowSwitchModal(false);
+      }
   };
 
   const handleStartGame = (unitId: string, unitName: string, chars: Character[]) => {
@@ -282,14 +287,25 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
       <div className="bg-white px-4 py-3 md:px-6 md:py-6 rounded-b-[2rem] shadow-sm flex justify-between items-center z-10 sticky top-0 transition-all">
         <div>
            <div className="flex items-center gap-2">
-             <div className="w-9 h-9 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-xl flex items-center justify-center shadow-md text-white">
-                <BookOpen size={20} strokeWidth={2.5} />
-             </div>
+             <span className="text-3xl filter drop-shadow-sm">🐼</span>
              <h1 className="text-xl md:text-2xl font-fun text-gray-800">汉字小英雄</h1>
            </div>
-           <p className="text-[10px] md:text-sm text-gray-400 font-bold mt-1 pl-1">
-             {currentCurriculum ? `${currentCurriculum.name} · ${currentGrade?.name}` : '请先设置教材'}
-           </p>
+           
+           {/* Current Context & Quick Switch */}
+           <div 
+             onClick={() => {
+                 setQuickCurrId(settings.selectedCurriculumId || '');
+                 setQuickGradeId(settings.selectedGradeId || '');
+                 setShowSwitchModal(true);
+             }}
+             className="flex items-center gap-1 mt-1 cursor-pointer group hover:bg-gray-50 rounded-lg pr-2 transition-colors"
+             title="点击快速切换教材"
+           >
+              <p className="text-[10px] md:text-sm text-gray-400 font-bold pl-1 group-hover:text-blue-500">
+                {currentCurriculum ? `${currentCurriculum.name} · ${currentGrade?.name || '未知年级'}` : '请设置教材'}
+              </p>
+              <ArrowRightLeft size={12} className="text-gray-300 group-hover:text-blue-500" />
+           </div>
         </div>
         
         <div className="flex items-center space-x-2 bg-green-100 px-3 py-1.5 rounded-full border border-green-200 shadow-sm text-green-800" title="已认识的汉字">
@@ -361,7 +377,7 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
                    <div className="flex flex-col items-center justify-center py-20 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
                       <Book size={48} className="text-gray-300 mb-4"/>
                       <p className="text-gray-500 font-bold mb-2">还没有设置教材</p>
-                      <p className="text-xs text-gray-400">请前往"我的"页面进行设置</p>
+                      <p className="text-xs text-gray-400">请前往"我的"页面进行设置，或点击左上角快速切换</p>
                    </div>
                 ) : (
                    <>
@@ -411,6 +427,90 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
                </div>
             </div>
          </div>
+      )}
+
+      {/* --- Quick Switch Modal --- */}
+      {showSwitchModal && (
+          <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl animate-bounce-in p-6">
+                  <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">
+                          <ArrowRightLeft size={20} className="text-blue-500"/> 快速切换教材
+                      </h3>
+                      <button onClick={() => setShowSwitchModal(false)} className="p-1 hover:bg-gray-100 rounded-full">
+                          <X size={20} className="text-gray-400"/>
+                      </button>
+                  </div>
+                  
+                  <div className="space-y-4">
+                      <div>
+                          <label className="block text-xs font-bold text-gray-500 mb-1">教材</label>
+                          <select 
+                             className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:border-blue-500 outline-none"
+                             value={quickCurrId}
+                             onChange={e => {
+                                 setQuickCurrId(e.target.value);
+                                 // Reset grade to first preset when curriculum changes to avoid mismatches
+                                 // Or try to find if current grade exists in new curriculum, otherwise use preset 0
+                                 const newCurr = allCurricula.find(c => c.id === e.target.value);
+                                 if (newCurr && newCurr.grades.length > 0) {
+                                     setQuickGradeId(newCurr.grades[0].id);
+                                 }
+                             }}
+                          >
+                              {allCurricula.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold text-gray-500 mb-1">年级</label>
+                          <select 
+                             className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:border-blue-500 outline-none"
+                             value={quickGradeId}
+                             onChange={e => setQuickGradeId(e.target.value)}
+                          >
+                              <option value="">请选择...</option>
+                              {/* 
+                                Logic: If the selected curriculum has specific grade objects (like g1-1), show them.
+                                If the user wants to select a grade that doesn't exist in the data (e.g. Grade 2 for RenJiaoBan which only has data for G1),
+                                we can show the PRESETS.
+                                To simplify: We show what's available in the curriculum + The Presets if they aren't covered.
+                              */}
+                              {(() => {
+                                  const curr = allCurricula.find(c => c.id === quickCurrId);
+                                  // Map existing grades in curriculum to a Set of names for easy lookup
+                                  const existingNames = new Set(curr?.grades.map(g => g.name) || []);
+                                  
+                                  const options = [];
+                                  
+                                  // 1. Add existing defined grades (with their specific IDs)
+                                  if (curr) {
+                                      curr.grades.forEach(g => {
+                                          options.push(<option key={g.id} value={g.id}>{g.name}</option>);
+                                      });
+                                  }
+
+                                  // 2. Add Presets if they don't match an existing name
+                                  // Note: If we select a preset that isn't in the curriculum data, the View will just show empty state (which allows creating custom units)
+                                  GRADE_PRESETS.forEach(preset => {
+                                      if (!existingNames.has(preset)) {
+                                          options.push(<option key={preset} value={preset}>{preset}</option>);
+                                      }
+                                  });
+                                  
+                                  return options;
+                              })()}
+                          </select>
+                      </div>
+
+                      <button 
+                         onClick={handleQuickSwitch}
+                         className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl mt-2 hover:bg-blue-700 transition-colors"
+                      >
+                          确认切换
+                      </button>
+                  </div>
+              </div>
+          </div>
       )}
 
       {/* --- Custom Unit Creation Modal --- */}

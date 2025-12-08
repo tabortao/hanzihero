@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { User, Save, Download, Upload, Activity, Wifi, HelpCircle, Book, Zap, ArrowLeft, Server, Eye, EyeOff, WifiOff, Check, FileJson } from 'lucide-react';
+import { User, Save, Download, Upload, Activity, Wifi, HelpCircle, Book, Zap, ArrowLeft, Server, Eye, EyeOff, WifiOff, Check, FileJson, Database } from 'lucide-react';
 import { AppSettings } from '../types';
 import { getSettings, saveSettings, exportUserData, importUserData, getCustomCurricula } from '../services/storage';
 import { testConnection } from '../services/geminiService';
-import { APP_DATA } from '../data';
+import { APP_DATA, GRADE_PRESETS } from '../data';
 
 const PROVIDERS = {
     GOOGLE: { name: 'Google Gemini', url: '', model: 'gemini-2.5-flash' },
@@ -163,6 +163,30 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
   // Safe access to current curriculum
   const currentCurriculum = allCurricula.find(c => c.id === config.selectedCurriculumId);
 
+  // Helper to generate Grade options
+  // We want to show:
+  // 1. Grades defined in the selected curriculum (with their IDs)
+  // 2. All GRADE_PRESETS (as fallback if not defined in curriculum, using name as ID)
+  const gradeOptions = useMemo(() => {
+      const options: {id: string, name: string}[] = [];
+      const existingNames = new Set<string>();
+
+      if (currentCurriculum) {
+          currentCurriculum.grades.forEach(g => {
+              options.push({ id: g.id, name: g.name });
+              existingNames.add(g.name);
+          });
+      }
+
+      GRADE_PRESETS.forEach(presetName => {
+          if (!existingNames.has(presetName)) {
+              options.push({ id: presetName, name: presetName });
+          }
+      });
+      return options;
+  }, [currentCurriculum]);
+
+
   if (view === 'HELP') {
       return (
           <div className="max-w-4xl mx-auto min-h-screen bg-white pb-24 animate-fade-in">
@@ -264,7 +288,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                         setConfig({
                           ...config, 
                           selectedCurriculumId: newCurrId,
-                          // Reset grade immediately to avoid invalid state if curriculum changes
+                          // Reset grade to first available if switching curriculum
                           selectedGradeId: newCurr?.grades[0]?.id || ''
                         })
                      }}
@@ -283,16 +307,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                      onChange={e => setConfig({...config, selectedGradeId: e.target.value})}
                      disabled={!currentCurriculum}
                    >
-                     {!currentCurriculum ? (
-                        <option value="">请先选择教材</option>
-                     ) : (
-                         <>
-                            <option value="">请选择年级</option>
-                            {currentCurriculum.grades.map(g => (
-                              <option key={g.id} value={g.id}>{g.name}</option>
-                            ))}
-                         </>
-                     )}
+                     <option value="">请选择年级</option>
+                     {gradeOptions.map(g => (
+                         <option key={g.id} value={g.id}>{g.name}</option>
+                     ))}
                    </select>
                 </div>
              </div>
@@ -464,33 +482,44 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
 
            {/* Data Management */}
            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-               <h3 className="font-bold text-gray-800 border-b pb-3 mb-4">💾 数据管理</h3>
-               <div className="flex gap-4 mb-4">
-                  <button onClick={handleExport} className="flex-1 py-3 border border-indigo-100 text-indigo-600 rounded-xl hover:bg-indigo-50 font-bold flex justify-center gap-2">
-                      <Download size={18} /> 导出
-                  </button>
-                  <button onClick={() => setShowImport(!showImport)} className="flex-1 py-3 border border-indigo-100 text-indigo-600 rounded-xl hover:bg-indigo-50 font-bold flex justify-center gap-2">
-                      <Upload size={18} /> 导入
-                  </button>
+               <h3 className="font-bold text-gray-800 border-b pb-3 mb-4 flex items-center gap-2">
+                   <Database size={18} className="text-indigo-600"/> 数据备份与恢复
+               </h3>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col justify-between">
+                      <div className="mb-2">
+                          <h4 className="font-bold text-gray-700">导出数据</h4>
+                          <p className="text-xs text-gray-400 mt-1">保存所有学习进度、设置和自定义内容到本地文件。</p>
+                      </div>
+                      <button onClick={handleExport} className="w-full py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:border-indigo-300 hover:text-indigo-600 font-bold flex justify-center items-center gap-2 transition-colors">
+                          <Download size={16} /> 导出备份
+                      </button>
+                  </div>
+                  
+                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col justify-between">
+                       <div className="mb-2">
+                          <h4 className="font-bold text-gray-700">导入数据</h4>
+                          <p className="text-xs text-gray-400 mt-1">从备份文件恢复数据。注意：这将覆盖当前所有数据。</p>
+                      </div>
+                      <button onClick={() => setShowImport(!showImport)} className="w-full py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:border-indigo-300 hover:text-indigo-600 font-bold flex justify-center items-center gap-2 transition-colors">
+                          <Upload size={16} /> {showImport ? '取消导入' : '选择文件'}
+                      </button>
+                  </div>
                </div>
                
                {showImport && (
-                   <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 animate-slide-up">
-                       <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
-                           <FileJson size={18} className="text-indigo-500" /> 
-                           选择备份文件 (.json)
+                   <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 animate-slide-up">
+                       <label className="block text-sm font-bold text-indigo-900 mb-2 flex items-center gap-2">
+                           <FileJson size={18} /> 
+                           上传备份文件 (.json)
                        </label>
                        
                        <input 
                            type="file" 
                            accept=".json"
                            onChange={handleFileImport}
-                           className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 mb-3"
+                           className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-white file:text-indigo-700 hover:file:bg-indigo-50 mb-3 cursor-pointer"
                        />
-                       
-                       <div className="text-xs text-gray-400 mb-2">
-                           注意：导入数据将覆盖当前的所有学习进度和设置，请谨慎操作。
-                       </div>
 
                        {importStatus === 'READING' && <div className="text-indigo-500 font-bold text-sm flex items-center gap-2"><Activity className="animate-spin" size={14}/> 正在读取文件...</div>}
                        {importStatus === 'SUCCESS' && <div className="text-green-600 font-bold text-sm flex items-center gap-2"><Check size={14}/> 导入成功! 正在刷新...</div>}
