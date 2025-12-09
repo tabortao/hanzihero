@@ -149,7 +149,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
   const displayPinyin = currentCharacter.pinyin || aiExplanation?.pinyin || '';
 
   return (
-    <div className="max-w-3xl mx-auto p-4 min-h-screen flex flex-col bg-[#ecfdf5] pb-24">
+    <div className="max-w-7xl mx-auto p-4 min-h-screen flex flex-col bg-[#ecfdf5] pb-24">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <button 

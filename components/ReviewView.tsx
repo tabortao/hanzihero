@@ -39,7 +39,7 @@ export const ReviewView: React.FC<ReviewViewProps> = ({ onBack }) => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-4 min-h-screen flex flex-col">
+    <div className="max-w-7xl mx-auto p-4 min-h-screen flex flex-col">
       <div className="flex items-center gap-4 mb-6">
         <button 
           onClick={onBack}

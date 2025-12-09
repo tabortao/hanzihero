@@ -6,13 +6,15 @@ import { BottomNav } from './components/SharedComponents';
 import { getStars } from './services/storage';
 
 // Lazy Load Heavy Components to speed up initial rendering
-// The Dictionary data is huge, so views depending on it should be loaded lazily
 const GameView = React.lazy(() => import('./components/GameView').then(module => ({ default: module.GameView })));
 const ReviewView = React.lazy(() => import('./components/ReviewView').then(module => ({ default: module.ReviewView })));
 const CharacterBankView = React.lazy(() => import('./components/CharacterBankView').then(module => ({ default: module.CharacterBankView })));
 const StatsView = React.lazy(() => import('./components/StatsView').then(module => ({ default: module.StatsView })));
 const StoryView = React.lazy(() => import('./components/StoryView').then(module => ({ default: module.StoryView })));
 const ProfileView = React.lazy(() => import('./components/ProfileView').then(module => ({ default: module.ProfileView })));
+const DailyChallengeMenu = React.lazy(() => import('./components/DailyChallengeMenu').then(module => ({ default: module.DailyChallengeMenu })));
+const ListenIdentifyGame = React.lazy(() => import('./components/ListenIdentifyGame').then(module => ({ default: module.ListenIdentifyGame })));
+const LookIdentifyGame = React.lazy(() => import('./components/LookIdentifyGame').then(module => ({ default: module.LookIdentifyGame })));
 
 // Simple Loading Spinner for Suspense Fallback
 const LoadingScreen = () => (
@@ -29,6 +31,11 @@ const App: React.FC = () => {
   
   // New: State to pass specific unit data to StoryView
   const [storyGenContext, setStoryGenContext] = useState<{chars: Character[], topic: string} | null>(null);
+  
+  // New: State for Daily Challenge Characters
+  const [dailyChars, setDailyChars] = useState<Character[]>([]);
+  // Track if current game session was started from Daily Menu
+  const [isDailySession, setIsDailySession] = useState(false);
 
   useEffect(() => {
     // Load initial stars
@@ -37,14 +44,24 @@ const App: React.FC = () => {
 
   const handleStartGame = (config: GameConfig) => {
     setGameConfig(config);
+    setIsDailySession(false); // Reset unless specified otherwise
     setView('GAME');
   };
 
   const handleExitGame = (newTotalStars: number) => {
     setStars(newTotalStars);
-    setView('TAB_HOME');
     setGameConfig(null);
+    if (isDailySession) {
+        setView('DAILY_MENU');
+    } else {
+        setView('TAB_HOME');
+    }
   };
+
+  const handleBackFromDailyGame = () => {
+      setStars(getStars()); // Refresh stars just in case
+      setView('DAILY_MENU');
+  }
 
   const handleStudySingleChar = (char: Character) => {
     setGameConfig({
@@ -52,6 +69,7 @@ const App: React.FC = () => {
         title: `学习生字：${char.char}`,
         characters: [char]
     });
+    setIsDailySession(false);
     setView('GAME');
   };
 
@@ -72,6 +90,35 @@ const App: React.FC = () => {
     setView('TAB_HOME');
   };
 
+  // Open Daily Challenge Menu
+  const handleOpenDailyMenu = (chars: Character[]) => {
+      setDailyChars(chars);
+      setView('DAILY_MENU');
+  };
+
+  // Select Mode from Menu
+  const handleSelectDailyMode = (mode: 'CARD' | 'LISTEN' | 'LOOK' | 'CRUSH') => {
+      setIsDailySession(true); // Mark as daily session so back button returns to menu
+      
+      if (mode === 'CARD') {
+          // Classic Flashcard Game
+          setGameConfig({
+            mode: 'CHALLENGE',
+            title: '📅 每日挑战 (识字卡片)',
+            curriculumId: 'daily',
+            gradeId: 'daily',
+            unitId: 'daily',
+            characters: dailyChars
+          });
+          setView('GAME');
+      } else if (mode === 'LISTEN') {
+          setView('GAME_LISTEN');
+      } else if (mode === 'LOOK') {
+          setView('GAME_LOOK');
+      }
+      // Future modes here
+  };
+
   // Determine if we should show bottom nav
   const showNav = ['TAB_HOME', 'TAB_STORY', 'TAB_STATS', 'TAB_PROFILE'].includes(view);
 
@@ -84,6 +131,7 @@ const App: React.FC = () => {
             onReview={handleReview}
             onOpenBank={handleOpenBank}
             onGenerateUnitStory={handleGenerateUnitStory}
+            onOpenDailyMenu={handleOpenDailyMenu}
             stars={stars}
           />
         )}
@@ -118,6 +166,27 @@ const App: React.FC = () => {
               onBack={handleBackToHome} 
               onStudy={handleStudySingleChar}
             />
+          )}
+          
+          {/* New Daily Challenge Views */}
+          {view === 'DAILY_MENU' && (
+             <DailyChallengeMenu 
+                onBack={handleBackToHome}
+                onSelectMode={handleSelectDailyMode}
+                characterCount={dailyChars.length}
+             />
+          )}
+          {view === 'GAME_LISTEN' && (
+              <ListenIdentifyGame 
+                 characters={dailyChars}
+                 onExit={handleBackFromDailyGame}
+              />
+          )}
+          {view === 'GAME_LOOK' && (
+              <LookIdentifyGame
+                 characters={dailyChars}
+                 onExit={handleBackFromDailyGame}
+              />
           )}
         </Suspense>
       </main>

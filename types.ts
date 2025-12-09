@@ -29,7 +29,7 @@ export interface UserProgress {
   stars: number; 
 }
 
-export type ViewState = 'TAB_HOME' | 'TAB_STORY' | 'TAB_STATS' | 'TAB_PROFILE' | 'GAME' | 'REVIEW' | 'BANK';
+export type ViewState = 'TAB_HOME' | 'TAB_STORY' | 'TAB_STATS' | 'TAB_PROFILE' | 'GAME' | 'REVIEW' | 'BANK' | 'DAILY_MENU' | 'GAME_LISTEN' | 'GAME_LOOK';
 
 export interface GameConfig {
   mode: 'UNIT' | 'REVIEW' | 'CHALLENGE';

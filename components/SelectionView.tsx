@@ -11,10 +11,11 @@ interface SelectionViewProps {
   onReview: () => void;
   onOpenBank: () => void;
   onGenerateUnitStory?: (unit: Unit) => void;
+  onOpenDailyMenu: (chars: Character[]) => void; // New Prop
   stars: number;
 }
 
-export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onReview, onOpenBank, onGenerateUnitStory, stars }) => {
+export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onReview, onOpenBank, onGenerateUnitStory, onOpenDailyMenu, stars }) => {
   const [isAllUnitsOpen, setIsAllUnitsOpen] = useState(false); 
   const [activeTab, setActiveTab] = useState<'TODO' | 'DONE'>('TODO');
   
@@ -153,8 +154,7 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
     });
   };
 
-  // ... (Keep existing daily challenge logic) ...
-  const startDailyChallenge = () => {
+  const prepareDailyChallenge = () => {
     const dailyLimit = settings.dailyLimit || 10;
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -211,14 +211,8 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
         return;
     }
 
-    onStartGame({
-      mode: 'CHALLENGE',
-      title: '📅 每日挑战 (3-1-3)',
-      curriculumId: 'daily',
-      gradeId: 'daily',
-      unitId: 'daily',
-      characters: selectedChars
-    });
+    // Instead of starting game directly, open menu
+    onOpenDailyMenu(selectedChars);
   };
 
   // ... (Keep existing UnitList component) ...
@@ -320,7 +314,7 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
           {/* Left Sidebar */}
           <div className="lg:col-span-4 space-y-4 md:space-y-6">
              <div className="grid grid-cols-3 gap-3">
-                <button onClick={startDailyChallenge} className="bg-white text-gray-800 p-3 rounded-2xl shadow-md border border-blue-100 flex flex-col items-center justify-center gap-2 h-32 relative overflow-hidden group hover:border-blue-300 transition-colors">
+                <button onClick={prepareDailyChallenge} className="bg-white text-gray-800 p-3 rounded-2xl shadow-md border border-blue-100 flex flex-col items-center justify-center gap-2 h-32 relative overflow-hidden group hover:border-blue-300 transition-colors">
                    <div className="bg-blue-100 p-2 rounded-xl text-blue-600 group-hover:scale-110 transition-transform">
                      <Trophy size={24} />
                    </div>
@@ -450,8 +444,6 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
                              value={quickCurrId}
                              onChange={e => {
                                  setQuickCurrId(e.target.value);
-                                 // Reset grade to first preset when curriculum changes to avoid mismatches
-                                 // Or try to find if current grade exists in new curriculum, otherwise use preset 0
                                  const newCurr = allCurricula.find(c => c.id === e.target.value);
                                  if (newCurr && newCurr.grades.length > 0) {
                                      setQuickGradeId(newCurr.grades[0].id);
@@ -469,28 +461,18 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
                              onChange={e => setQuickGradeId(e.target.value)}
                           >
                               <option value="">请选择...</option>
-                              {/* 
-                                Logic: If the selected curriculum has specific grade objects (like g1-1), show them.
-                                If the user wants to select a grade that doesn't exist in the data (e.g. Grade 2 for RenJiaoBan which only has data for G1),
-                                we can show the PRESETS.
-                                To simplify: We show what's available in the curriculum + The Presets if they aren't covered.
-                              */}
                               {(() => {
                                   const curr = allCurricula.find(c => c.id === quickCurrId);
-                                  // Map existing grades in curriculum to a Set of names for easy lookup
                                   const existingNames = new Set(curr?.grades.map(g => g.name) || []);
                                   
                                   const options = [];
                                   
-                                  // 1. Add existing defined grades (with their specific IDs)
                                   if (curr) {
                                       curr.grades.forEach(g => {
                                           options.push(<option key={g.id} value={g.id}>{g.name}</option>);
                                       });
                                   }
 
-                                  // 2. Add Presets if they don't match an existing name
-                                  // Note: If we select a preset that isn't in the curriculum data, the View will just show empty state (which allows creating custom units)
                                   GRADE_PRESETS.forEach(preset => {
                                       if (!existingNames.has(preset)) {
                                           options.push(<option key={preset} value={preset}>{preset}</option>);

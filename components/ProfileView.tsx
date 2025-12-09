@@ -185,11 +185,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
   if (view === 'HELP') {
       return (
           <div className="max-w-7xl mx-auto min-h-screen bg-white pb-24 animate-fade-in">
-             <div className="bg-indigo-50 px-6 py-6 shadow-sm border-b border-indigo-100 sticky top-0 z-10">
-                <button onClick={() => setView('MAIN')} className="flex items-center gap-2 text-indigo-700 font-bold">
-                    <ArrowLeft size={20} /> 返回设置
+             <div className="bg-indigo-50 px-6 py-4 shadow-sm border-b border-indigo-100 sticky top-0 z-10">
+                <button onClick={() => setView('MAIN')} className="flex items-center gap-2 text-indigo-900 font-bold text-xl">
+                    <ArrowLeft size={24} className="text-indigo-700" /> 帮助与设计理念
                 </button>
-                <h1 className="text-2xl font-bold text-indigo-900 mt-4">帮助与设计理念</h1>
              </div>
              
              <div className="p-6 space-y-8 max-w-4xl mx-auto">

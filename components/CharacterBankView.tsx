@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Book, CheckCircle, XCircle, Search, GraduationCap, Volume2, Check, X, Library, User } from 'lucide-react';
 import { Character } from '../types';
@@ -136,7 +135,7 @@ export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack, on
   const totalPages = Math.ceil(displayList.length / PAGE_SIZE);
 
   return (
-    <div className="max-w-6xl mx-auto min-h-screen bg-gray-50 flex flex-col pb-24">
+    <div className="max-w-7xl mx-auto min-h-screen bg-gray-50 flex flex-col pb-24">
       
       {/* Sticky Header */}
       <div className="sticky top-0 z-30 bg-white shadow-sm px-4 py-4 rounded-b-2xl">

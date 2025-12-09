@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { BookOpen, Sparkles, Trash2, Volume2, Save, Plus, Archive, RotateCcw, Check, Loader2, PenTool, Search, Tag, X, CheckCircle, GraduationCap, Edit2 } from 'lucide-react';
 import { Story, CharPair, Character } from '../types';
 import { getStories, saveStory, deleteStory, getKnownCharacters, getUnknownCharacters, addUnknownCharacter, addKnownCharacter, isCharacterKnown } from '../services/storage';
@@ -42,8 +42,38 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
   // Reader Interaction State
   const [selectedCharPair, setSelectedCharPair] = useState<CharPair | null>(null);
 
+  // Grid Layout State
+  const [gridCols, setGridCols] = useState(6);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     setStories(getStories());
+  }, []);
+
+  // Update Grid Cols based on width
+  useEffect(() => {
+    const updateCols = () => {
+        const w = window.innerWidth;
+        // Logic to match WritingGrid sizes:
+        // < 640px: w-14 (approx 56px + border)
+        // >= 640px: w-20 (approx 80px + border)
+        // We leave some padding for the container
+        let cols = 6;
+        if (w >= 1280) cols = 14;      // XL
+        else if (w >= 1024) cols = 12; // LG
+        else if (w >= 768) cols = 10;  // MD
+        else if (w >= 640) cols = 8;   // SM
+        else cols = 6;                 // Mobile (min)
+
+        // Adjust for very small screens if needed
+        if (w < 360) cols = 5;
+
+        setGridCols(cols);
+    };
+
+    updateCols();
+    window.addEventListener('resize', updateCols);
+    return () => window.removeEventListener('resize', updateCols);
   }, []);
 
   // Handle Initial Context (e.g., coming from Unit selection)
@@ -261,25 +291,64 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
   const activeStories = filteredStories.filter(s => !s.isArchived);
   const archivedStories = filteredStories.filter(s => s.isArchived);
 
-  // --- Helper: Group Content into Paragraphs ---
-  const getParagraphs = (content: CharPair[]) => {
-      const paragraphs: CharPair[][] = [];
-      let currentP: CharPair[] = [];
+  // --- Grid Processing Logic ---
+  const processedGridCells = useMemo(() => {
+      if (!currentStory) return [];
       
-      content.forEach(item => {
+      const cells: { char: string, pinyin: string, id: string }[] = [];
+      const content = currentStory.content;
+      
+      let currentRowCount = 0;
+      
+      // Helper to fill rest of row with empty cells
+      const fillRow = () => {
+          const remainder = currentRowCount % gridCols;
+          if (remainder > 0) {
+              const needed = gridCols - remainder;
+              for (let i = 0; i < needed; i++) {
+                  cells.push({ char: '', pinyin: '', id: `pad-${cells.length}` });
+                  currentRowCount++;
+              }
+          }
+      };
+
+      // Helper to add indent (2 spaces)
+      const addIndent = () => {
+          cells.push({ char: '', pinyin: '', id: `indent-1-${cells.length}` });
+          cells.push({ char: '', pinyin: '', id: `indent-2-${cells.length}` });
+          currentRowCount += 2;
+      };
+
+      // Initial Indent
+      addIndent();
+
+      for (let i = 0; i < content.length; i++) {
+          const item = content[i];
+          
           if (item.char === '\n') {
-              if (currentP.length > 0) {
-                  paragraphs.push(currentP);
-                  currentP = [];
+              fillRow();
+              // If not the very last item, start new paragraph indent
+              if (i < content.length - 1) {
+                  addIndent();
               }
           } else {
-              currentP.push(item);
+              cells.push({ ...item, id: `char-${i}` });
+              currentRowCount++;
           }
-      });
-      // Add last paragraph if exists
-      if (currentP.length > 0) paragraphs.push(currentP);
-      return paragraphs;
-  };
+      }
+
+      // Fill last row
+      fillRow();
+      
+      // Add extra padding rows for aesthetics (3 rows)
+      for (let i = 0; i < gridCols * 3; i++) {
+          cells.push({ char: '', pinyin: '', id: `end-pad-${cells.length}` });
+      }
+
+      return cells;
+
+  }, [currentStory, gridCols]);
+
 
   // --- Renders ---
 
@@ -650,33 +719,29 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
 
              {/* 
                  READER CONTENT 
-                 Notebook Style: White background, continuous grid.
+                 Uses strict CSS Grid layout for perfect alignment.
+                 The cell size is responsive:
+                 - Mobile: w-14 (approx 56px) -> roughly 6-7 cols
+                 - Desktop: w-20 (approx 80px) -> roughly 12-14 cols
+                 
+                 We calculate gridCols state based on window width to determine how many empty cells to pad.
              */}
-             <div className="flex-1 overflow-y-auto bg-white custom-scrollbar pb-32">
-                 <div className="max-w-6xl mx-auto p-4 sm:p-8 flex flex-col items-center">
-                     {/* 
-                        Container Border and Padding Fix:
-                        - border-red-300 to match cell borders.
-                        - p-px padding prevents clipping of the rightmost/bottommost cell borders 
-                          which are pushed out by negative margins (-mr-px, -mb-px).
-                     */}
-                     <div className="border border-red-300 shadow-sm bg-white overflow-hidden p-px box-content inline-block">
-                         {getParagraphs(currentStory.content).map((paragraph, pIdx) => (
-                             <div key={pIdx} className="flex flex-wrap gap-0 justify-center">
-                                 {/* Paragraph Indentation: 2 Empty Grids (Notebook style) */}
-                                 <WritingGrid char="" pinyin="" variant="notebook" />
-                                 <WritingGrid char="" pinyin="" variant="notebook" />
-                                 
-                                 {paragraph.map((item, idx) => (
-                                     <WritingGrid 
-                                       key={`${pIdx}-${idx}`}
-                                       char={item.char}
-                                       pinyin={item.pinyin}
-                                       variant="notebook"
-                                       onClick={() => handleCharClick(item)} 
-                                     />
-                                 ))}
-                             </div>
+             <div className="flex-1 overflow-y-auto bg-white custom-scrollbar pb-32 flex justify-center">
+                 <div className="p-4 sm:p-8 w-full max-w-7xl flex flex-col items-center">
+                     <div 
+                         className="border border-red-300 shadow-sm bg-white overflow-hidden p-px box-content grid"
+                         style={{ 
+                             gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`
+                         }}
+                     >
+                         {processedGridCells.map((item, idx) => (
+                             <WritingGrid 
+                               key={item.id}
+                               char={item.char}
+                               pinyin={item.pinyin}
+                               variant="notebook"
+                               onClick={() => handleCharClick(item)} 
+                             />
                          ))}
                      </div>
                      
