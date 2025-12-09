@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Volume2, Sparkles, BookOpen, Star, RefreshCw, Layers, Check, X, Puzzle } from 'lucide-react';
-import { GameConfig, AIExplanation } from '../types';
+import { ArrowLeft, Volume2, Sparkles, BookOpen, Star, RefreshCw, Layers, Check, X, Puzzle, GraduationCap, CheckCircle, XCircle } from 'lucide-react';
+import { GameConfig, AIExplanation, Character } from '../types';
 import { explainCharacter } from '../services/geminiService';
-import { addUnknownCharacter, addKnownCharacter, addStars, getSettings, recordLearning } from '../services/storage';
+import { addUnknownCharacter, addKnownCharacter, addStars, getSettings, recordLearning, isCharacterKnown, getUnknownCharacters } from '../services/storage';
 import { WritingGrid, StrokeOrderDisplay, speakText } from './SharedComponents';
 import confetti from 'canvas-confetti';
 
@@ -17,6 +17,9 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
   const [score, setScore] = useState(0);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiExplanation, setAiExplanation] = useState<AIExplanation | null>(null);
+  
+  // Modal State for clicking sub-characters
+  const [modalChar, setModalChar] = useState<Character | null>(null);
   
   // Track characters learned in this session to record stats at end
   const [sessionLearned, setSessionLearned] = useState<Set<string>>(new Set());
@@ -143,6 +146,44 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
     }
   };
 
+  // --- Modal Logic ---
+  const handleCharClick = (char: string, pinyin: string) => {
+      setModalChar({ char, pinyin });
+  };
+
+  const handleModalAction = (action: 'READ' | 'STUDY' | 'KNOWN' | 'UNKNOWN') => {
+    if (!modalChar) return;
+    
+    switch (action) {
+      case 'READ':
+        speakText(modalChar.char);
+        break;
+      case 'STUDY':
+        // In Game context, we can't easily jump to study another char without losing state.
+        // We will just speak it and maybe provide a tip.
+        speakText(`学习: ${modalChar.char}`);
+        break;
+      case 'KNOWN':
+        addKnownCharacter(modalChar);
+        speakText('认识');
+        setModalChar(null);
+        break;
+      case 'UNKNOWN':
+        addUnknownCharacter(modalChar);
+        speakText('不认识');
+        setModalChar(null);
+        break;
+    }
+  };
+
+  const getCharStatus = (charStr: string): 'KNOWN' | 'UNKNOWN' | 'NONE' => {
+      if (isCharacterKnown(charStr)) return 'KNOWN';
+      const unknownList = getUnknownCharacters();
+      if (unknownList.some(c => c.char === charStr)) return 'UNKNOWN';
+      return 'NONE';
+  };
+
+
   const progress = ((currentIndex + 1) / config.characters.length) * 100;
 
   // Use pinyin from char or from AI if loaded
@@ -210,7 +251,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
                         <React.Fragment key={idx}>
                              {/* Plus sign between parts */}
                              {idx > 0 && <span className="text-blue-300 font-bold text-xl">+</span>}
-                             <WritingGrid char={part.char} pinyin={part.pinyin} />
+                             <WritingGrid char={part.char} pinyin={part.pinyin} onClick={() => handleCharClick(part.char, part.pinyin)} />
                         </React.Fragment>
                     ))}
                 </div>
@@ -322,6 +363,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
                                   char={c} 
                                   pinyin={pinyins[idx] || ''} 
                                   isTarget={c === currentCharacter.char} // Highlight if match
+                                  onClick={() => handleCharClick(c, pinyins[idx] || '')}
                                 />
                               ))}
                            </div>
@@ -344,6 +386,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
                               char={item.char} 
                               pinyin={item.pinyin} 
                               isTarget={item.char === currentCharacter.char} // Highlight if match
+                              onClick={() => handleCharClick(item.char, item.pinyin)}
                            />
                         ))}
 
@@ -374,6 +417,78 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
           )}
         </div>
       </div>
+
+      {/* --- Action Modal (Copied from CharacterBankView but adapted) --- */}
+      {modalChar && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setModalChar(null)}>
+              <div 
+                className="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 relative animate-bounce-in"
+                onClick={e => e.stopPropagation()}
+              >
+                  <button 
+                    onClick={() => setModalChar(null)}
+                    className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200"
+                  >
+                      <X size={20} />
+                  </button>
+
+                  <div className="flex flex-col items-center mb-8 pt-4">
+                      <div className="text-xl font-bold text-gray-500 mb-2">{modalChar.pinyin}</div>
+                      <div className="w-32 h-32 bg-gray-50 rounded-2xl border-2 border-gray-200 flex items-center justify-center mb-4 relative">
+                          <div className="absolute inset-0 pointer-events-none opacity-20" style={{
+                              backgroundImage: `linear-gradient(to right, transparent 49%, #f87171 50%, transparent 51%), linear-gradient(to bottom, transparent 49%, #f87171 50%, transparent 51%), linear-gradient(45deg, transparent 49%, #f87171 50%, transparent 51%), linear-gradient(-45deg, transparent 49%, #f87171 50%, transparent 51%)`,
+                              backgroundSize: '100% 100%'
+                          }}></div>
+                          <span className="font-fun text-7xl text-gray-800 relative z-10">{modalChar.char}</span>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        {getCharStatus(modalChar.char) === 'KNOWN' && <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"><CheckCircle size={12}/> 已认识</span>}
+                        {getCharStatus(modalChar.char) === 'UNKNOWN' && <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"><XCircle size={12}/> 生字本</span>}
+                      </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                      <button 
+                        onClick={() => handleModalAction('READ')}
+                        className="flex flex-col items-center justify-center p-4 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-colors gap-2"
+                      >
+                          <Volume2 size={24} />
+                          <span className="font-bold text-sm">朗读</span>
+                      </button>
+                      
+                      <button 
+                        onClick={() => handleModalAction('STUDY')}
+                        className="flex flex-col items-center justify-center p-4 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-100 transition-colors gap-2"
+                      >
+                          <GraduationCap size={24} />
+                          <span className="font-bold text-sm">学习</span>
+                      </button>
+
+                      <button 
+                        onClick={() => handleModalAction('KNOWN')}
+                        className={`flex flex-col items-center justify-center p-4 rounded-2xl transition-colors gap-2 border-2 ${
+                            getCharStatus(modalChar.char) === 'KNOWN' ? 'bg-green-100 border-green-300 text-green-700' : 'bg-white border-green-100 text-green-600 hover:bg-green-50'
+                        }`}
+                      >
+                          <Check size={24} />
+                          <span className="font-bold text-sm">认识</span>
+                      </button>
+
+                      <button 
+                        onClick={() => handleModalAction('UNKNOWN')}
+                        className={`flex flex-col items-center justify-center p-4 rounded-2xl transition-colors gap-2 border-2 ${
+                            getCharStatus(modalChar.char) === 'UNKNOWN' ? 'bg-orange-100 border-orange-300 text-orange-700' : 'bg-white border-orange-100 text-orange-600 hover:bg-orange-50'
+                        }`}
+                      >
+                          <X size={24} />
+                          <span className="font-bold text-sm">不认识</span>
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
     </div>
   );
 };

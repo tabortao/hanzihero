@@ -4,7 +4,7 @@ import { ArrowLeft, Star, Volume2 } from 'lucide-react';
 import { Character, CharPair } from '../types';
 import { getOfflineDict, findCharacterPinyin } from '../data/dictionary';
 import { speakText, WritingGrid } from './SharedComponents';
-import { addStars, addUnknownCharacter } from '../services/storage';
+import { addStars, addUnknownCharacter, addKnownCharacter, recordLearning, getCharacterCache } from '../services/storage';
 import confetti from 'canvas-confetti';
 
 interface LookIdentifyGameProps {
@@ -26,30 +26,56 @@ export const LookIdentifyGame: React.FC<LookIdentifyGameProps> = ({ characters, 
   const TOTAL_ROUNDS = 10;
   const wrongCharsRef = useRef<Set<string>>(new Set());
 
+  // Generate distinct rounds with variety
   const rounds = useMemo(() => {
-     const pool = [...characters];
+     const pool = characters.length > 0 ? [...characters] : [{char: '中', pinyin: 'zhōng'}];
      const generatedRounds: CharPair[][] = [];
      const dict = getOfflineDict();
 
-     const findSentenceForChar = (char: string): CharPair[] | null => {
-        const entry = dict[char];
-        if (entry && entry.sentenceData && entry.sentenceData.length > 0 && entry.sentenceData.length <= 15) {
+     const findContentForChar = (char: string): CharPair[] | null => {
+        // 1. Try AI Cache first (AI Driven Learning)
+        const cached = getCharacterCache(char);
+        const entry = cached || dict[char];
+        
+        if (!entry) return null;
+
+        // Try to pick something different than the primary sentence if possible, 
+        // or construct from words to create variety from Listen game.
+        
+        // 50% chance to use Words instead of Sentence if available to mix it up
+        if (Math.random() > 0.5 && entry.words && entry.words.length > 0) {
+            const randomWord = entry.words[Math.floor(Math.random() * entry.words.length)];
+            const charPairs: CharPair[] = [];
+            const wordChars = randomWord.word.split('');
+            const wordPinyins = randomWord.pinyin.split(' ');
+            
+            for(let i=0; i<wordChars.length; i++) {
+                charPairs.push({ char: wordChars[i], pinyin: wordPinyins[i] || '' });
+            }
+            return charPairs;
+        }
+
+        if (entry.sentenceData && entry.sentenceData.length > 0) {
             return entry.sentenceData;
         }
+        
         return null;
      };
 
      for (let i = 0; i < TOTAL_ROUNDS; i++) {
         const focusChar = pool[i % pool.length];
-        let sentence = findSentenceForChar(focusChar.char);
+        let content = findContentForChar(focusChar.char);
 
-        if (!sentence) {
-            const randomChars = pool.sort(() => 0.5 - Math.random()).slice(0, 4);
-            sentence = randomChars.map(c => ({ char: c.char, pinyin: c.pinyin }));
+        if (!content) {
+            // Fallback: Random characters
+            const randomChars = pool.sort(() => 0.5 - Math.random()).slice(0, 3 + Math.floor(Math.random() * 2));
+            content = randomChars.map(c => ({ char: c.char, pinyin: c.pinyin }));
         }
-        generatedRounds.push(sentence);
+        generatedRounds.push(content);
      }
-     return generatedRounds;
+     
+     // Shuffle rounds to ensure randomness even if characters are sequential
+     return generatedRounds.sort(() => 0.5 - Math.random());
   }, [characters]);
 
   useEffect(() => {
@@ -123,10 +149,18 @@ export const LookIdentifyGame: React.FC<LookIdentifyGameProps> = ({ characters, 
       const starsEarned = finalScore >= 90 ? 3 : finalScore >= 60 ? 2 : 1;
       addStars(starsEarned);
       
-      wrongCharsRef.current.forEach(char => {
-          const fullChar = characters.find(c => c.char === char) || { char, pinyin: findCharacterPinyin(char) };
+      // 1. Record Wrong Characters (Add to Unknown)
+      wrongCharsRef.current.forEach(charStr => {
+          const fullChar = characters.find(c => c.char === charStr) || { char: charStr, pinyin: findCharacterPinyin(charStr) };
           addUnknownCharacter(fullChar);
       });
+
+      // 2. Record Correct Characters (Update Timestamp for 3-1-3 Method)
+      const correctChars = characters.filter(c => !wrongCharsRef.current.has(c.char));
+      correctChars.forEach(c => addKnownCharacter(c));
+
+      // 3. Update Daily Stats
+      recordLearning(correctChars);
 
       confetti({
           particleCount: 100,
@@ -136,6 +170,7 @@ export const LookIdentifyGame: React.FC<LookIdentifyGameProps> = ({ characters, 
   };
 
   if (gameState === 'FINISHED') {
+      const finalScore = Math.min(100, score);
       return (
           <div className="flex flex-col items-center justify-center min-h-screen bg-orange-50 p-4 max-w-7xl mx-auto">
               <div className="bg-white rounded-3xl p-8 shadow-xl text-center max-w-sm w-full animate-bounce-in border-4 border-orange-100">
@@ -146,7 +181,7 @@ export const LookIdentifyGame: React.FC<LookIdentifyGameProps> = ({ characters, 
                           <Star key={i} fill={score >= (i === 1 ? 1 : i === 2 ? 60 : 90) ? "currentColor" : "none"} className={score >= (i === 1 ? 1 : i === 2 ? 60 : 90) ? "text-yellow-400" : "text-gray-200"} />
                       ))}
                   </div>
-                  <p className="text-2xl font-bold text-orange-600 mb-6">得分: {Math.min(100, score)}</p>
+                  <p className="text-2xl font-bold text-orange-600 mb-6">得分: {finalScore}</p>
                   
                   {wrongCharsRef.current.size > 0 && (
                       <div className="mb-6 bg-red-50 p-4 rounded-xl">
@@ -175,7 +210,7 @@ export const LookIdentifyGame: React.FC<LookIdentifyGameProps> = ({ characters, 
                <button onClick={onExit} className="p-2 bg-white/50 rounded-full hover:bg-white text-orange-800">
                    <ArrowLeft />
                </button>
-               <span className="font-bold text-orange-900 text-lg">🔫 手枪射击</span>
+               <span className="font-bold text-orange-900 text-lg">🔫 超能靶场</span>
            </div>
            
            <div className="flex gap-2">
@@ -225,8 +260,9 @@ export const LookIdentifyGame: React.FC<LookIdentifyGameProps> = ({ characters, 
                        <div className="w-6 h-6 bg-red-600 rounded-full z-10 shadow-[0_0_10px_red]"></div>
                        
                        {/* Gun Image (Emoji) Side View */}
-                       <div className="absolute right-[-80px] bottom-[-20px] opacity-90 pointer-events-none transform -rotate-12 scale-x-[-1]">
-                           <span className="text-9xl">🔫</span>
+                       {/* Gun moved far right (-180px) and rotated 20 deg to simulate holding from side */}
+                       <div className="absolute right-[-180px] bottom-[-30px] opacity-90 pointer-events-none transform rotate-[20deg] origin-bottom-left transition-transform duration-300">
+                           <span className="text-[10rem]">🔫</span>
                        </div>
                    </div>
 
@@ -245,14 +281,7 @@ export const LookIdentifyGame: React.FC<LookIdentifyGameProps> = ({ characters, 
                </div>
            </div>
            
-           <div className="flex justify-center mb-2">
-                <button 
-                  onClick={() => speakText(targetSentence.map(c => c.char).join(''))}
-                  className="p-3 bg-white/80 rounded-full shadow-sm text-orange-500 hover:text-orange-700"
-                >
-                    <Volume2 size={24} />
-                </button>
-           </div>
+           {/* Volume Button Removed */}
        </div>
 
        {/* Floating Options Area (Bubble Pool) */}

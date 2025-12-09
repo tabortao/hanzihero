@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { BookOpen, Sparkles, Trash2, Volume2, Save, Plus, Archive, RotateCcw, Check, Loader2, PenTool, Search, Tag, X, CheckCircle, GraduationCap, Edit2 } from 'lucide-react';
+import { BookOpen, Sparkles, Trash2, Volume2, Save, Plus, Archive, RotateCcw, Check, Loader2, PenTool, Search, Tag, X, CheckCircle, GraduationCap, Edit2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Story, CharPair, Character } from '../types';
 import { getStories, saveStory, deleteStory, getKnownCharacters, getUnknownCharacters, addUnknownCharacter, addKnownCharacter, isCharacterKnown } from '../services/storage';
 import { generateStoryStream } from '../services/geminiService';
@@ -11,6 +12,9 @@ const generateId = () => Date.now().toString(36) + Math.random().toString(36).su
 
 const AVAILABLE_TAGS = ["一年级", "二年级", "三年级", "寓言", "童话", "古诗", "日常", "动物", "植物", "单元复习"];
 
+// Reduced to 6 to ensure it fits above the bottom nav on mobile screens
+const ROWS_PER_PAGE = 6; 
+
 interface StoryViewProps {
     initialContext?: { chars: Character[], topic: string } | null;
     onClearContext?: () => void;
@@ -20,6 +24,9 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
   const [stories, setStories] = useState<Story[]>([]);
   const [currentStory, setCurrentStory] = useState<Story | null>(null);
   
+  // Reader State
+  const [currentPage, setCurrentPage] = useState(0);
+
   // Create/Input State
   const [showInputModal, setShowInputModal] = useState(false);
   const [inputType, setInputType] = useState<'AI' | 'MANUAL'>('AI');
@@ -44,28 +51,30 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
 
   // Grid Layout State
   const [gridCols, setGridCols] = useState(6);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setStories(getStories());
   }, []);
 
+  // Reset page when story changes
+  useEffect(() => {
+      if (currentStory) {
+          setCurrentPage(0);
+      }
+  }, [currentStory]);
+
   // Update Grid Cols based on width
   useEffect(() => {
     const updateCols = () => {
         const w = window.innerWidth;
-        // Logic to match WritingGrid sizes:
-        // < 640px: w-14 (approx 56px + border)
-        // >= 640px: w-20 (approx 80px + border)
-        // We leave some padding for the container
         let cols = 6;
-        if (w >= 1280) cols = 14;      // XL
-        else if (w >= 1024) cols = 12; // LG
-        else if (w >= 768) cols = 10;  // MD
+        if (w >= 1280) cols = 12;      // XL
+        else if (w >= 1024) cols = 10; // LG
+        else if (w >= 768) cols = 9;   // MD
         else if (w >= 640) cols = 8;   // SM
         else cols = 6;                 // Mobile (min)
 
-        // Adjust for very small screens if needed
+        // Adjust for very small screens
         if (w < 360) cols = 5;
 
         setGridCols(cols);
@@ -106,7 +115,6 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
     
     let available: Character[] = [];
     
-    // Priority: Use initial context chars if available, otherwise use Known/Unknown lists
     if (initialContext && initialContext.chars.length > 0) {
         available = initialContext.chars;
     } else {
@@ -115,7 +123,6 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
         available = [...known, ...unknown];
     }
     
-    // Fallback if empty
     if (available.length < 5) {
         available.push({char:'天', pinyin:'tiān'}, {char:'地', pinyin:'dì'}, {char:'人', pinyin:'rén'});
     }
@@ -140,21 +147,17 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
       saveNewStory(manualTitle, manualContent, 'MANUAL');
   };
 
-  // Common finalization for all methods
   const saveNewStory = (title: string, contentStr: string, source: 'AI' | 'MANUAL' | 'OCR') => {
       const content: CharPair[] = [];
-      // Normalize newlines
       const normalizedStr = contentStr.replace(/\r\n/g, '\n');
       
       for (let i = 0; i < normalizedStr.length; i++) {
           const char = normalizedStr[i];
           if (char === '\n') {
-              // Preserve newline as a special char token for paragraph breaking
               content.push({ char: '\n', pinyin: '' });
           } else if (char.match(/[\u4e00-\u9fa5a-zA-Z0-9]/)) {
               content.push({ char, pinyin: findCharacterPinyin(char) || '' });
           } else if (char.trim() !== '') {
-              // Treat as punctuation (keep it)
               content.push({ char, pinyin: '' });
           }
       }
@@ -178,25 +181,20 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
       handleCloseModal();
   };
 
-  // Watch for AI stream finish to Populate Manual Edit Fields
   useEffect(() => {
       if (!loading && streamText.length > 10 && inputType === 'AI' && showInputModal) {
           const lines = streamText.split('\n').filter(l => l.trim() !== '');
           const title = lines[0]?.replace(/^#+\s*/, '') || '无题';
           const content = lines.slice(1).join('\n');
           
-          // Switch to manual mode to allow editing before save
           setManualTitle(title);
           setManualContent(content);
           setInputType('MANUAL');
-          // Add 'AI Created' tag if not present
           if (!selectedTags.includes('AI生成')) {
               setSelectedTags(prev => [...prev, 'AI生成']);
           }
       }
   }, [loading, streamText]);
-
-  // --- Story Management ---
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -233,7 +231,6 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
 
   const readStory = () => {
       if(!currentStory) return;
-      // Filter out newlines for reading
       const text = currentStory.content.filter(c => c.char !== '\n').map(c => c.char).join('');
       speakText(text);
   };
@@ -245,12 +242,8 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
       }
   };
 
-  // --- Character Interaction ---
-
   const handleCharClick = (charPair: CharPair) => {
-      // Don't open for punctuation (empty char or special symbols), but allow numbers and chinese
       if (!charPair.char || !charPair.char.match(/[\u4e00-\u9fa5a-zA-Z0-9]/)) return;
-      
       setSelectedCharPair(charPair);
   };
 
@@ -280,7 +273,6 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
   };
 
 
-  // --- Filtering ---
   const filteredStories = stories.filter(s => {
       const matchesSearch = s.title.includes(searchQuery) || 
                             s.content.some(c => c.char.includes(searchQuery));
@@ -291,35 +283,32 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
   const activeStories = filteredStories.filter(s => !s.isArchived);
   const archivedStories = filteredStories.filter(s => s.isArchived);
 
-  // --- Grid Processing Logic ---
-  const processedGridCells = useMemo(() => {
-      if (!currentStory) return [];
+  // --- Grid & Pagination Processing Logic ---
+  const { pageCells, totalPages } = useMemo(() => {
+      if (!currentStory) return { pageCells: [], totalPages: 0 };
       
-      const cells: { char: string, pinyin: string, id: string }[] = [];
+      const allCells: { char: string, pinyin: string, id: string }[] = [];
       const content = currentStory.content;
       
       let currentRowCount = 0;
       
-      // Helper to fill rest of row with empty cells
       const fillRow = () => {
           const remainder = currentRowCount % gridCols;
           if (remainder > 0) {
               const needed = gridCols - remainder;
               for (let i = 0; i < needed; i++) {
-                  cells.push({ char: '', pinyin: '', id: `pad-${cells.length}` });
+                  allCells.push({ char: '', pinyin: '', id: `pad-${allCells.length}` });
                   currentRowCount++;
               }
           }
       };
 
-      // Helper to add indent (2 spaces)
       const addIndent = () => {
-          cells.push({ char: '', pinyin: '', id: `indent-1-${cells.length}` });
-          cells.push({ char: '', pinyin: '', id: `indent-2-${cells.length}` });
+          allCells.push({ char: '', pinyin: '', id: `indent-1-${allCells.length}` });
+          allCells.push({ char: '', pinyin: '', id: `indent-2-${allCells.length}` });
           currentRowCount += 2;
       };
 
-      // Initial Indent
       addIndent();
 
       for (let i = 0; i < content.length; i++) {
@@ -327,27 +316,31 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
           
           if (item.char === '\n') {
               fillRow();
-              // If not the very last item, start new paragraph indent
               if (i < content.length - 1) {
                   addIndent();
               }
           } else {
-              cells.push({ ...item, id: `char-${i}` });
+              allCells.push({ ...item, id: `char-${i}` });
               currentRowCount++;
           }
       }
-
-      // Fill last row
       fillRow();
+
+      // Pagination Calculation
+      const itemsPerPage = gridCols * ROWS_PER_PAGE;
+      const total = Math.ceil(allCells.length / itemsPerPage);
       
-      // Add extra padding rows for aesthetics (3 rows)
-      for (let i = 0; i < gridCols * 3; i++) {
-          cells.push({ char: '', pinyin: '', id: `end-pad-${cells.length}` });
+      // Get current page slice
+      let slice = allCells.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
+      
+      // Pad the last page to look full if it's the last page
+      while (slice.length < itemsPerPage) {
+          slice.push({ char: '', pinyin: '', id: `end-pad-${slice.length}` });
       }
 
-      return cells;
+      return { pageCells: slice, totalPages: total };
 
-  }, [currentStory, gridCols]);
+  }, [currentStory, gridCols, currentPage]);
 
 
   // --- Renders ---
@@ -365,7 +358,6 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {/* Mode Switcher */}
                   {!loading && !streamText && (
                       <div className="flex bg-gray-100 p-1 rounded-xl mb-4">
                           <button onClick={() => setInputType('AI')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${inputType === 'AI' ? 'bg-white shadow text-amber-600' : 'text-gray-400'}`}>AI 生成</button>
@@ -373,7 +365,6 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                       </div>
                   )}
 
-                  {/* AI Mode */}
                   {inputType === 'AI' && (
                       <div className="space-y-4">
                           {streamText ? (
@@ -399,7 +390,6 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                       </div>
                   )}
 
-                  {/* Manual Mode (Also used for Editing AI result) */}
                   {inputType === 'MANUAL' && (
                       <div className="space-y-3">
                           <input 
@@ -418,7 +408,6 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                       </div>
                   )}
 
-                  {/* Tag Selector (Common) */}
                   {!streamText && (
                       <div>
                           <label className="block text-sm font-bold text-gray-500 mb-2 flex items-center gap-1"><Tag size={14}/> 分类标签 (分级)</label>
@@ -446,7 +435,6 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                               ))}
                           </div>
                           
-                          {/* Custom Tag Input */}
                           <div className="flex items-center gap-2">
                               <input 
                                 type="text" 
@@ -529,11 +517,11 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
   };
 
   return (
-    <div className="max-w-7xl mx-auto min-h-screen bg-amber-50 pb-24 flex flex-col relative">
+    <div className="max-w-7xl mx-auto min-h-screen bg-amber-50 pb-24 flex flex-col relative h-[100dvh] overflow-hidden">
        
        {/* --- Top Bar (Search & Filter) --- */}
        {!currentStory && (
-           <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-md shadow-sm p-4 space-y-3">
+           <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-md shadow-sm p-4 space-y-3 shrink-0">
                <div className="flex justify-between items-center gap-4">
                    <div className="flex items-center gap-2">
                        <BookOpen className="text-amber-500" size={24}/>
@@ -575,8 +563,8 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
 
        {!currentStory ? (
          // List View
-         <div className="p-4 space-y-4 animate-fade-in relative min-h-[50vh]">
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-20">
+         <div className="p-4 space-y-4 animate-fade-in relative flex-1 overflow-y-auto">
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-32">
                  {activeStories.length === 0 && (
                      <div className="col-span-full text-center py-20 text-gray-400 flex flex-col items-center">
                          <BookOpen size={48} className="mb-4 opacity-20"/>
@@ -640,7 +628,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
              
              {/* Archived Section */}
              {archivedStories.length > 0 && (
-                 <div className="mt-8">
+                 <div className="mt-8 pb-32">
                      <h3 className="text-gray-400 font-bold text-sm mb-4 flex items-center gap-2">
                          <Archive size={16}/> 已读完归档
                      </h3>
@@ -680,10 +668,13 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
 
          </div>
        ) : (
-         // Reader View - Full Screen Fixed Layer
-         <div className="fixed inset-0 z-50 bg-white flex flex-col h-full animate-fade-in">
-             {/* Sticky/Fixed Header */}
-             <div className="bg-white p-4 shadow-sm flex items-center justify-between z-10 border-b border-gray-100 shrink-0">
+         // Reader View - Fixed Layer allowing Bottom Nav to show
+         // z-40 sits below z-50 nav bar but above regular content
+         // bottom-[90px] preserves space for the app's bottom navigation
+         // Centered on large screens with max-w-7xl
+         <div className="fixed top-0 bottom-[90px] left-1/2 -translate-x-1/2 w-full max-w-7xl z-40 bg-white flex flex-col animate-fade-in shadow-2xl border-x border-gray-100">
+             {/* Header */}
+             <div className="bg-white p-2 shadow-sm flex items-center justify-between z-10 border-b border-gray-100 shrink-0 h-14">
                  <button onClick={() => setCurrentStory(null)} className="text-gray-500 font-bold px-2 flex items-center gap-1 hover:text-gray-800">
                     <RotateCcw size={18}/> 返回
                  </button>
@@ -720,21 +711,19 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
              {/* 
                  READER CONTENT 
                  Uses strict CSS Grid layout for perfect alignment.
-                 The cell size is responsive:
-                 - Mobile: w-14 (approx 56px) -> roughly 6-7 cols
-                 - Desktop: w-20 (approx 80px) -> roughly 12-14 cols
-                 
-                 We calculate gridCols state based on window width to determine how many empty cells to pad.
+                 The cell size is responsive.
+                 We calculate gridCols state based on window width.
+                 Added overflow-y-auto to allow scrolling if content overflows vertically on small screens.
              */}
-             <div className="flex-1 overflow-y-auto bg-white custom-scrollbar pb-32 flex justify-center">
-                 <div className="p-4 sm:p-8 w-full max-w-7xl flex flex-col items-center">
+             <div className="flex-1 overflow-y-auto bg-white flex flex-col items-center justify-center p-2 relative">
+                 <div className="w-full max-w-7xl flex flex-col items-center my-auto">
                      <div 
                          className="border border-red-300 shadow-sm bg-white overflow-hidden p-px box-content grid"
                          style={{ 
                              gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`
                          }}
                      >
-                         {processedGridCells.map((item, idx) => (
+                         {pageCells.map((item, idx) => (
                              <WritingGrid 
                                key={item.id}
                                char={item.char}
@@ -744,21 +733,44 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                              />
                          ))}
                      </div>
-                     
-                     {!currentStory.isArchived && (
-                         <div className="mt-16 flex justify-center pb-8 w-full">
-                             <button 
-                                onClick={(e) => {
-                                    handleArchive(currentStory, e);
-                                    setCurrentStory(null);
-                                }}
-                                className="px-8 py-4 bg-green-500 text-white rounded-full font-bold flex items-center gap-2 hover:bg-green-600 transition-colors shadow-lg shadow-green-200"
-                             >
-                                 <Check size={20} /> 我读完了，归档
-                             </button>
-                         </div>
-                     )}
                  </div>
+             </div>
+
+             {/* Footer Pagination Bar - Compact & Cleaned */}
+             <div className="bg-white flex items-center justify-center gap-6 px-4 py-2 shrink-0 h-14">
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                    disabled={currentPage === 0}
+                    className="p-2 rounded-full bg-white shadow-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-amber-100 transition-colors text-amber-700 border border-gray-100"
+                  >
+                      <ChevronLeft size={20} />
+                  </button>
+
+                  <div className="flex flex-col items-center min-w-[80px]">
+                      <span className="text-xs font-bold text-amber-800">
+                          第 {currentPage + 1} / {totalPages} 页
+                      </span>
+                      {/* Archive Button only on last page */}
+                      {currentPage === totalPages - 1 && !currentStory.isArchived && (
+                          <button 
+                             onClick={(e) => {
+                                 handleArchive(currentStory, e);
+                                 setCurrentStory(null);
+                             }}
+                             className="mt-0.5 text-[10px] bg-green-500 text-white px-2 py-0.5 rounded-full font-bold flex items-center gap-1 hover:bg-green-600 transition-colors shadow-sm"
+                          >
+                              <Check size={10} /> 读完归档
+                          </button>
+                      )}
+                  </div>
+
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                    disabled={currentPage === totalPages - 1}
+                    className="p-2 rounded-full bg-white shadow-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-amber-100 transition-colors text-amber-700 border border-gray-100"
+                  >
+                      <ChevronRight size={20} />
+                  </button>
              </div>
          </div>
        )}

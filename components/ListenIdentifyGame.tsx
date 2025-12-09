@@ -4,7 +4,7 @@ import { ArrowLeft, Volume2, Target, Star } from 'lucide-react';
 import { Character, CharPair } from '../types';
 import { getOfflineDict, findCharacterPinyin } from '../data/dictionary';
 import { speakText, WritingGrid } from './SharedComponents';
-import { addStars, addUnknownCharacter } from '../services/storage';
+import { addStars, addUnknownCharacter, addKnownCharacter, recordLearning, getCharacterCache } from '../services/storage';
 import confetti from 'canvas-confetti';
 
 interface ListenIdentifyGameProps {
@@ -30,11 +30,19 @@ export const ListenIdentifyGame: React.FC<ListenIdentifyGameProps> = ({ characte
 
   // Generate rounds based on characters
   const rounds = useMemo(() => {
-     const pool = [...characters];
+     // Ensure we have enough characters to loop through
+     const pool = characters.length > 0 ? [...characters] : [{char: '天', pinyin: 'tiān'}]; 
      const generatedRounds: CharPair[][] = [];
      const dict = getOfflineDict();
 
      const findSentenceForChar = (char: string): CharPair[] | null => {
+        // 1. Try AI Cache first (AI Driven Learning)
+        const cached = getCharacterCache(char);
+        if (cached && cached.sentenceData && cached.sentenceData.length > 0 && cached.sentenceData.length <= 15) {
+            return cached.sentenceData;
+        }
+
+        // 2. Fallback to Offline Dictionary
         const entry = dict[char];
         if (entry && entry.sentenceData && entry.sentenceData.length > 0 && entry.sentenceData.length <= 15) {
             return entry.sentenceData;
@@ -47,6 +55,7 @@ export const ListenIdentifyGame: React.FC<ListenIdentifyGameProps> = ({ characte
         let sentence = findSentenceForChar(focusChar.char);
 
         if (!sentence) {
+            // Fallback: Random characters if no sentence found
             const randomChars = pool.sort(() => 0.5 - Math.random()).slice(0, 4);
             sentence = randomChars.map(c => ({ char: c.char, pinyin: c.pinyin }));
         }
@@ -131,10 +140,18 @@ export const ListenIdentifyGame: React.FC<ListenIdentifyGameProps> = ({ characte
       const starsEarned = finalScore >= 90 ? 3 : finalScore >= 60 ? 2 : 1;
       addStars(starsEarned);
       
-      wrongCharsRef.current.forEach(char => {
-          const fullChar = characters.find(c => c.char === char) || { char, pinyin: findCharacterPinyin(char) };
+      // 1. Record Wrong Characters (Add to Unknown)
+      wrongCharsRef.current.forEach(charStr => {
+          const fullChar = characters.find(c => c.char === charStr) || { char: charStr, pinyin: findCharacterPinyin(charStr) };
           addUnknownCharacter(fullChar);
       });
+
+      // 2. Record Correct Characters (Update Timestamp for 3-1-3 Method)
+      const correctChars = characters.filter(c => !wrongCharsRef.current.has(c.char));
+      correctChars.forEach(c => addKnownCharacter(c));
+
+      // 3. Update Daily Stats
+      recordLearning(correctChars);
 
       confetti({
           particleCount: 100,
@@ -237,8 +254,8 @@ export const ListenIdentifyGame: React.FC<ListenIdentifyGameProps> = ({ characte
                    </div>
                </div>
 
-               {/* Side Bow Visual */}
-               <div className="absolute right-0 bottom-10 z-20 transform -rotate-45 opacity-80 pointer-events-none">
+               {/* Side Bow Visual - Right side, Rotated */}
+               <div className="absolute right-0 bottom-10 z-20 transform -rotate-[60deg] opacity-80 pointer-events-none">
                    <span className="text-8xl filter drop-shadow-lg">🏹</span>
                </div>
 
