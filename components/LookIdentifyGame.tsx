@@ -113,7 +113,7 @@ export const LookIdentifyGame: React.FC<LookIdentifyGameProps> = ({ characters, 
           setShuffledOptions(newOptions);
 
           setShowGunAnim('HIT');
-          setScore(prev => prev + Math.ceil(100 / (TOTAL_ROUNDS * targetSentence.length)) * 2);
+          setScore(prev => prev + 1); // 1 point per correct char
 
           setTimeout(() => {
               setShowGunAnim(null);
@@ -145,9 +145,7 @@ export const LookIdentifyGame: React.FC<LookIdentifyGameProps> = ({ characters, 
 
   const finishGame = () => {
       setGameState('FINISHED');
-      const finalScore = Math.min(100, score);
-      const starsEarned = finalScore >= 90 ? 3 : finalScore >= 60 ? 2 : 1;
-      addStars(starsEarned);
+      addStars(score); // Save accumulated score
       
       // 1. Record Wrong Characters (Add to Unknown)
       wrongCharsRef.current.forEach(charStr => {
@@ -170,18 +168,15 @@ export const LookIdentifyGame: React.FC<LookIdentifyGameProps> = ({ characters, 
   };
 
   if (gameState === 'FINISHED') {
-      const finalScore = Math.min(100, score);
       return (
           <div className="flex flex-col items-center justify-center min-h-screen bg-orange-50 p-4 max-w-7xl mx-auto">
               <div className="bg-white rounded-3xl p-8 shadow-xl text-center max-w-sm w-full animate-bounce-in border-4 border-orange-100">
                   <div className="mb-4 text-6xl">🔫</div>
                   <h2 className="text-3xl font-bold text-orange-900 mb-2">狙击任务完成!</h2>
                   <div className="text-6xl font-fun text-yellow-400 mb-4 flex justify-center gap-2">
-                      {[1, 2, 3].map(i => (
-                          <Star key={i} fill={score >= (i === 1 ? 1 : i === 2 ? 60 : 90) ? "currentColor" : "none"} className={score >= (i === 1 ? 1 : i === 2 ? 60 : 90) ? "text-yellow-400" : "text-gray-200"} />
-                      ))}
+                       <Star fill="currentColor" className="text-yellow-400" />
                   </div>
-                  <p className="text-2xl font-bold text-orange-600 mb-6">得分: {finalScore}</p>
+                  <p className="text-2xl font-bold text-orange-600 mb-6">获得积分: {score}</p>
                   
                   {wrongCharsRef.current.size > 0 && (
                       <div className="mb-6 bg-red-50 p-4 rounded-xl">

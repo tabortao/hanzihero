@@ -4,6 +4,7 @@ import { Character, AppSettings, LearningStats, UserProgress, Story, AIExplanati
 const STORAGE_KEY_UNKNOWN = 'hanzi_hero_unknown';
 const STORAGE_KEY_KNOWN = 'hanzi_hero_known';
 const STORAGE_KEY_STARS = 'hanzi_hero_stars';
+const STORAGE_KEY_COINS = 'hanzi_hero_reading_coins'; // New Key
 const STORAGE_KEY_SETTINGS = 'hanzi_hero_settings';
 const STORAGE_KEY_STATS = 'hanzi_hero_stats';
 const STORAGE_KEY_STORIES = 'hanzi_hero_stories';
@@ -108,7 +109,7 @@ export const removeUnknownCharacter = (charStr: string): void => {
   localStorage.setItem(STORAGE_KEY_UNKNOWN, JSON.stringify(updated));
 };
 
-// --- Stars ---
+// --- Stars (Game Points) ---
 
 export const getStars = (): number => {
   const data = localStorage.getItem(STORAGE_KEY_STARS);
@@ -120,6 +121,21 @@ export const addStars = (amount: number): number => {
   const current = getStars();
   const newTotal = current + amount;
   localStorage.setItem(STORAGE_KEY_STARS, newTotal.toString());
+  return newTotal;
+};
+
+// --- Reading Coins ---
+
+export const getReadingCoins = (): number => {
+  const data = localStorage.getItem(STORAGE_KEY_COINS);
+  const val = data ? parseInt(data, 10) : 0;
+  return isNaN(val) ? 0 : val;
+};
+
+export const addReadingCoins = (amount: number): number => {
+  const current = getReadingCoins();
+  const newTotal = current + amount;
+  localStorage.setItem(STORAGE_KEY_COINS, newTotal.toString());
   return newTotal;
 };
 
@@ -301,6 +317,7 @@ export const exportUserData = (): string => {
   const data = {
     settings: getSettings(),
     stars: getStars(),
+    coins: getReadingCoins(),
     unknown: getUnknownCharacters(),
     known: getKnownCharacters(),
     stats: getStats(),
@@ -317,6 +334,7 @@ export const importUserData = (jsonStr: string): boolean => {
 
     if (data.settings) localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify({ ...DEFAULT_SETTINGS, ...data.settings }));
     if (data.stars !== undefined) localStorage.setItem(STORAGE_KEY_STARS, String(data.stars));
+    if (data.coins !== undefined) localStorage.setItem(STORAGE_KEY_COINS, String(data.coins));
     
     const sanitize = (l: any[]) => Array.isArray(l) ? l.filter(c => c && typeof c.char === 'string') : [];
     if (data.unknown) localStorage.setItem(STORAGE_KEY_UNKNOWN, JSON.stringify(sanitize(data.unknown)));

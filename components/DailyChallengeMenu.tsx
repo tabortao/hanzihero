@@ -1,7 +1,8 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Book, Volume2, Eye, LayoutGrid, Play, Star } from 'lucide-react';
 import { Character } from '../types';
+import { getStars } from '../services/storage';
 
 interface DailyChallengeMenuProps {
   onBack: () => void;
@@ -10,6 +11,12 @@ interface DailyChallengeMenuProps {
 }
 
 export const DailyChallengeMenu: React.FC<DailyChallengeMenuProps> = ({ onBack, onSelectMode, characterCount }) => {
+  const [totalStars, setTotalStars] = useState(0);
+
+  useEffect(() => {
+    setTotalStars(getStars());
+  }, []);
+
   return (
     <div className="max-w-7xl mx-auto min-h-screen bg-[#ecfdf5] p-4 md:p-8 flex flex-col relative overflow-hidden">
        {/* Decorative Background Elements */}
@@ -17,20 +24,29 @@ export const DailyChallengeMenu: React.FC<DailyChallengeMenuProps> = ({ onBack, 
        <div className="absolute top-0 left-0 w-64 h-64 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
        <div className="absolute -bottom-32 left-20 w-64 h-64 bg-pink-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
 
-      <div className="flex items-center gap-4 mb-8 relative z-10">
-        <button 
-          onClick={onBack}
-          className="p-3 bg-white rounded-full shadow-sm hover:bg-white/80 text-gray-600 transition-colors"
-        >
-          <ArrowLeft size={24} />
-        </button>
-        <div>
-          <h1 className="text-2xl md:text-3xl font-fun text-gray-800 flex items-center gap-2">
-            每日挑战 <span className="text-3xl">🏆</span>
-          </h1>
-          <p className="text-gray-600 text-sm font-bold mt-1">
-            今日任务：<span className="text-indigo-600 text-lg">{characterCount}</span> 个汉字 (3-1-3 复习)
-          </p>
+      <div className="flex items-center justify-between mb-8 relative z-10">
+        <div className="flex items-center gap-4">
+            <button 
+              onClick={onBack}
+              className="p-3 bg-white rounded-full shadow-sm hover:bg-white/80 text-gray-600 transition-colors"
+            >
+              <ArrowLeft size={24} />
+            </button>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-fun text-gray-800 flex items-center gap-2">
+                每日挑战 <span className="text-3xl">🏆</span>
+              </h1>
+              <p className="text-gray-600 text-sm font-bold mt-1">
+                今日任务：<span className="text-indigo-600 text-lg">{characterCount}</span> 个汉字 (3-1-3 复习)
+              </p>
+            </div>
+        </div>
+        
+        {/* Total Score Display */}
+        <div className="bg-white/60 backdrop-blur-sm px-4 py-2 rounded-2xl flex items-center gap-2 shadow-sm border border-white">
+            <Star size={24} className="text-yellow-400 fill-yellow-400" />
+            <span className="text-xl font-bold text-yellow-600">{totalStars}</span>
+            <span className="text-xs font-bold text-gray-400">分</span>
         </div>
       </div>
 

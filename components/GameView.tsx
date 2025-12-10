@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Volume2, Sparkles, BookOpen, Star, RefreshCw, Layers, Check, X, Puzzle, GraduationCap, CheckCircle, XCircle } from 'lucide-react';
 import { GameConfig, AIExplanation, Character } from '../types';
@@ -10,6 +11,8 @@ interface GameViewProps {
   config: GameConfig;
   onExit: (newStars: number) => void;
 }
+
+const PRAISE_WORDS = ["Amazing", "Excellent", "Great", "Good Job", "Wonderful", "Super", "Awesome", "Well done", "Fantastic", "Brilliant"];
 
 export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -49,12 +52,17 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
 
   // User clicked "I Know It"
   const handleKnown = () => {
-    // Note: If the character didn't have Pinyin in the dictionary, it might still not here.
-    // But usually "Known" flow implies less data filling than "Unknown" flow.
     addKnownCharacter(currentCharacter);
     markLearned();
-    setScore(prev => prev + 10);
-    speakText("真棒！");
+    setScore(prev => prev + 1); // 1 point per character
+    
+    // 1. Speak the character
+    speakText(currentCharacter.char);
+    
+    // 2. Speak random English praise (queued after char)
+    const randomPraise = PRAISE_WORDS[Math.floor(Math.random() * PRAISE_WORDS.length)];
+    speakText(randomPraise, undefined, 'en-US');
+
     nextChar();
   };
 
@@ -129,8 +137,8 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
     const charsLearned = config.characters.filter(c => sessionLearned.has(c.char));
     recordLearning(charsLearned);
 
-    const earnedStars = Math.floor(score / 10); 
-    const totalStars = addStars(earnedStars);
+    // Save points
+    const totalStars = addStars(score);
 
     // Delay exit slightly to show celebration
     setTimeout(() => {
@@ -194,7 +202,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <button 
-          onClick={() => onExit(addStars(0))} // Exit without celebration/extra save if manual
+          onClick={() => onExit(addStars(score))} // Exit with current score added if manual
           className="p-2 rounded-full hover:bg-gray-200 text-gray-600 transition-colors"
         >
           <ArrowLeft />
@@ -211,8 +219,10 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
             />
           </div>
         </div>
-        {/* Stars Removed in Game View as requested */}
-        <div className="w-8"></div> 
+        {/* Points Display */}
+        <div className="bg-white px-3 py-1 rounded-full shadow-sm flex items-center gap-1 font-bold text-yellow-600 border border-yellow-100">
+             <Star size={16} fill="currentColor" /> {score}
+        </div>
       </div>
 
       {/* Main Area */}

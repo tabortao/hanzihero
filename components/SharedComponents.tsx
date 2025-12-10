@@ -1,21 +1,32 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { PenTool, Grid, BookOpen, BarChart3, User } from 'lucide-react';
 import { getSettings } from '../services/storage';
 import { ViewState } from '../types';
 
 // Helper to speak individual characters
-export const speakText = (text: string) => {
+export const speakText = (text: string, onEnd?: () => void, lang: string = 'zh-CN') => {
   const settings = getSettings();
+  
+  // Cancel current speech if any to avoid overlap issues if needed, 
+  // but for "Char + Praise" sequence we want them to queue.
+  // window.speechSynthesis.cancel(); 
+
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'zh-CN';
+  utterance.lang = lang;
   utterance.rate = settings.ttsRate;
   
-  if (settings.ttsVoice) {
+  // Only apply custom voice for Chinese if configured
+  if (lang === 'zh-CN' && settings.ttsVoice) {
     const voices = window.speechSynthesis.getVoices();
     const selectedVoice = voices.find(v => v.voiceURI === settings.ttsVoice);
     if (selectedVoice) {
       utterance.voice = selectedVoice;
     }
+  }
+
+  if (onEnd) {
+      utterance.onend = onEnd;
   }
   
   window.speechSynthesis.speak(utterance);

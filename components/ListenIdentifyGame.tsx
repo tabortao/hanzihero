@@ -105,7 +105,7 @@ export const ListenIdentifyGame: React.FC<ListenIdentifyGameProps> = ({ characte
           setShowArrowAnim('HIT');
           speakText(charPair.char); 
           
-          setScore(prev => prev + Math.ceil(100 / (TOTAL_ROUNDS * targetSentence.length)) * 2); 
+          setScore(prev => prev + 1); // 1 point per correct char
 
           setTimeout(() => {
               setShowArrowAnim(null);
@@ -136,9 +136,7 @@ export const ListenIdentifyGame: React.FC<ListenIdentifyGameProps> = ({ characte
 
   const finishGame = () => {
       setGameState('FINISHED');
-      const finalScore = Math.min(100, score);
-      const starsEarned = finalScore >= 90 ? 3 : finalScore >= 60 ? 2 : 1;
-      addStars(starsEarned);
+      addStars(score); // Save total points
       
       // 1. Record Wrong Characters (Add to Unknown)
       wrongCharsRef.current.forEach(charStr => {
@@ -161,29 +159,25 @@ export const ListenIdentifyGame: React.FC<ListenIdentifyGameProps> = ({ characte
   };
 
   const getRankTitle = (finalScore: number) => {
-      if (finalScore >= 100) return "传说神射手";
-      if (finalScore >= 90) return "皇家弓箭手";
-      if (finalScore >= 80) return "森林游侠";
-      if (finalScore >= 60) return "精英射手";
+      if (finalScore >= 50) return "传说神射手";
+      if (finalScore >= 30) return "皇家弓箭手";
+      if (finalScore >= 15) return "森林游侠";
       return "见习弓手";
   };
 
   if (gameState === 'FINISHED') {
-      const finalScore = Math.min(100, score);
       return (
           <div className="flex flex-col items-center justify-center min-h-screen bg-indigo-50 p-4 max-w-7xl mx-auto">
               <div className="bg-white rounded-3xl p-8 shadow-xl text-center max-w-sm w-full animate-bounce-in border-4 border-indigo-100">
                   <div className="mb-4 text-6xl">🏹</div>
                   <h2 className="text-3xl font-bold text-indigo-900 mb-2">挑战完成!</h2>
                   <div className="text-xl font-bold text-purple-600 mb-4 bg-purple-50 py-2 rounded-lg">
-                      称号：{getRankTitle(finalScore)}
+                      称号：{getRankTitle(score)}
                   </div>
                   <div className="text-6xl font-fun text-yellow-400 mb-4 flex justify-center gap-2">
-                      {[1, 2, 3].map(i => (
-                          <Star key={i} fill={score >= (i === 1 ? 1 : i === 2 ? 60 : 90) ? "currentColor" : "none"} className={score >= (i === 1 ? 1 : i === 2 ? 60 : 90) ? "text-yellow-400" : "text-gray-200"} />
-                      ))}
+                       <Star fill="currentColor" className="text-yellow-400" />
                   </div>
-                  <p className="text-2xl font-bold text-indigo-600 mb-6">得分: {finalScore}</p>
+                  <p className="text-2xl font-bold text-indigo-600 mb-6">获得积分: {score}</p>
                   
                   {wrongCharsRef.current.size > 0 && (
                       <div className="mb-6 bg-red-50 p-4 rounded-xl">

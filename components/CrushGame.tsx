@@ -41,8 +41,6 @@ interface GameItem {
   relatedHint?: string;
 }
 
-const PRAISE_WORDS = ["Amazing", "Excellent", "Great", "Good Job", "Wonderful", "Super", "Awesome"];
-
 export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
   // Views: MENU (Level Select) | PLAYING
   const [view, setView] = useState<'MENU' | 'PLAYING'>('MENU');
@@ -67,14 +65,6 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
       setMaxReached(getCrushMaxLevel());
   }, [view]);
 
-  // Helper to speak English encouragement
-  const speakEnglish = (text: string) => {
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'en-US'; 
-    u.rate = 1.2;
-    window.speechSynthesis.speak(u);
-  };
-
   // --- Logic: Start a Level ---
   const startLevel = async (targetLevel: number) => {
     setLevel(targetLevel);
@@ -82,6 +72,7 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
     setLoading(true);
     setMatchedIds([]);
     setSelectedIds([]);
+    setScore(0); // Reset score for new level
     
     // 1. Try to load specific level data from storage first
     const cached = getCrushLevelData(targetLevel);
@@ -92,8 +83,6 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
     }
 
     // 2. Determine source characters for AI
-    // Strategy: Combine Known + Unknown + Current Context, shuffle and pick a subset.
-    // This ensures variety for "New Level" generation.
     const knownChars = getKnownCharacters();
     const unknownChars = getUnknownCharacters();
     
@@ -237,7 +226,8 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
       const newSelected = [...selectedIds, item.uid];
       setSelectedIds(newSelected);
       
-      if (!item.isPinyin) speakText(item.content);
+      // Remove speech on click to speed up game and focus on visual matching
+      // if (!item.isPinyin) speakText(item.content);
 
       if (newSelected.length === 2) {
           checkMatch(newSelected[0], newSelected[1]);
@@ -253,11 +243,11 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
           timeoutRef.current = setTimeout(() => {
               setMatchedIds(prev => [...prev, id1, id2]);
               setSelectedIds([]);
-              setScore(prev => prev + 10);
+              setScore(prev => prev + 1); // 1 point per pair
               
-              const praise = PRAISE_WORDS[Math.floor(Math.random() * PRAISE_WORDS.length)];
-              speakEnglish(praise);
-
+              // Immediately award star to user record
+              addStars(1);
+              
               const textItem = item1.isPinyin ? item2 : item1;
               
               // Record Learning
@@ -275,6 +265,13 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
                   hint: textItem.relatedHint
               });
               setShowModal(true);
+
+              // Speak content on success, then close modal automatically
+              speakText(textItem.content, () => {
+                  setTimeout(() => {
+                      setShowModal(false);
+                  }, 500); // Close 0.5s after speech finishes
+              });
 
               if (matchedIds.length + 2 === gridItems.length) {
                    confetti({ particleCount: 150, spread: 60 });
@@ -326,9 +323,6 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
         <div className="min-h-screen bg-[#fdfbf7] flex flex-col relative overflow-hidden font-serif">
             <div className="bg-white/80 backdrop-blur-md p-4 shadow-sm border-b border-gray-100 flex justify-between items-center z-10">
                 <button onClick={onExit} className="flex items-center gap-2 text-gray-600 font-bold"><ArrowLeft /> 退出游戏</button>
-                <div className="bg-yellow-100 text-yellow-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1">
-                    <Star size={14}/> {score} 分
-                </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
@@ -381,7 +375,7 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
               <div className="bg-white p-8 rounded-[2rem] shadow-2xl border-4 border-yellow-200 text-center max-w-sm w-full animate-bounce-in">
                   <Trophy size={64} className="text-yellow-500 mx-auto mb-4" />
                   <h2 className="text-3xl font-bold text-gray-800 mb-2">关卡 {level} 完成!</h2>
-                  <p className="text-gray-500 mb-6">太棒了！</p>
+                  <p className="text-gray-500 mb-6">获得 {score} 积分</p>
                   <div className="flex justify-center gap-2 mb-8">
                       <Star size={32} className="text-yellow-400 fill-yellow-400 animate-pulse" />
                       <Star size={32} className="text-yellow-400 fill-yellow-400 animate-pulse delay-100" />
@@ -483,7 +477,7 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
           )}
       </div>
 
-      {/* Success Modal (Brief) */}
+      {/* Success Modal (Brief, Auto-closing) */}
       {showModal && modalContent && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowModal(false)}>
               <div 
@@ -506,18 +500,11 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
                           <span className="text-4xl font-fun text-sky-800 break-words">{modalContent.char}</span>
                       </div>
                       
-                      <div className="flex items-center justify-center gap-3 bg-gray-50 p-3 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => speakText(modalContent.char)}>
+                      <div className="flex items-center justify-center gap-3 bg-gray-50 p-3 rounded-xl">
                           <span className="text-xl font-bold text-gray-600">{modalContent.pinyin}</span>
-                          <Volume2 className="text-gray-500" size={20} />
                       </div>
                   </div>
-                  
-                  <button 
-                      onClick={() => setShowModal(false)}
-                      className="w-full py-3 bg-gradient-to-r from-green-400 to-emerald-500 text-white rounded-xl font-bold hover:scale-105 transition-transform shadow-lg"
-                  >
-                      继续挑战
-                  </button>
+                  {/* No Button - Auto Close */}
               </div>
           </div>
       )}

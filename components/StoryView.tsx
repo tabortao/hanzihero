@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { BookOpen, Sparkles, Trash2, Volume2, Save, Plus, Archive, RotateCcw, Check, Loader2, PenTool, Search, Tag, X, CheckCircle, GraduationCap, Edit2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { BookOpen, Sparkles, Trash2, Volume2, Save, Plus, Archive, RotateCcw, Check, Loader2, PenTool, Search, Tag, X, CheckCircle, GraduationCap, Edit2, ChevronLeft, ChevronRight, Coins } from 'lucide-react';
 import { Story, CharPair, Character } from '../types';
-import { getStories, saveStory, deleteStory, getKnownCharacters, getUnknownCharacters, addUnknownCharacter, addKnownCharacter, isCharacterKnown } from '../services/storage';
+import { getStories, saveStory, deleteStory, getKnownCharacters, getUnknownCharacters, addUnknownCharacter, addKnownCharacter, isCharacterKnown, getReadingCoins, addReadingCoins } from '../services/storage';
 import { generateStoryStream } from '../services/geminiService';
 import { speakText, WritingGrid } from './SharedComponents';
 import { findCharacterPinyin } from '../data/dictionary';
+import confetti from 'canvas-confetti';
 
 // Helper to generate a UUID
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
@@ -23,9 +24,11 @@ interface StoryViewProps {
 export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearContext }) => {
   const [stories, setStories] = useState<Story[]>([]);
   const [currentStory, setCurrentStory] = useState<Story | null>(null);
+  const [coins, setCoins] = useState(0);
   
   // Reader State
   const [currentPage, setCurrentPage] = useState(0);
+  const [hasAwardedCoins, setHasAwardedCoins] = useState(false); // Track if coins awarded for current session
 
   // Create/Input State
   const [showInputModal, setShowInputModal] = useState(false);
@@ -54,12 +57,14 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
 
   useEffect(() => {
     setStories(getStories());
+    setCoins(getReadingCoins());
   }, []);
 
   // Reset page when story changes
   useEffect(() => {
       if (currentStory) {
           setCurrentPage(0);
+          setHasAwardedCoins(false); // Reset coin flag
       }
   }, [currentStory]);
 
@@ -229,12 +234,6 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
     setIsEditingTitle(false);
   };
 
-  const readStory = () => {
-      if(!currentStory) return;
-      const text = currentStory.content.filter(c => c.char !== '\n').map(c => c.char).join('');
-      speakText(text);
-  };
-
   const addCustomTag = () => {
       if (customTagInput && !selectedTags.includes(customTagInput)) {
           setSelectedTags([...selectedTags, customTagInput]);
@@ -341,6 +340,24 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
       return { pageCells: slice, totalPages: total };
 
   }, [currentStory, gridCols, currentPage]);
+
+
+  // Check for Coin Award (If user reached last page)
+  useEffect(() => {
+      if (currentStory && totalPages > 0 && currentPage === totalPages - 1 && !hasAwardedCoins) {
+          const earned = totalPages * 10;
+          const newTotal = addReadingCoins(earned);
+          setCoins(newTotal);
+          setHasAwardedCoins(true);
+          
+          confetti({
+             particleCount: 80,
+             spread: 60,
+             origin: { y: 0.6 },
+             colors: ['#FFD700', '#FFA500', '#FF4500']
+          });
+      }
+  }, [currentPage, totalPages, currentStory, hasAwardedCoins]);
 
 
   // --- Renders ---
@@ -491,7 +508,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                   <div className="flex flex-col items-center mb-6">
                       <div className="text-2xl font-bold text-gray-500 mb-2">{selectedCharPair.pinyin || ' '}</div>
                       <div className="w-24 h-24 bg-gray-50 border-2 border-red-100 rounded-xl flex items-center justify-center text-6xl font-fun text-gray-800 mb-3 relative">
-                          <div className="absolute inset-0 opacity-20 pointer-events-none" style={{backgroundImage: 'linear-gradient(to right, transparent 49%, #f87171 50%, transparent 51%), linear-gradient(to bottom, transparent 49%, #f87171 50%, transparent 51%)', backgroundSize: '100% 100%'}}></div>
+                          <div className="absolute inset-0 opacity-20 pointer-events-none" style={{backgroundImage: 'linear-gradient(to right, transparent 49%, #f87171 50%, transparent 51%), linear-gradient(to bottom, transparent 49%, #f87171 50%, transparent 51%), linear-gradient(45deg, transparent 49%, #f87171 50%, transparent 51%), linear-gradient(-45deg, transparent 49%, #f87171 50%, transparent 51%)', backgroundSize: '100% 100%'}}></div>
                           {selectedCharPair.char}
                       </div>
                       {isKnown && <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-bold flex items-center gap-1"><CheckCircle size={10}/> 已认识</span>}
@@ -528,15 +545,23 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                        <h1 className="text-2xl font-bold text-gray-800">阅读</h1>
                    </div>
                    
-                   <div className="flex-1 max-w-xs bg-gray-100 rounded-full flex items-center px-4 py-2 transition-all focus-within:ring-2 focus-within:ring-amber-200">
-                       <Search size={16} className="text-gray-400 mr-2 shrink-0"/>
-                       <input 
-                          type="text" 
-                          placeholder="搜索故事..." 
-                          className="bg-transparent w-full outline-none text-sm"
-                          value={searchQuery}
-                          onChange={e => setSearchQuery(e.target.value)}
-                       />
+                   <div className="flex items-center gap-2">
+                       {/* Coins Display */}
+                       <div className="flex items-center gap-1 bg-yellow-100 px-3 py-1 rounded-full text-yellow-700 font-bold text-sm border border-yellow-200">
+                           <Coins size={16} fill="currentColor" />
+                           <span>{coins}</span>
+                       </div>
+
+                       <div className="flex-1 max-w-[140px] bg-gray-100 rounded-full flex items-center px-4 py-2 transition-all focus-within:ring-2 focus-within:ring-amber-200">
+                           <Search size={16} className="text-gray-400 mr-2 shrink-0"/>
+                           <input 
+                              type="text" 
+                              placeholder="搜索..." 
+                              className="bg-transparent w-full outline-none text-sm"
+                              value={searchQuery}
+                              onChange={e => setSearchQuery(e.target.value)}
+                           />
+                       </div>
                    </div>
                </div>
                
@@ -703,10 +728,18 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                         </div>
                      )}
                  </div>
-                 <button onClick={readStory} className="p-2 bg-amber-100 text-amber-600 rounded-full hover:bg-amber-200 transition-colors">
-                    <Volume2 size={20} />
-                 </button>
+                 
+                 {/* Removed Read Aloud Button as requested */}
+                 <div className="w-8"></div>
              </div>
+             
+             {/* Reward Notification Overlay */}
+             {hasAwardedCoins && (
+                 <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-yellow-100 border border-yellow-300 text-yellow-800 px-4 py-2 rounded-full font-bold shadow-lg animate-bounce-in flex items-center gap-2">
+                     <Coins size={18} fill="currentColor" />
+                     +{totalPages * 10} 阅读币
+                 </div>
+             )}
 
              {/* 
                  READER CONTENT 
