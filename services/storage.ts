@@ -9,6 +9,9 @@ const STORAGE_KEY_STATS = 'hanzi_hero_stats';
 const STORAGE_KEY_STORIES = 'hanzi_hero_stories';
 const STORAGE_KEY_CACHE = 'hanzi_hero_ai_cache';
 const STORAGE_KEY_CUSTOM_CURRICULA = 'hanzi_hero_custom_curricula';
+const STORAGE_KEY_CRUSH_LEVELS = 'hanzi_hero_crush_levels';
+const STORAGE_KEY_CRUSH_PROGRESS = 'hanzi_hero_crush_progress'; // Max level reached
+const STORAGE_KEY_CRUSH_ERRORS = 'hanzi_hero_crush_errors'; // Wrong characters list
 
 // --- Helper: Safe JSON Parse to prevent crashes ---
 const safeParse = <T>(key: string, fallback: T): T => {
@@ -25,7 +28,6 @@ const safeParse = <T>(key: string, fallback: T): T => {
 };
 
 // Helper: Safe Array Parse with Item Validation
-// This prevents the app from crashing if an array contains null/undefined items
 const safeParseArray = <T>(key: string, validator: (item: any) => boolean): T[] => {
     const list = safeParse<any[]>(key, []);
     if (!Array.isArray(list)) return [];
@@ -51,10 +53,12 @@ export const isCharacterKnown = (charStr: string): boolean => {
 
 export const addUnknownCharacter = (char: Character): void => {
   const currentUnknown = getUnknownCharacters();
+  // When adding to unknown (or moving back to unknown), we typically reset learning stats
+  // or keep them to show "struggle". Let's reset learnedAt to force immediate review.
+  const newChar = { ...char, learnedAt: undefined };
+  
   if (!currentUnknown.some(c => c.char === char.char)) {
-    // Reset learnedAt when moving back to unknown
-    const { learnedAt, ...cleanChar } = char;
-    localStorage.setItem(STORAGE_KEY_UNKNOWN, JSON.stringify([...currentUnknown, cleanChar]));
+    localStorage.setItem(STORAGE_KEY_UNKNOWN, JSON.stringify([...currentUnknown, newChar]));
   }
   
   const currentKnown = getKnownCharacters();
@@ -69,11 +73,26 @@ export const addKnownCharacter = (char: Character): void => {
   const now = Date.now();
   
   const existingIndex = currentKnown.findIndex(c => c.char === char.char);
+  
   if (existingIndex >= 0) {
-      currentKnown[existingIndex] = { ...currentKnown[existingIndex], learnedAt: now };
+      // Update existing: Update timestamp and increment review count
+      const existing = currentKnown[existingIndex];
+      const newCount = (existing.reviewCount || 0) + 1;
+      
+      currentKnown[existingIndex] = { 
+          ...existing, 
+          learnedAt: now,
+          reviewCount: newCount
+      };
       localStorage.setItem(STORAGE_KEY_KNOWN, JSON.stringify(currentKnown));
   } else {
-      localStorage.setItem(STORAGE_KEY_KNOWN, JSON.stringify([...currentKnown, { ...char, learnedAt: now }]));
+      // Add new: Set timestamp and count = 1
+      const newChar = { 
+          ...char, 
+          learnedAt: now,
+          reviewCount: 1
+      };
+      localStorage.setItem(STORAGE_KEY_KNOWN, JSON.stringify([...currentKnown, newChar]));
   }
 
   const currentUnknown = getUnknownCharacters();
@@ -120,7 +139,6 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 export const getSettings = (): AppSettings => {
   const saved = safeParse<AppSettings>(STORAGE_KEY_SETTINGS, DEFAULT_SETTINGS);
-  // Ensure we merge defaults to avoid missing keys from old versions
   return { ...DEFAULT_SETTINGS, ...saved };
 };
 
@@ -138,32 +156,23 @@ export const getCustomCurricula = (): Curriculum[] => {
 
 export const saveCustomUnit = (currName: string, gradeName: string, unitName: string, chars: Character[]): { curriculumId: string, gradeId: string } => {
     const customs = getCustomCurricula();
-    
-    // Find or create Curriculum
     let curr = customs.find(c => c.name === currName);
     if (!curr) {
         curr = { id: `custom-c-${Date.now()}`, name: currName, grades: [] };
         customs.push(curr);
     }
-    
-    // Find or create Grade
     let grade = curr.grades.find(g => g.name === gradeName);
     if (!grade) {
         grade = { id: `custom-g-${Date.now()}-${Math.random()}`, name: gradeName, units: [] };
         curr.grades.push(grade);
     }
-    
-    // Create Unit (Always append new unit)
     const newUnit: Unit = {
         id: `custom-u-${Date.now()}-${Math.random()}`,
         name: unitName,
         characters: chars
     };
-    
     grade.units.push(newUnit);
-    
     localStorage.setItem(STORAGE_KEY_CUSTOM_CURRICULA, JSON.stringify(customs));
-
     return { curriculumId: curr.id, gradeId: grade.id };
 };
 
@@ -201,12 +210,8 @@ export const getDailyActivity = (): Record<string, number> => {
 // --- Stories ---
 
 export const getStories = (): Story[] => {
-  // Validate stories have at least an ID, Title, and valid Content array
   return safeParseArray<Story>(STORAGE_KEY_STORIES, (s) => 
-      s && 
-      typeof s.id === 'string' && 
-      typeof s.title === 'string' && 
-      Array.isArray(s.content)
+      s && typeof s.id === 'string' && typeof s.title === 'string' && Array.isArray(s.content)
   );
 };
 
@@ -239,6 +244,57 @@ export const saveCharacterCache = (char: string, data: AIExplanation): void => {
     localStorage.setItem(STORAGE_KEY_CACHE, JSON.stringify(cache));
 };
 
+// --- Crush Game Levels ---
+
+export interface CrushLevelData {
+    level: number;
+    pairs: any[]; 
+}
+
+export const getCrushLevelData = (level: number): CrushLevelData | null => {
+    const levels = safeParse<Record<string, CrushLevelData>>(STORAGE_KEY_CRUSH_LEVELS, {});
+    return levels[level.toString()] || null;
+};
+
+export const saveCrushLevelData = (level: number, pairs: any[]): void => {
+    const levels = safeParse<Record<string, CrushLevelData>>(STORAGE_KEY_CRUSH_LEVELS, {});
+    levels[level.toString()] = { level, pairs };
+    localStorage.setItem(STORAGE_KEY_CRUSH_LEVELS, JSON.stringify(levels));
+};
+
+// --- Crush Game Progress & Errors ---
+
+export const getCrushMaxLevel = (): number => {
+    const val = localStorage.getItem(STORAGE_KEY_CRUSH_PROGRESS);
+    return val ? parseInt(val, 10) : 0;
+};
+
+export const setCrushMaxLevel = (level: number): void => {
+    const current = getCrushMaxLevel();
+    if (level > current) {
+        localStorage.setItem(STORAGE_KEY_CRUSH_PROGRESS, level.toString());
+    }
+};
+
+export const getCrushErrors = (): Character[] => {
+    return safeParseArray<Character>(STORAGE_KEY_CRUSH_ERRORS, isValidChar);
+};
+
+export const addCrushError = (char: Character): void => {
+    const errors = getCrushErrors();
+    const filtered = errors.filter(c => c.char !== char.char);
+    const newErrors = [char, ...filtered];
+    if (newErrors.length > 50) newErrors.length = 50;
+    localStorage.setItem(STORAGE_KEY_CRUSH_ERRORS, JSON.stringify(newErrors));
+};
+
+export const removeCrushError = (charStr: string): void => {
+    const errors = getCrushErrors();
+    const updated = errors.filter(c => c.char !== charStr);
+    localStorage.setItem(STORAGE_KEY_CRUSH_ERRORS, JSON.stringify(updated));
+};
+
+
 // --- Import / Export ---
 
 export const exportUserData = (): string => {
@@ -257,69 +313,17 @@ export const exportUserData = (): string => {
 export const importUserData = (jsonStr: string): boolean => {
   try {
     const data = JSON.parse(jsonStr);
-    
     if (typeof data !== 'object' || data === null) throw new Error("Invalid JSON structure");
 
-    // 1. Settings
-    if (data.settings && typeof data.settings === 'object') {
-        // Sanitize settings to ensure no missing keys causing crashes
-        const mergedSettings = { ...DEFAULT_SETTINGS, ...data.settings };
-        localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(mergedSettings));
-    }
-
-    // 2. Stars
-    if (data.stars !== undefined) {
-        localStorage.setItem(STORAGE_KEY_STARS, String(data.stars));
-    }
+    if (data.settings) localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify({ ...DEFAULT_SETTINGS, ...data.settings }));
+    if (data.stars !== undefined) localStorage.setItem(STORAGE_KEY_STARS, String(data.stars));
     
-    // 3. Characters (Strict Sanitization)
-    // We map to a clean object to remove any 'null' or weird prototypes that might exist
-    const sanitizeCharList = (list: any[]) => {
-        if (!Array.isArray(list)) return [];
-        return list
-            .filter(c => c && typeof c.char === 'string')
-            .map(c => ({
-                char: c.char,
-                pinyin: c.pinyin || '',
-                // Ensure learnedAt is a valid number if it exists, otherwise undefined (handle NaN)
-                learnedAt: (typeof c.learnedAt === 'number' && !isNaN(c.learnedAt)) ? c.learnedAt : undefined
-            }));
-    };
-
-    if (Array.isArray(data.unknown)) {
-        localStorage.setItem(STORAGE_KEY_UNKNOWN, JSON.stringify(sanitizeCharList(data.unknown)));
-    }
-    if (Array.isArray(data.known)) {
-        localStorage.setItem(STORAGE_KEY_KNOWN, JSON.stringify(sanitizeCharList(data.known)));
-    }
-
-    // 4. Stories (Deep Sanitization)
-    if (Array.isArray(data.stories)) {
-        // Filter valid stories and deep clean content to prevent nulls in char array
-        const cleanStories = data.stories
-            .filter((s: any) => s && s.id && s.title && Array.isArray(s.content))
-            .map((s: any) => ({
-                ...s,
-                // Ensure every content item is a valid object with a char string
-                content: s.content.filter((c: any) => c && typeof c.char === 'string')
-            }));
-        localStorage.setItem(STORAGE_KEY_STORIES, JSON.stringify(cleanStories));
-    }
-    
-    // 5. Stats
-    if (data.stats && typeof data.stats === 'object') {
-        // Ensure dailyActivity exists
-        const cleanStats = {
-            characterCounts: data.stats.characterCounts || {},
-            dailyActivity: data.stats.dailyActivity || {}
-        };
-        localStorage.setItem(STORAGE_KEY_STATS, JSON.stringify(cleanStats));
-    }
-
-    // 6. Custom Curricula
-    if (Array.isArray(data.customs)) {
-        localStorage.setItem(STORAGE_KEY_CUSTOM_CURRICULA, JSON.stringify(data.customs));
-    }
+    const sanitize = (l: any[]) => Array.isArray(l) ? l.filter(c => c && typeof c.char === 'string') : [];
+    if (data.unknown) localStorage.setItem(STORAGE_KEY_UNKNOWN, JSON.stringify(sanitize(data.unknown)));
+    if (data.known) localStorage.setItem(STORAGE_KEY_KNOWN, JSON.stringify(sanitize(data.known)));
+    if (data.stories) localStorage.setItem(STORAGE_KEY_STORIES, JSON.stringify(data.stories));
+    if (data.stats) localStorage.setItem(STORAGE_KEY_STATS, JSON.stringify(data.stats));
+    if (data.customs) localStorage.setItem(STORAGE_KEY_CUSTOM_CURRICULA, JSON.stringify(data.customs));
     
     return true;
   } catch (e) {

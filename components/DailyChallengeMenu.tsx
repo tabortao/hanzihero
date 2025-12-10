@@ -1,6 +1,7 @@
 
 import React from 'react';
-import { ArrowLeft, Book, Volume2, Eye, LayoutGrid, Lock, Target, Play, Star, Crosshair } from 'lucide-react';
+import { ArrowLeft, Book, Volume2, Eye, LayoutGrid, Play, Star } from 'lucide-react';
+import { Character } from '../types';
 
 interface DailyChallengeMenuProps {
   onBack: () => void;
@@ -39,11 +40,10 @@ export const DailyChallengeMenu: React.FC<DailyChallengeMenuProps> = ({ onBack, 
           onClick={() => onSelectMode('CARD')}
           className="bg-white p-6 rounded-[2rem] shadow-lg border-4 border-indigo-50 hover:border-indigo-200 hover:shadow-xl hover:-translate-y-1 transition-all group text-left relative overflow-hidden h-64 flex flex-col justify-between"
         >
-           {/* Background Gradient */}
-           <div className="absolute inset-0 bg-gradient-to-br from-white via-indigo-50/30 to-indigo-100/50 opacity-0 group-hover:opacity-100 transition-opacity" />
+           {/* Mask/Overlay */}
+           <div className="absolute inset-0 bg-gradient-to-br from-white via-indigo-50/30 to-indigo-100/50 opacity-0 group-hover:opacity-100 transition-opacity z-0" />
            
-           {/* Right Side Icon: Cards (Emoji) */}
-           <div className="absolute right-[-10px] bottom-[-10px] text-[10rem] group-hover:scale-110 transition-transform duration-500 opacity-20 group-hover:opacity-40 rotate-12 select-none pointer-events-none">
+           <div className="absolute right-[-10px] bottom-[-10px] text-[10rem] group-hover:scale-110 transition-transform duration-500 opacity-20 group-hover:opacity-40 rotate-12 select-none pointer-events-none z-0">
                🎴
            </div>
 
@@ -72,16 +72,11 @@ export const DailyChallengeMenu: React.FC<DailyChallengeMenuProps> = ({ onBack, 
           onClick={() => onSelectMode('LISTEN')}
           className="bg-white p-6 rounded-[2rem] shadow-lg border-4 border-purple-50 hover:border-purple-200 hover:shadow-xl hover:-translate-y-1 transition-all group text-left relative overflow-hidden h-64 flex flex-col justify-between"
         >
-          {/* Background Gradient */}
-           <div className="absolute inset-0 bg-gradient-to-br from-white via-purple-50/30 to-purple-100/50 opacity-0 group-hover:opacity-100 transition-opacity" />
-
-          {/* Right Side Icon: Archery/Target */}
-           <div className="absolute right-[-20px] bottom-[-20px] text-purple-100 group-hover:text-purple-200 transition-colors transform -rotate-12 group-hover:scale-110 duration-500">
-               <Target size={160} />
-           </div>
-           {/* Floating Arrow Emoji/Icon for extra flavor */}
-           <div className="absolute right-10 bottom-16 text-6xl opacity-20 group-hover:opacity-40 transition-opacity animate-bounce-slow" style={{ animationDuration: '3s' }}>
-              🏹
+           {/* Mask/Overlay */}
+           <div className="absolute inset-0 bg-gradient-to-br from-white via-purple-50/30 to-purple-100/50 opacity-0 group-hover:opacity-100 transition-opacity z-0" />
+           
+           <div className="absolute right-[-20px] bottom-[-20px] text-purple-100 group-hover:text-purple-200 transition-colors transform -rotate-12 group-hover:scale-110 duration-500 opacity-20 group-hover:opacity-40 pointer-events-none z-0">
+               <span className="text-[10rem]">🏹</span>
            </div>
 
            <div className="relative z-10">
@@ -104,21 +99,16 @@ export const DailyChallengeMenu: React.FC<DailyChallengeMenuProps> = ({ onBack, 
            </div>
         </button>
 
-        {/* Mode 3: Look & Identify (Unlocked) */}
+        {/* Mode 3: Look & Identify */}
         <button 
           onClick={() => onSelectMode('LOOK')}
           className="bg-white p-6 rounded-[2rem] shadow-lg border-4 border-orange-50 hover:border-orange-200 hover:shadow-xl hover:-translate-y-1 transition-all group text-left relative overflow-hidden h-64 flex flex-col justify-between"
         >
-           {/* Background Gradient */}
-           <div className="absolute inset-0 bg-gradient-to-br from-white via-orange-50/30 to-orange-100/50 opacity-0 group-hover:opacity-100 transition-opacity" />
+           {/* Mask/Overlay */}
+           <div className="absolute inset-0 bg-gradient-to-br from-white via-orange-50/30 to-orange-100/50 opacity-0 group-hover:opacity-100 transition-opacity z-0" />
 
-           {/* Right Side Icon: Eye/Scope */}
-           <div className="absolute right-[-20px] bottom-[-20px] text-orange-100 group-hover:text-orange-200 transition-colors transform rotate-12 group-hover:scale-110 duration-500">
-               <Crosshair size={160} />
-           </div>
-           
-           <div className="absolute right-10 bottom-16 text-6xl opacity-20 group-hover:opacity-40 transition-opacity animate-pulse" style={{ animationDuration: '2s' }}>
-              🔫
+           <div className="absolute right-[-20px] bottom-[-20px] text-orange-100 group-hover:text-orange-200 transition-colors transform rotate-12 group-hover:scale-110 duration-500 opacity-20 group-hover:opacity-40 pointer-events-none z-0">
+               <span className="text-[10rem]">🔫</span>
            </div>
 
            <div className="relative z-10">
@@ -139,28 +129,38 @@ export const DailyChallengeMenu: React.FC<DailyChallengeMenuProps> = ({ onBack, 
            </div>
         </button>
 
-        {/* Mode 4: Match 3 (Placeholder) */}
+        {/* Mode 4: Match 3 - Hanzi Crush */}
         <button 
-          disabled
-          className="bg-gray-50 p-6 rounded-[2rem] border-4 border-dashed border-gray-200 text-left relative overflow-hidden h-64 flex flex-col justify-between opacity-70 cursor-not-allowed group"
+          onClick={() => onSelectMode('CRUSH')}
+          className="bg-stone-50 p-6 rounded-[2rem] shadow-lg border-4 border-stone-200 hover:border-green-300 hover:shadow-xl hover:-translate-y-1 transition-all group text-left relative overflow-hidden h-64 flex flex-col justify-between"
         >
-           <div className="absolute inset-0 flex items-center justify-center bg-gray-100/50 z-20 group-hover:bg-gray-100/30 transition-colors">
-               <div className="bg-white px-4 py-2 rounded-full flex items-center gap-2 shadow-sm border border-gray-200">
-                   <Lock size={16} className="text-gray-400" /> <span className="text-xs font-bold text-gray-500">敬请期待</span>
-               </div>
-           </div>
-           
-           <div className="absolute right-[-10px] bottom-[-20px] text-gray-200 transform -rotate-6">
-               <LayoutGrid size={160} />
+           {/* Mask/Overlay - Ink Effect */}
+           <div className="absolute inset-0 bg-gradient-to-br from-stone-50 via-stone-100 to-green-50 opacity-50 z-0" />
+           {/* Hover Gradient Overlay */}
+           <div className="absolute inset-0 bg-gradient-to-br from-white via-green-50/30 to-green-100/50 opacity-0 group-hover:opacity-100 transition-opacity z-0" />
+
+           <div className="absolute right-[-10px] bottom-[-10px] text-green-100 group-hover:text-green-200 transition-colors transform rotate-6 group-hover:scale-110 duration-500 opacity-20 group-hover:opacity-40 pointer-events-none z-0">
+               <span className="text-[10rem]">🧩</span>
            </div>
 
-           <div className="relative z-10 filter blur-[1px]">
-             <div className="p-4 bg-gray-200 w-16 h-16 rounded-2xl text-gray-400 mb-4 flex items-center justify-center">
-               <LayoutGrid size={32} />
-            </div>
-            <h3 className="text-2xl font-fun text-gray-400 mb-2">汉字消消乐</h3>
-            <p className="text-sm text-gray-400 mt-2 max-w-[70%]">趣味消除，巩固记忆。</p>
-          </div>
+           <div className="relative z-10">
+              <div className="flex justify-between items-start">
+                 <div className="p-4 bg-green-100 w-16 h-16 rounded-2xl text-green-700 mb-4 flex items-center justify-center shadow-sm relative">
+                   <LayoutGrid size={32} />
+                </div>
+                <div className="bg-green-500 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1">
+                    AI 关卡
+                </div>
+              </div>
+              <h3 className="text-2xl font-fun text-gray-800 group-hover:text-green-800 transition-colors font-bold">汉字消消乐</h3>
+              <p className="text-sm text-gray-500 font-medium mt-2 max-w-[80%] font-serif">
+                马卡龙风拼字游戏，AI 出题，拼音汉字对对碰。
+              </p>
+           </div>
+           
+           <div className="relative z-10 mt-auto flex items-center gap-2 text-green-700 font-bold opacity-60 group-hover:opacity-100 transition-opacity">
+               <span>开始闯关</span> <Play size={16} fill="currentColor" />
+           </div>
         </button>
       </div>
       

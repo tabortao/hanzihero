@@ -260,8 +260,8 @@ export const LookIdentifyGame: React.FC<LookIdentifyGameProps> = ({ characters, 
                        <div className="w-6 h-6 bg-red-600 rounded-full z-10 shadow-[0_0_10px_red]"></div>
                        
                        {/* Gun Image (Emoji) Side View */}
-                       {/* Gun moved far right (-180px) and rotated 20 deg to simulate holding from side */}
-                       <div className="absolute right-[-180px] bottom-[-30px] opacity-90 pointer-events-none transform rotate-[20deg] origin-bottom-left transition-transform duration-300">
+                       {/* Fix: Adjusted positioning for mobile visibility */}
+                       <div className="absolute right-[-40px] sm:right-[-180px] bottom-[-30px] opacity-90 pointer-events-none transform rotate-[20deg] origin-bottom-left transition-transform duration-300">
                            <span className="text-[10rem]">🔫</span>
                        </div>
                    </div>

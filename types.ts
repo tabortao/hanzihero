@@ -2,7 +2,8 @@
 export interface Character {
   char: string;
   pinyin: string;
-  learnedAt?: number; // Timestamp for 3-1-3 method
+  learnedAt?: number; // Timestamp for 3-1-3 method & Ebbinghaus
+  reviewCount?: number; // Number of times successfully reviewed
 }
 
 export interface Unit {
@@ -29,7 +30,7 @@ export interface UserProgress {
   stars: number; 
 }
 
-export type ViewState = 'TAB_HOME' | 'TAB_STORY' | 'TAB_STATS' | 'TAB_PROFILE' | 'GAME' | 'REVIEW' | 'BANK' | 'DAILY_MENU' | 'GAME_LISTEN' | 'GAME_LOOK';
+export type ViewState = 'TAB_HOME' | 'TAB_STORY' | 'TAB_STATS' | 'TAB_PROFILE' | 'GAME' | 'REVIEW' | 'BANK' | 'DAILY_MENU' | 'GAME_LISTEN' | 'GAME_LOOK' | 'GAME_CRUSH';
 
 export interface GameConfig {
   mode: 'UNIT' | 'REVIEW' | 'CHALLENGE';
@@ -51,10 +52,10 @@ export interface CharPair {
 }
 
 export interface AIExplanation {
-  pinyin?: string; // New: Returns the pinyin of the character itself
+  pinyin?: string; 
   structure: string; 
-  composition: string; // e.g. "日 + 月"
-  compositionParts?: CharPair[]; // New: Structured parts for grid display
+  composition: string; 
+  compositionParts?: CharPair[]; 
   memoryTip: string; 
   words: WordEntry[];
   sentenceData: CharPair[]; 
@@ -67,7 +68,7 @@ export interface AppSettings {
   ttsRate: number; 
   ttsVoice: string; 
   dailyLimit: number;
-  storyLength: number; // New: Target length for stories
+  storyLength: number;
   selectedCurriculumId?: string;
   selectedGradeId?: string;
 }
@@ -80,11 +81,11 @@ export interface LearningStats {
 export interface Story {
   id: string;
   title: string;
-  content: CharPair[]; // The story content parsed into chars
+  content: CharPair[]; 
   createdAt: number;
   isArchived: boolean;
   readCount: number; 
   keywords?: string;
-  tags?: string[]; // For grading/categorization e.g. "Level 1", "Fable"
-  source?: 'AI' | 'MANUAL' | 'OCR'; // How it was created
+  tags?: string[]; 
+  source?: 'AI' | 'MANUAL' | 'OCR'; 
 }

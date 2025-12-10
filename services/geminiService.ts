@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIExplanation, AppSettings, Character, Story } from "../types";
 import { getSettings, getCharacterCache, saveCharacterCache } from "./storage";
@@ -332,6 +333,90 @@ export const recognizeTextFromImage = async (base64Image: string): Promise<{titl
     } catch (error) {
         console.error("OCR Error:", error);
         throw error;
+    }
+};
+
+/**
+ * Generate matching game data (Pairs for Hanzi Crush)
+ */
+export const generateMatchGameData = async (chars: Character[]): Promise<{
+    pairs: {
+        id: string;
+        word: string;
+        pinyin: string;
+        hint?: string;
+    }[]
+}> => {
+    const settings = getSettings();
+    const envKey = process.env.API_KEY || '';
+    const effectiveKey = settings.apiKey || envKey;
+
+    if (!effectiveKey) throw new Error("Missing API Key");
+
+    const charList = chars.map(c => c.char).join('、');
+    const systemPrompt = "你是一位精通汉字教学的老师。";
+    const userPrompt = `
+    请基于以下汉字列表，设计“汉字消消乐”游戏的关卡数据。
+    汉字列表：${charList}
+
+    请生成 10 个词语（可以是双字词、成语或短语）。
+    要求：
+    1. 尽量使用列表中的汉字，如果不够，可以搭配简单的常见字。
+    2. 必须生成 10 个。
+    3. 每个词语提供对应的拼音。
+    
+    JSON格式要求：
+    {
+        "pairs": [
+            { "id": "1", "word": "爸爸", "pinyin": "bà ba", "hint": "称呼" },
+            { "id": "2", "word": "快乐", "pinyin": "kuài lè", "hint": "心情" }
+        ]
+    }
+    `;
+
+    const schemaDescription = `{"pairs": [{"id": "string", "word": "string", "pinyin": "string", "hint": "string"}]}`;
+    const googleSchema = {
+        type: Type.OBJECT,
+        properties: {
+            pairs: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        id: { type: Type.STRING },
+                        word: { type: Type.STRING },
+                        pinyin: { type: Type.STRING },
+                        hint: { type: Type.STRING }
+                    },
+                    required: ["id", "word", "pinyin"]
+                }
+            }
+        }
+    };
+
+    try {
+        let result: any;
+        if (settings.apiBaseUrl && settings.apiBaseUrl.trim() !== '') {
+             const data = await callOpenAICompatible(settings, systemPrompt, userPrompt, schemaDescription);
+             result = data;
+        } else {
+            const ai = new GoogleGenAI({ apiKey: effectiveKey });
+            const response = await ai.models.generateContent({
+                model: settings.model.includes('gemini') ? settings.model : "gemini-2.5-flash",
+                contents: userPrompt,
+                config: {
+                    systemInstruction: systemPrompt,
+                    responseMimeType: "application/json",
+                    responseSchema: googleSchema
+                }
+            });
+            if (response.text) result = JSON.parse(response.text);
+            else throw new Error("No data");
+        }
+        return result;
+    } catch (e) {
+        console.error("Match Game AI Error", e);
+        throw e;
     }
 };
 

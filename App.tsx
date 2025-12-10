@@ -15,6 +15,7 @@ const ProfileView = React.lazy(() => import('./components/ProfileView').then(mod
 const DailyChallengeMenu = React.lazy(() => import('./components/DailyChallengeMenu').then(module => ({ default: module.DailyChallengeMenu })));
 const ListenIdentifyGame = React.lazy(() => import('./components/ListenIdentifyGame').then(module => ({ default: module.ListenIdentifyGame })));
 const LookIdentifyGame = React.lazy(() => import('./components/LookIdentifyGame').then(module => ({ default: module.LookIdentifyGame })));
+const CrushGame = React.lazy(() => import('./components/CrushGame').then(module => ({ default: module.CrushGame })));
 
 // Simple Loading Spinner for Suspense Fallback
 const LoadingScreen = () => (
@@ -115,8 +116,9 @@ const App: React.FC = () => {
           setView('GAME_LISTEN');
       } else if (mode === 'LOOK') {
           setView('GAME_LOOK');
+      } else if (mode === 'CRUSH') {
+          setView('GAME_CRUSH');
       }
-      // Future modes here
   };
 
   // Determine if we should show bottom nav
@@ -184,6 +186,12 @@ const App: React.FC = () => {
           )}
           {view === 'GAME_LOOK' && (
               <LookIdentifyGame
+                 characters={dailyChars}
+                 onExit={handleBackFromDailyGame}
+              />
+          )}
+          {view === 'GAME_CRUSH' && (
+              <CrushGame 
                  characters={dailyChars}
                  onExit={handleBackFromDailyGame}
               />

@@ -11,7 +11,7 @@ interface SelectionViewProps {
   onReview: () => void;
   onOpenBank: () => void;
   onGenerateUnitStory?: (unit: Unit) => void;
-  onOpenDailyMenu: (chars: Character[]) => void; // New Prop
+  onOpenDailyMenu: (chars: Character[]) => void; 
   stars: number;
 }
 
@@ -154,41 +154,96 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
     });
   };
 
+  // Ebbinghaus Forgetting Curve Logic
   const prepareDailyChallenge = () => {
     const dailyLimit = settings.dailyLimit || 10;
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const now = Date.now();
     
+    // Helper to calculate days since learned
     const getDaysSince = (ts?: number) => {
         if (!ts) return 999;
-        const diff = todayStart - ts;
-        return Math.floor(diff / (1000 * 60 * 60 * 24));
+        const diff = now - ts;
+        return diff / (1000 * 60 * 60 * 24);
     };
 
-    const reviewCandidates = knownChars.filter(c => {
-        const days = getDaysSince(c.learnedAt);
-        return days === 1 || days === 3 || days > 7; 
+    // Define Ebbinghaus intervals (approximate days)
+    // 1 day, 3 days, 7 days, 15 days, 30 days
+    const isDueForReview = (char: Character) => {
+        if (!char.learnedAt) return false;
+        const days = getDaysSince(char.learnedAt);
+        // Using ranges to catch items. E.g. 0.9 - 1.2 days is "1 day review"
+        if (days >= 0.9 && days <= 1.5) return true; // ~1 day
+        if (days >= 2.8 && days <= 3.5) return true; // ~3 days
+        if (days >= 6.5 && days <= 8.0) return true; // ~7 days
+        if (days >= 14.0 && days <= 16.0) return true; // ~15 days
+        if (days >= 28.0 && days <= 32.0) return true; // ~30 days
+        // Fallback: If it's been > 30 days and reviewCount is low (<3), review it
+        if (days > 30 && (char.reviewCount || 0) < 3) return true;
+        return false;
+    };
+
+    // Priority 1: Unknown Characters (Explicitly marked as 'Unknown' / Wrong answers)
+    // Limit unknown to 30% of daily limit to prevent overwhelm, or just fill
+    let selectedChars: Character[] = [...unknownChars];
+    
+    // Priority 2: Known characters due for Ebbinghaus review
+    const reviewCandidates = knownChars.filter(isDueForReview);
+    
+    // Sort review candidates by time since learned (older first? or strictly by curve?)
+    // Let's shuffle them to mix up the review types (1 day vs 7 day)
+    reviewCandidates.sort(() => 0.5 - Math.random());
+
+    // Combine: Unknowns + Reviews
+    // Ensure we don't exceed daily limit too much, but always include at least some unknowns if available
+    // Strategy: Take up to 5 Unknowns, fill rest with Review. If Review is empty, take more Unknowns.
+    
+    // If we have review items, prioritize them to prevent forgetting
+    // If dailyLimit is 20, and we have 50 reviews, take 20 reviews? No, we should mix.
+    // 3-1-3 concept: 3 new, 1 day review, 3 day review.
+    
+    // Actually, let's just fill the bucket:
+    // 1. All critical reviews (1day, 3day)
+    // 2. Some Unknowns
+    // 3. Other reviews
+    
+    const criticalReviews = reviewCandidates.filter(c => {
+         const d = getDaysSince(c.learnedAt);
+         return d <= 3.5; // 1 and 3 day reviews are critical
     });
     
-    reviewCandidates.sort((a, b) => {
-        const daysA = getDaysSince(a.learnedAt);
-        const daysB = getDaysSince(b.learnedAt);
-        const scoreA = (daysA === 1 ? 0 : daysA === 3 ? 1 : 10);
-        const scoreB = (daysB === 1 ? 0 : daysB === 3 ? 1 : 10);
-        return scoreA - scoreB;
-    });
+    const otherReviews = reviewCandidates.filter(c => !criticalReviews.includes(c));
 
-    let selectedChars: Character[] = [];
-    selectedChars = reviewCandidates.slice(0, dailyLimit);
-
-    if (selectedChars.length < dailyLimit) {
-        const needed = dailyLimit - selectedChars.length;
-        const unknownReview = unknownChars.slice(0, needed);
-        selectedChars = [...selectedChars, ...unknownReview];
+    // Construct list
+    let list: Character[] = [];
+    
+    // Add critical reviews first
+    list = [...list, ...criticalReviews];
+    
+    // Add some unknowns (up to half of daily limit, or at least 3 if possible)
+    const newCount = Math.max(3, Math.floor(dailyLimit / 2));
+    list = [...list, ...unknownChars.slice(0, newCount)];
+    
+    // Fill remainder with other reviews
+    if (list.length < dailyLimit) {
+        list = [...list, ...otherReviews.slice(0, dailyLimit - list.length)];
+    }
+    
+    // If still not enough, add more unknowns
+    if (list.length < dailyLimit && unknownChars.length > newCount) {
+         list = [...list, ...unknownChars.slice(newCount, unknownChars.length - newCount + (dailyLimit - list.length))];
+    }
+    
+    // If still not enough, add random knowns for reinforcement (Oldest first)
+    if (list.length < dailyLimit) {
+        const otherKnowns = knownChars.filter(c => !list.includes(c));
+        otherKnowns.sort((a, b) => (a.learnedAt || 0) - (b.learnedAt || 0)); // Oldest first
+        list = [...list, ...otherKnowns.slice(0, dailyLimit - list.length)];
     }
 
-    if (selectedChars.length < dailyLimit) {
-        let allCurriculumChars: Character[] = [];
+    // Final fallback: New characters from current curriculum if user has finished everything
+    if (list.length < 5) {
+        // ... (existing logic to find new chars)
+         let allCurriculumChars: Character[] = [];
         if (currentCurriculum) {
             currentCurriculum.grades.forEach(g => g.units.forEach(u => {
                 allCurriculumChars = [...allCurriculumChars, ...u.characters];
@@ -201,21 +256,25 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
         
         const existingSet = new Set([...knownChars, ...unknownChars].map(c => c.char));
         const newPool = allCurriculumChars.filter(c => !existingSet.has(c.char));
-        const needed = dailyLimit - selectedChars.length;
-        const newWords = newPool.sort(() => 0.5 - Math.random()).slice(0, needed);
-        selectedChars = [...selectedChars, ...newWords];
+        const needed = dailyLimit - list.length;
+        const newWords = newPool.slice(0, needed);
+        list = [...list, ...newWords];
     }
     
-    if (selectedChars.length === 0) {
+    // Deduplicate
+    list = Array.from(new Set(list.map(c => c.char)))
+        .map(char => list.find(c => c.char === char)!)
+        .slice(0, dailyLimit * 1.5); // Allow slightly more for robust review
+
+    if (list.length === 0) {
         alert("恭喜你！没有需要复习的字，去学习新单元吧！");
         return;
     }
 
-    // Instead of starting game directly, open menu
-    onOpenDailyMenu(selectedChars);
+    onOpenDailyMenu(list);
   };
 
-  // ... (Keep existing UnitList component) ...
+  // ... (Rest of component remains same)
   const UnitList = ({ units, limit }: { units: Unit[], limit?: number }) => {
     const displayUnits = limit ? units.slice(0, limit) : units;
     
