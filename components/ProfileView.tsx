@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { User, Save, Download, Upload, Activity, Wifi, HelpCircle, Book, Zap, ArrowLeft, Server, Eye, EyeOff, WifiOff, Check, FileJson, Database } from 'lucide-react';
 import { AppSettings } from '../types';
 import { getSettings, saveSettings, exportUserData, importUserData, getCustomCurricula } from '../services/storage';
 import { testConnection } from '../services/geminiService';
 import { APP_DATA, GRADE_PRESETS } from '../data';
+import { UserManualView } from './UserManualView';
 
 const PROVIDERS = {
     GOOGLE: { name: 'Google Gemini', url: '', model: 'gemini-2.5-flash' },
@@ -17,46 +19,38 @@ interface ProfileViewProps {
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
-  const [view, setView] = useState<'MAIN' | 'HELP'>('MAIN');
-  const [config, setConfig] = useState<AppSettings>({
-    apiBaseUrl: '',
-    apiKey: '',
-    model: 'gemini-2.5-flash',
-    ttsRate: 1.0,
-    ttsVoice: '',
-    dailyLimit: 10,
-    storyLength: 50,
-    selectedCurriculumId: '',
-    selectedGradeId: ''
-  });
+  const [view, setView] = useState<'MAIN' | 'HELP' | 'MANUAL'>('MAIN');
+  
+  // Initialize state directly from storage to ensure it's ready on first render
+  const [config, setConfig] = useState<AppSettings>(() => getSettings());
   
   const [activeProvider, setActiveProvider] = useState<string>('GOOGLE');
   const [showKey, setShowKey] = useState(false);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [testStatus, setTestStatus] = useState<'IDLE' | 'TESTING' | 'SUCCESS' | 'FAIL'>('IDLE');
-  const [saveStatus, setSaveStatus] = useState<'IDLE' | 'SAVED'>('IDLE');
   
   // Import State
   const [showImport, setShowImport] = useState(false);
   const [importStatus, setImportStatus] = useState<'IDLE' | 'READING' | 'SUCCESS' | 'ERROR'>('IDLE');
   const [importErrorMsg, setImportErrorMsg] = useState('');
 
+  // Ref to track mount status for auto-save logic
+  const isMounted = useRef(false);
+
   // Merge APP_DATA and Custom Data
   const allCurricula = useMemo(() => {
       const customs = getCustomCurricula();
       return [...APP_DATA, ...customs];
-  }, []); // Reload only on mount is acceptable here as profile usually re-mounts
+  }, []); 
 
+  // Initial Load Effect (Voices & Provider detection)
   useEffect(() => {
-    const saved = getSettings();
-    setConfig(saved);
-    
-    // Determine provider from saved URL
-    if (!saved.apiBaseUrl) {
+    // Determine provider from saved URL (using config state initialized from storage)
+    if (!config.apiBaseUrl) {
         setActiveProvider('GOOGLE');
-    } else if (saved.apiBaseUrl.includes('deepseek.com')) {
+    } else if (config.apiBaseUrl.includes('deepseek.com')) {
         setActiveProvider('DEEPSEEK');
-    } else if (saved.apiBaseUrl.includes('siliconflow')) {
+    } else if (config.apiBaseUrl.includes('siliconflow')) {
         setActiveProvider('SILICON');
     } else {
         setActiveProvider('CUSTOM');
@@ -71,6 +65,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
     window.speechSynthesis.onvoiceschanged = updateVoices;
   }, []);
 
+  // Auto-Save Effect
+  useEffect(() => {
+      // Avoid saving on initial mount if we want to be strict, but since we init from storage, 
+      // saving back same data is harmless. However, `isMounted` helps logical separation.
+      if (isMounted.current) {
+          saveSettings(config);
+      } else {
+          isMounted.current = true;
+      }
+  }, [config]);
+
   const handleProviderChange = (providerKey: string) => {
       setActiveProvider(providerKey);
       const provider = PROVIDERS[providerKey as keyof typeof PROVIDERS];
@@ -81,25 +86,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
               model: provider.model
           }));
       }
-  };
-
-  const handleSave = () => {
-    try {
-        saveSettings(config);
-        setSaveStatus('SAVED');
-        
-        // Use callback to navigate instead of reloading page
-        if (onSave) {
-            setTimeout(() => {
-                onSave();
-            }, 800);
-        } else {
-            setTimeout(() => setSaveStatus('IDLE'), 2000);
-        }
-    } catch (e) {
-        console.error("Save failed", e);
-        alert("保存失败，请重试");
-    }
   };
 
   const handleTestConnection = async () => {
@@ -182,6 +168,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
   }, [currentCurriculum]);
 
 
+  if (view === 'MANUAL') {
+      return <UserManualView onBack={() => setView('HELP')} />
+  }
+
   if (view === 'HELP') {
       return (
           <div className="max-w-7xl mx-auto min-h-screen bg-white pb-24 animate-fade-in">
@@ -192,6 +182,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
              </div>
              
              <div className="p-6 space-y-8 max-w-4xl mx-auto">
+                 {/* New Manual Button */}
+                 <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl p-6 text-white shadow-lg flex flex-col md:flex-row items-center justify-between gap-4">
+                     <div>
+                        <h3 className="font-bold text-xl mb-1 flex items-center gap-2">
+                           <Book size={24}/> 应用使用说明书
+                        </h3>
+                        <p className="text-indigo-100 text-sm opacity-90">详细了解所有功能模块、操作指南及设计初衷。</p>
+                     </div>
+                     <button 
+                        onClick={() => setView('MANUAL')}
+                        className="bg-white text-indigo-600 px-6 py-3 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors shadow-sm whitespace-nowrap"
+                     >
+                        立即查看
+                     </button>
+                 </div>
+
                  {/* 3-1-3 Method */}
                  <div>
                      <h4 className="font-bold text-blue-800 text-lg flex items-center gap-2 mb-3">
@@ -259,10 +265,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
   return (
     <div className="max-w-7xl mx-auto min-h-screen bg-gray-50 pb-24">
        <div className="bg-white px-6 py-8 shadow-sm">
-          <h1 className="text-2xl font-bold flex items-center gap-2 mb-2">
-              <User className="text-indigo-600" /> 我的设置
-          </h1>
-          <p className="text-gray-400 text-sm">配置学习计划与AI参数</p>
+          <div className="flex justify-between items-center">
+              <div>
+                  <h1 className="text-2xl font-bold flex items-center gap-2 mb-2">
+                      <User className="text-indigo-600" /> 我的设置
+                  </h1>
+                  <p className="text-gray-400 text-sm">修改配置后会自动保存</p>
+              </div>
+          </div>
        </div>
 
        <div className="p-4 md:p-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -522,20 +532,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                )}
            </div>
 
-           <div className="lg:col-span-2 space-y-4">
-                <button 
-                    onClick={handleSave}
-                    disabled={saveStatus === 'SAVED'}
-                    className={`w-full py-4 font-bold rounded-2xl shadow-lg flex justify-center gap-2 transition-all ${
-                        saveStatus === 'SAVED' 
-                        ? 'bg-green-500 text-white scale-95' 
-                        : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                    }`}
-                >
-                    {saveStatus === 'SAVED' ? <Check /> : <Save />} 
-                    {saveStatus === 'SAVED' ? '设置已保存' : '保存设置'}
-                </button>
-                
+           <div className="lg:col-span-2">
                 <button 
                         onClick={() => setView('HELP')} 
                         className="w-full py-3 border border-blue-100 text-blue-600 rounded-xl hover:bg-blue-50 font-bold flex justify-center gap-2"

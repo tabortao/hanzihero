@@ -351,7 +351,7 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
                  setQuickGradeId(settings.selectedGradeId || '');
                  setShowSwitchModal(true);
              }}
-             className="flex items-center gap-1 mt-1 cursor-pointer group hover:bg-gray-50 rounded-lg pr-2 transition-colors"
+             className="flex items-center gap-1 mt-1 cursor-pointer group hover:bg-gray-50 rounded-lg pr-2 transition-all"
              title="点击快速切换教材"
            >
               <p className="text-[10px] md:text-sm text-gray-400 font-bold pl-1 group-hover:text-blue-500">
@@ -361,9 +361,11 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
            </div>
         </div>
         
-        <div className="flex items-center space-x-2 bg-green-100 px-3 py-1.5 rounded-full border border-green-200 shadow-sm text-green-800" title="已认识的汉字">
-            <CheckCircle size={18} className="text-green-600" />
-            <span className="font-bold text-lg">{knownChars.length}</span>
+        {/* Responsive Known Characters Badge */}
+        <div className="flex items-center gap-2 bg-green-100 px-4 py-2 rounded-full border border-green-200 shadow-sm text-green-800 min-w-[5rem] justify-center transition-all" title="已认识的汉字">
+            <CheckCircle size={18} className="text-green-600 shrink-0" />
+            <span className="font-bold text-lg font-mono tracking-tight">{knownChars.length}</span>
+            <span className="text-xs font-bold text-green-600/60">字</span>
         </div>
       </div>
 
