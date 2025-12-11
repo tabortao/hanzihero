@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { User, Save, Download, Upload, Activity, Wifi, HelpCircle, Book, Zap, ArrowLeft, Server, Eye, EyeOff, WifiOff, Check, FileJson, Database, Bot, ChevronRight, Settings, Image } from 'lucide-react';
+import { User, Save, Download, Upload, Activity, Wifi, HelpCircle, Book, Zap, ArrowLeft, Server, Eye, EyeOff, WifiOff, Check, FileJson, Database, Bot, ChevronRight, Settings, Image, Info, Heart, MessageCircle, ExternalLink, BookOpen } from 'lucide-react';
 import { AppSettings, ProviderConfig } from '../types';
 import { getSettings, saveSettings, exportUserData, importUserData, getCustomCurricula } from '../services/storage';
 import { testConnection, testVisionConnection } from '../services/geminiService';
@@ -20,7 +20,7 @@ interface ProfileViewProps {
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
-  const [view, setView] = useState<'MAIN' | 'HELP' | 'MANUAL' | 'AI_CONFIG'>('MAIN');
+  const [view, setView] = useState<'MAIN' | 'HELP' | 'MANUAL' | 'AI_CONFIG' | 'ABOUT'>('MAIN');
   
   // Initialize state directly from storage to ensure it's ready on first render
   const [config, setConfig] = useState<AppSettings>(() => getSettings());
@@ -194,31 +194,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
     event.target.value = ''; 
   };
 
-  // Safe access to current curriculum
-  const currentCurriculum = allCurricula.find(c => c.id === config.selectedCurriculumId);
-
-  const gradeOptions = useMemo(() => {
-      const options: {id: string, name: string}[] = [];
-      const existingNames = new Set<string>();
-
-      if (currentCurriculum) {
-          currentCurriculum.grades.forEach(g => {
-              options.push({ id: g.id, name: g.name });
-              existingNames.add(g.name);
-          });
-      }
-
-      GRADE_PRESETS.forEach(presetName => {
-          if (!existingNames.has(presetName)) {
-              options.push({ id: presetName, name: presetName });
-          }
-      });
-      return options;
-  }, [currentCurriculum]);
-
 
   if (view === 'MANUAL') {
-      return <UserManualView onBack={() => setView('HELP')} />
+      return <UserManualView onBack={() => setView('ABOUT')} />
   }
 
   // --- AI CONFIGURATION VIEW ---
@@ -438,32 +416,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
 
   // --- HELP VIEW ---
   if (view === 'HELP') {
-    // ... (Keep existing help view code)
     return (
           <div className="max-w-7xl mx-auto min-h-screen bg-white pb-24 animate-fade-in">
              <div className="bg-indigo-50 px-6 py-4 shadow-sm border-b border-indigo-100 sticky top-0 z-10">
-                <button onClick={() => setView('MAIN')} className="flex items-center gap-2 text-indigo-900 font-bold text-xl">
-                    <ArrowLeft size={24} className="text-indigo-700" /> 帮助与设计理念
+                <button onClick={() => setView('ABOUT')} className="flex items-center gap-2 text-indigo-900 font-bold text-xl">
+                    <ArrowLeft size={24} className="text-indigo-700" /> 设计理念
                 </button>
              </div>
              
              <div className="p-6 space-y-8 max-w-4xl mx-auto">
-                 {/* Manual Button */}
-                 <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl p-6 text-white shadow-lg flex flex-col md:flex-row items-center justify-between gap-4">
-                     <div>
-                        <h3 className="font-bold text-xl mb-1 flex items-center gap-2">
-                           <Book size={24}/> 应用使用说明书
-                        </h3>
-                        <p className="text-indigo-100 text-sm opacity-90">详细了解所有功能模块、操作指南及设计初衷。</p>
-                     </div>
-                     <button 
-                        onClick={() => setView('MANUAL')}
-                        className="bg-white text-indigo-600 px-6 py-3 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors shadow-sm whitespace-nowrap"
-                     >
-                        立即查看
-                     </button>
-                 </div>
-
                  {/* 3-1-3 Method */}
                  <div>
                      <h4 className="font-bold text-blue-800 text-lg flex items-center gap-2 mb-3">
@@ -528,6 +489,92 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
       );
   }
 
+  // --- ABOUT VIEW ---
+  if (view === 'ABOUT') {
+      return (
+          <div className="max-w-7xl mx-auto min-h-screen bg-gray-50 pb-24 animate-fade-in">
+              <div className="bg-white px-6 py-4 shadow-sm border-b border-gray-100 sticky top-0 z-10 flex items-center gap-2">
+                  <button onClick={() => setView('MAIN')} className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600">
+                      <ArrowLeft size={24} />
+                  </button>
+                  <h1 className="text-xl font-bold text-gray-800">关于</h1>
+              </div>
+
+              <div className="p-8 flex flex-col items-center">
+                  {/* App Info */}
+                  <div className="flex flex-col items-center mb-10">
+                      <div className="w-24 h-24 bg-white rounded-3xl shadow-lg flex items-center justify-center text-6xl border border-gray-100 mb-4">
+                          🐼
+                      </div>
+                      <h2 className="text-2xl font-fun font-bold text-gray-800 mb-1">汉字小英雄</h2>
+                      <p className="text-gray-400 text-sm font-mono">Version 1.0.0</p>
+                      <p className="text-gray-500 text-sm mt-2 font-bold">Author: Tabor</p>
+                  </div>
+
+                  {/* Actions - Responsive Grid */}
+                  <div className="w-full max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <button 
+                         onClick={() => setView('HELP')}
+                         className="w-full bg-white p-4 rounded-xl border border-gray-200 flex items-center justify-between hover:bg-gray-50 transition-colors shadow-sm group"
+                      >
+                         <div className="flex items-center gap-3">
+                             <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-100 transition-colors">
+                                 <HelpCircle size={20} />
+                             </div>
+                             <span className="font-bold text-gray-700">设计理念</span>
+                         </div>
+                         <ChevronRight size={18} className="text-gray-400" />
+                      </button>
+
+                      <button 
+                         onClick={() => setView('MANUAL')}
+                         className="w-full bg-white p-4 rounded-xl border border-gray-200 flex items-center justify-between hover:bg-gray-50 transition-colors shadow-sm group"
+                      >
+                         <div className="flex items-center gap-3">
+                             <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-100 transition-colors">
+                                 <BookOpen size={20} />
+                             </div>
+                             <span className="font-bold text-gray-700">使用说明</span>
+                         </div>
+                         <ChevronRight size={18} className="text-gray-400" />
+                      </button>
+
+                      <button 
+                         onClick={() => window.open('https://xhslink.com/m/3QRAda5uzs5', '_blank')}
+                         className="w-full bg-white p-4 rounded-xl border border-gray-200 flex items-center justify-between hover:bg-gray-50 transition-colors shadow-sm group"
+                      >
+                         <div className="flex items-center gap-3">
+                             <div className="p-2 bg-red-50 text-red-600 rounded-lg group-hover:bg-red-100 transition-colors">
+                                 <Heart size={20} />
+                             </div>
+                             <span className="font-bold text-gray-700">关注小红书</span>
+                         </div>
+                         <ExternalLink size={18} className="text-gray-400" />
+                      </button>
+
+                      <button 
+                         onClick={() => alert('添加微信：tabor2024，备注“汉字小英雄”')}
+                         className="w-full bg-white p-4 rounded-xl border border-gray-200 flex items-center justify-between hover:bg-gray-50 transition-colors shadow-sm group"
+                      >
+                         <div className="flex items-center gap-3">
+                             <div className="p-2 bg-green-50 text-green-600 rounded-lg group-hover:bg-green-100 transition-colors">
+                                 <MessageCircle size={20} />
+                             </div>
+                             <span className="font-bold text-gray-700">微信反馈</span>
+                         </div>
+                         <ChevronRight size={18} className="text-gray-400" />
+                      </button>
+                  </div>
+                  
+                  <div className="mt-12 text-center text-xs text-gray-400 max-w-xs leading-relaxed">
+                      让每一个汉字都成为孩子的好朋友。<br/>
+                      感谢您的使用与支持！
+                  </div>
+              </div>
+          </div>
+      );
+  }
+
   // --- MAIN VIEW ---
   return (
     <div className="max-w-7xl mx-auto min-h-screen bg-gray-50 pb-24">
@@ -544,49 +591,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
 
        <div className="p-4 md:p-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
           
-          {/* Textbook */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-full">
-             <h3 className="font-bold text-gray-800 border-b pb-3 mb-4">📚 教材选择</h3>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                   <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">教材版本</label>
-                   <select
-                     className="w-full p-3 rounded-xl border border-gray-300 focus:border-indigo-500 outline-none bg-white"
-                     value={config.selectedCurriculumId}
-                     onChange={e => {
-                        const newCurrId = e.target.value;
-                        const newCurr = allCurricula.find(c => c.id === newCurrId);
-                        setConfig({
-                          ...config, 
-                          selectedCurriculumId: newCurrId,
-                          // Reset grade to first available if switching curriculum
-                          selectedGradeId: newCurr?.grades[0]?.id || ''
-                        })
-                     }}
-                   >
-                     <option value="">请选择教材</option>
-                     {allCurricula.map(c => (
-                       <option key={c.id} value={c.id}>{c.name}</option>
-                     ))}
-                   </select>
-                </div>
-                <div>
-                   <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">分类 (年级)</label>
-                   <select
-                     className="w-full p-3 rounded-xl border border-gray-300 focus:border-indigo-500 outline-none bg-white"
-                     value={config.selectedGradeId}
-                     onChange={e => setConfig({...config, selectedGradeId: e.target.value})}
-                     disabled={!currentCurriculum}
-                   >
-                     <option value="">请选择分类</option>
-                     {gradeOptions.map(g => (
-                         <option key={g.id} value={g.id}>{g.name}</option>
-                     ))}
-                   </select>
-                </div>
-             </div>
-          </div>
-
           {/* AI Settings Entry Card - Updated Style */}
           <div 
              onClick={() => setView('AI_CONFIG')}
@@ -738,12 +742,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                )}
            </div>
 
+           {/* About Section Entry */}
            <div className="lg:col-span-2">
                 <button 
-                        onClick={() => setView('HELP')} 
-                        className="w-full py-3 border border-blue-100 text-blue-600 rounded-xl hover:bg-blue-50 font-bold flex justify-center gap-2"
+                        onClick={() => setView('ABOUT')} 
+                        className="w-full py-4 border border-blue-100 text-blue-600 rounded-xl hover:bg-blue-50 font-bold flex justify-center items-center gap-2 shadow-sm transition-colors"
                     >
-                        <HelpCircle size={18} /> 帮助与设计理念
+                        <Info size={18} /> 关于
                 </button>
            </div>
        </div>

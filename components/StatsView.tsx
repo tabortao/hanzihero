@@ -215,7 +215,7 @@ export const StatsView: React.FC = () => {
            </div>
            <div className="grid grid-cols-3 gap-4 text-center">
             <div className="bg-white/10 rounded-xl p-4 backdrop-blur-md">
-              <div className="text-xs opacity-80 mb-1">本周学习 (Mon-Sun)</div>
+              <div className="text-xs opacity-80 mb-1">本周学习</div>
               <div className="text-3xl font-bold font-mono">{stats.week}</div>
             </div>
             <div className="bg-white/10 rounded-xl p-4 backdrop-blur-md">

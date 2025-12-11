@@ -14,7 +14,7 @@ export const UserManualView: React.FC<UserManualViewProps> = ({ onBack }) => {
           <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600">
              <ArrowLeft size={24} />
           </button>
-          <h1 className="text-xl font-bold text-gray-800">使用说明书</h1>
+          <h1 className="text-xl font-bold text-gray-800">使用说明</h1>
        </div>
 
        <div className="p-6 md:p-10 space-y-12">
@@ -117,7 +117,6 @@ export const UserManualView: React.FC<UserManualViewProps> = ({ onBack }) => {
           {/* Footer */}
           <div className="pt-10 pb-4 text-center border-t border-gray-100">
               <p className="text-gray-400 text-sm font-medium">汉字小英雄 · 让每一个汉字都成为孩子的好朋友</p>
-              <p className="text-gray-300 text-xs mt-2">Version 1.0.0</p>
           </div>
        </div>
     </div>

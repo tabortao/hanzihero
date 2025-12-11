@@ -320,7 +320,7 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
 
   if (view === 'MENU') {
       return (
-        <div className="min-h-screen bg-[#fdfbf7] flex flex-col relative overflow-hidden font-serif">
+        <div className="min-h-screen bg-[#fdfbf7] flex flex-col relative overflow-hidden font-sans max-w-7xl mx-auto">
             <div className="bg-white/80 backdrop-blur-md p-4 shadow-sm border-b border-gray-100 flex justify-between items-center z-10">
                 <button onClick={onExit} className="flex items-center gap-2 text-gray-600 font-bold"><ArrowLeft /> 退出游戏</button>
             </div>
@@ -359,10 +359,7 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
                     
                 </div>
             </div>
-            
-            <div className="text-center p-4 text-gray-400 text-xs">
-                新的关卡在最前面，已通关的卡片为灰色。
-            </div>
+            {/* Removed footer text as requested */}
         </div>
       );
   }
@@ -371,7 +368,7 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
 
   if (matchedIds.length > 0 && matchedIds.length === gridItems.length) {
       return (
-          <div className="flex flex-col items-center justify-center min-h-screen bg-yellow-50 p-4 font-serif">
+          <div className="flex flex-col items-center justify-center min-h-screen bg-yellow-50 p-4 font-sans max-w-7xl mx-auto">
               <div className="bg-white p-8 rounded-[2rem] shadow-2xl border-4 border-yellow-200 text-center max-w-sm w-full animate-bounce-in">
                   <Trophy size={64} className="text-yellow-500 mx-auto mb-4" />
                   <h2 className="text-3xl font-bold text-gray-800 mb-2">关卡 {level} 完成!</h2>
@@ -398,24 +395,25 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
   const gridCols = 4;
 
   return (
-    <div className="min-h-screen bg-yellow-50 flex flex-col relative overflow-hidden font-serif">
+    <div className="min-h-screen bg-yellow-50 flex flex-col relative overflow-hidden font-sans max-w-7xl mx-auto">
       <div className="absolute top-[-50px] left-[-50px] w-48 h-48 bg-pink-200 rounded-full blur-3xl opacity-40 pointer-events-none"></div>
       <div className="absolute bottom-[-50px] right-[-50px] w-64 h-64 bg-blue-200 rounded-full blur-3xl opacity-40 pointer-events-none"></div>
 
-      {/* Header */}
+      {/* Header - Styled to match LookIdentifyGame but with Crush Theme colors (Green/Yellow) */}
       <div className="flex justify-between items-center p-4 relative z-10">
-        <div className="flex items-center gap-3">
-            <button onClick={handleBackToMenu} className="p-2 bg-white/80 rounded-full hover:bg-white border border-gray-100 shadow-sm transition-all">
-                <ArrowLeft className="text-gray-600" />
+        <div className="flex items-center gap-2">
+            <button onClick={handleBackToMenu} className="p-2 bg-white/50 rounded-full hover:bg-white text-green-800 transition-colors">
+                <ArrowLeft />
             </button>
-            <div className="bg-white/80 px-4 py-1.5 rounded-full border border-gray-100 shadow-sm">
-                <span className="text-gray-500 text-xs font-bold mr-1">关卡</span>
-                <span className="text-gray-800 font-bold text-lg">{level}</span>
-            </div>
+            <span className="font-bold text-green-900 text-lg">🧩 汉字消消乐</span>
         </div>
-        <div className="bg-white/80 px-4 py-1.5 rounded-full border border-gray-100 shadow-sm flex items-center gap-2">
-            <Star size={16} className="text-yellow-400 fill-yellow-400" />
-            <span className="font-bold text-gray-800">{score}</span>
+        <div className="flex gap-2">
+            <div className="bg-white/50 px-3 py-1 rounded-full text-green-800 font-bold text-sm">
+               关卡 {level}
+            </div>
+            <div className="bg-white/50 px-3 py-1 rounded-full text-green-800 font-bold text-sm flex items-center gap-1">
+               <Star size={14} className="text-yellow-500 fill-yellow-500"/> {score}
+            </div>
         </div>
       </div>
 

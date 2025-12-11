@@ -192,35 +192,30 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
   const displayPinyin = currentCharacter.pinyin || aiExplanation?.pinyin || '';
 
   return (
-    <div className="max-w-7xl mx-auto p-4 min-h-screen flex flex-col bg-[#ecfdf5] pb-24">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <button 
-          onClick={() => onExit(addStars(score))} // Exit with current score added if manual
-          className="p-2 rounded-full hover:bg-gray-200 text-gray-600 transition-colors"
-        >
-          <ArrowLeft />
-        </button>
-        <div className="flex-1 mx-4">
-          <div className="flex justify-between text-xs text-gray-500 mb-1">
-            <span>{config.title}</span>
-            <span>{currentIndex + 1} / {config.characters.length}</span>
-          </div>
-          <div className="bg-gray-200 rounded-full h-3 overflow-hidden">
-            <div 
-              className="bg-green-500 h-full transition-all duration-500 ease-out"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
+    <div className="max-w-7xl mx-auto min-h-screen flex flex-col bg-[#ecfdf5] pb-24">
+      {/* Header - Matches LookIdentifyGame/CrushGame style */}
+      <div className="flex items-center justify-between p-4 mb-2">
+        <div className="flex items-center gap-2">
+            <button 
+              onClick={() => onExit(addStars(score))} // Exit with current score added if manual
+              className="p-2 bg-white/50 rounded-full hover:bg-white text-emerald-800 transition-colors"
+            >
+              <ArrowLeft />
+            </button>
+            <span className="font-bold text-emerald-900 text-lg truncate max-w-[150px] sm:max-w-xs">{config.title}</span>
         </div>
-        {/* Points Display */}
-        <div className="bg-white px-3 py-1 rounded-full shadow-sm flex items-center gap-1 font-bold text-yellow-600 border border-yellow-100">
-             <Star size={16} fill="currentColor" /> {score}
+        <div className="flex gap-2">
+            <div className="bg-white/50 px-3 py-1 rounded-full text-emerald-800 font-bold text-sm flex items-center">
+                 {currentIndex + 1} / {config.characters.length}
+            </div>
+            <div className="bg-white/50 px-3 py-1 rounded-full text-emerald-800 font-bold text-sm flex items-center gap-1">
+                 <Star size={14} className="text-yellow-500 fill-yellow-500"/> {score}
+            </div>
         </div>
       </div>
 
       {/* Main Area */}
-      <div className="flex-1 flex flex-col items-center w-full max-w-2xl mx-auto">
+      <div className="flex-1 flex flex-col items-center w-full max-w-2xl mx-auto px-4">
         
         {/* Character Card */}
         <div className="bg-white rounded-[2.5rem] shadow-xl w-full p-6 sm:p-8 text-center border-4 border-green-100 relative mb-6">
