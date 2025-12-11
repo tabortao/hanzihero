@@ -196,6 +196,21 @@ export const saveCustomUnit = (currName: string, gradeName: string, unitName: st
     return { curriculumId: curr.id, gradeId: grade.id };
 };
 
+export const updateCustomUnit = (curriculumId: string, gradeId: string, unitId: string, unitName: string, chars: Character[]): void => {
+    const customs = getCustomCurricula();
+    const curr = customs.find(c => c.id === curriculumId);
+    if (!curr) return;
+    const grade = curr.grades.find(g => g.id === gradeId);
+    if (!grade) return;
+    
+    const unitIndex = grade.units.findIndex(u => u.id === unitId);
+    if (unitIndex !== -1) {
+        grade.units[unitIndex].name = unitName;
+        grade.units[unitIndex].characters = chars;
+        localStorage.setItem(STORAGE_KEY_CUSTOM_CURRICULA, JSON.stringify(customs));
+    }
+};
+
 // --- Stats ---
 
 const getStats = (): LearningStats => {

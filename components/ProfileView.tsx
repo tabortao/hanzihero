@@ -571,14 +571,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                    </select>
                 </div>
                 <div>
-                   <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">年级</label>
+                   <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">分类 (年级)</label>
                    <select
                      className="w-full p-3 rounded-xl border border-gray-300 focus:border-indigo-500 outline-none bg-white"
                      value={config.selectedGradeId}
                      onChange={e => setConfig({...config, selectedGradeId: e.target.value})}
                      disabled={!currentCurriculum}
                    >
-                     <option value="">请选择年级</option>
+                     <option value="">请选择分类</option>
                      {gradeOptions.map(g => (
                          <option key={g.id} value={g.id}>{g.name}</option>
                      ))}

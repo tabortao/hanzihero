@@ -1,10 +1,11 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { Book, Grid, Star, PlayCircle, Trophy, CheckCircle, List, X, Library, BookOpen, Sparkles, Plus, Save, ChevronDown, Edit3, ArrowRightLeft } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Book, Grid, Star, PlayCircle, Trophy, CheckCircle, List, X, Library, BookOpen, Sparkles, Plus, Save, ChevronDown, Edit3, ArrowRightLeft, Camera, Loader2, Image as ImageIcon, FileText, Wand2, Edit2 } from 'lucide-react';
 import { GameConfig, Character, Unit, Curriculum } from '../types';
 import { APP_DATA, GRADE_PRESETS } from '../data';
-import { getSettings, getUnknownCharacters, getKnownCharacters, getCustomCurricula, saveCustomUnit, saveSettings } from '../services/storage';
+import { getSettings, getUnknownCharacters, getKnownCharacters, getCustomCurricula, saveCustomUnit, updateCustomUnit, saveSettings } from '../services/storage';
 import { findCharacterPinyin } from '../data/dictionary';
+import { recognizeTextFromImage } from '../services/geminiService';
 
 interface SelectionViewProps {
   onStartGame: (config: GameConfig) => void;
@@ -21,10 +22,23 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
   
   // Custom Unit Modal State
   const [showCustomModal, setShowCustomModal] = useState(false);
+  const [modalTab, setModalTab] = useState<'MANUAL' | 'BATCH_AI'>('MANUAL'); 
+  const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
+  
+  // Shared Inputs
   const [customCurrName, setCustomCurrName] = useState('');
   const [customGradeName, setCustomGradeName] = useState('');
+  
+  // Manual Inputs
   const [customUnitName, setCustomUnitName] = useState('');
   const [customCharsInput, setCustomCharsInput] = useState('');
+
+  // Batch Inputs
+  const [batchSize, setBatchSize] = useState(5);
+  const [batchInputText, setBatchInputText] = useState('');
+  const [isRecognizing, setIsRecognizing] = useState(false);
+  const [batchPreviews, setBatchPreviews] = useState<{name: string, chars: Character[]}[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Quick Switch Modal State
   const [showSwitchModal, setShowSwitchModal] = useState(false);
@@ -50,10 +64,21 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
       return [...APP_DATA, ...customCurricula];
   }, [customCurricula]);
 
+  // Compute Recent Categories (Grades) from custom data
+  const recentCategories = useMemo(() => {
+      const userCats = new Set<string>();
+      customCurricula.forEach(c => c.grades.forEach(g => userCats.add(g.name)));
+      // Combine user cats with presets, user cats first, filtering out duplicates
+      return Array.from(userCats).concat(GRADE_PRESETS.filter(p => !userCats.has(p)));
+  }, [customCurricula]);
+
   // Resolve current configuration
   const currentCurriculum = allCurricula.find(c => c.id === settings.selectedCurriculumId);
   const currentGrade = currentCurriculum?.grades.find(g => g.id === settings.selectedGradeId);
   const needsSetup = !currentCurriculum || !currentGrade;
+  
+  // Check if current curriculum is custom
+  const isCustomCurriculum = currentCurriculum && !APP_DATA.some(c => c.id === currentCurriculum.id);
 
   // Process Units Logic
   const processedUnits = React.useMemo(() => {
@@ -76,6 +101,10 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
 
   // Pre-fill custom modal logic
   const openCustomModal = () => {
+      setEditingUnitId(null);
+      setModalTab('MANUAL');
+      setBatchPreviews([]);
+      setBatchInputText('');
       // Default to select mode if there are custom curricula, else input
       if (customCurricula.length > 0) {
           setCurrInputMode('SELECT');
@@ -86,10 +115,31 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
       }
       
       setGradeInputMode('SELECT');
-      setCustomGradeName(GRADE_PRESETS[0]);
+      // Default to most recent used category or first preset
+      setCustomGradeName(recentCategories[0] || GRADE_PRESETS[0]);
       
       setCustomUnitName('');
       setCustomCharsInput('');
+      setShowCustomModal(true);
+  };
+  
+  const handleEditUnit = (unit: Unit) => {
+      if (!currentCurriculum || !currentGrade) return;
+      
+      setEditingUnitId(unit.id);
+      
+      // Lock context to current selection
+      setCurrInputMode('SELECT'); 
+      setCustomCurrName(currentCurriculum.name);
+      
+      setGradeInputMode('SELECT');
+      setCustomGradeName(currentGrade.name);
+      
+      // Set Unit Data
+      setCustomUnitName(unit.name);
+      setCustomCharsInput(unit.characters.map(c => c.char).join(' '));
+      
+      setModalTab('MANUAL'); 
       setShowCustomModal(true);
   };
 
@@ -98,12 +148,14 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
           alert("请填写完整信息");
           return;
       }
-
-      // Check for System Name Collision (Only if typing a new name)
-      const systemNames = APP_DATA.map(c => c.name);
-      if (systemNames.includes(customCurrName.trim())) {
-          alert(`无法创建名为"${customCurrName}"的教材，因为它是系统内置教材。\n请选择"选择现有"或使用不同的名称。`);
-          return;
+      
+      // Check for System Name Collision (Only if typing a new name and not editing)
+      if (!editingUnitId) {
+          const systemNames = APP_DATA.map(c => c.name);
+          if (systemNames.includes(customCurrName.trim())) {
+              alert(`无法创建名为"${customCurrName}"的教材，因为它是系统内置教材。\n请选择"选择现有"或使用不同的名称。`);
+              return;
+          }
       }
 
       // Parse characters (spaces, commas, newlines)
@@ -120,19 +172,131 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
           pinyin: findCharacterPinyin(char[0])
       }));
 
-      // Save to storage
-      const result = saveCustomUnit(customCurrName, customGradeName, customUnitName, charObjects);
-      
-      // Auto-switch settings to the new unit so the user sees it immediately
-      const newSettings = { ...settings, selectedCurriculumId: result.curriculumId, selectedGradeId: result.gradeId };
-      saveSettings(newSettings);
+      // Save or Update
+      if (editingUnitId && currentCurriculum && currentGrade) {
+          // Edit Mode
+          updateCustomUnit(currentCurriculum.id, currentGrade.id, editingUnitId, customUnitName, charObjects);
+          alert("单元修改成功！");
+      } else {
+          // Create Mode
+          const result = saveCustomUnit(customCurrName, customGradeName, customUnitName, charObjects);
+          // Auto-switch settings
+          const newSettings = { ...settings, selectedCurriculumId: result.curriculumId, selectedGradeId: result.gradeId };
+          saveSettings(newSettings);
+          alert("单元创建成功！已自动切换到该教材。");
+      }
 
       // Force refresh UI
       setRefreshKey(prev => prev + 1);
       setShowCustomModal(false);
-      
-      alert("单元创建成功！已自动切换到该教材。");
+      setEditingUnitId(null);
   };
+
+  // --- Batch AI Logic ---
+  
+  const handleAnalyzeBatch = (sourceText: string) => {
+      if (!sourceText.trim()) return;
+
+      const rawText = sourceText;
+      // Extract unique Chinese characters
+      const matches = rawText.match(/[\u4e00-\u9fa5]/g);
+      
+      if (!matches || matches.length === 0) {
+          alert("未在内容中找到有效汉字");
+          return;
+      }
+
+      const uniqueChars = Array.from(new Set(matches));
+      
+      // Chunking
+      const chunks: {name: string, chars: Character[]}[] = [];
+      const safeBatchSize = Math.max(1, Math.min(50, batchSize));
+
+      for (let i = 0; i < uniqueChars.length; i += safeBatchSize) {
+          const chunkSlice = uniqueChars.slice(i, i + safeBatchSize);
+          const chunkChars = chunkSlice.map(c => ({
+              char: c,
+              pinyin: findCharacterPinyin(c)
+          }));
+          
+          const partNum = Math.floor(i / safeBatchSize) + 1;
+          const padNum = String(partNum).padStart(2, '0');
+          // Name format: "01 天地人你我"
+          const firstFive = chunkChars.slice(0, 5).map(c => c.char).join('');
+          const name = `${padNum} ${firstFive}`;
+          
+          chunks.push({ name, chars: chunkChars });
+      }
+
+      setBatchPreviews(chunks);
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      e.target.value = ''; // Reset
+
+      setIsRecognizing(true);
+      
+      try {
+          const base64 = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.readAsDataURL(file);
+              reader.onload = () => resolve(reader.result as string);
+              reader.onerror = reject;
+          });
+
+          // Custom prompt for simple extraction
+          const prompt = "任务：提取所有不重复的汉字。请列出图片中所有用于识字教学的汉字。";
+          const result = await recognizeTextFromImage(base64, prompt);
+          
+          // Populate text area first so user can see/edit
+          setBatchInputText(result.content);
+          
+          // Auto analyze
+          handleAnalyzeBatch(result.content);
+
+      } catch (err: any) {
+          console.error(err);
+          alert(err.message || "识别失败，请重试");
+      } finally {
+          setIsRecognizing(false);
+      }
+  };
+
+  const handleSaveBatch = () => {
+      if (batchPreviews.length === 0) return;
+      if (!customCurrName.trim()) {
+        alert("请选择或输入教材版本");
+        return;
+      }
+      if (!customGradeName.trim()) {
+        alert("请选择或输入分类（年级）");
+        return;
+      }
+
+      // Check collision
+      const systemNames = APP_DATA.map(c => c.name);
+      if (systemNames.includes(customCurrName.trim())) {
+          alert(`无法修改系统内置教材"${customCurrName}"。请使用不同的名称。`);
+          return;
+      }
+
+      let lastResult;
+      batchPreviews.forEach(unit => {
+           lastResult = saveCustomUnit(customCurrName, customGradeName, unit.name, unit.chars);
+      });
+
+      if (lastResult) {
+          const newSettings = { ...settings, selectedCurriculumId: lastResult.curriculumId, selectedGradeId: lastResult.gradeId };
+          saveSettings(newSettings);
+      }
+
+      setRefreshKey(prev => prev + 1);
+      setShowCustomModal(false);
+      alert(`成功创建了 ${batchPreviews.length} 个学习单元！`);
+  };
+
 
   const handleQuickSwitch = () => {
       if (quickCurrId && quickGradeId) {
@@ -156,93 +320,41 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
 
   // Ebbinghaus Forgetting Curve Logic
   const prepareDailyChallenge = () => {
+    // ... (Keep existing logic)
     const dailyLimit = settings.dailyLimit || 10;
     const now = Date.now();
-    
-    // Helper to calculate days since learned
-    const getDaysSince = (ts?: number) => {
-        if (!ts) return 999;
-        const diff = now - ts;
-        return diff / (1000 * 60 * 60 * 24);
-    };
-
-    // Define Ebbinghaus intervals (approximate days)
-    // 1 day, 3 days, 7 days, 15 days, 30 days
+    const getDaysSince = (ts?: number) => ts ? (now - ts) / (1000 * 60 * 60 * 24) : 999;
     const isDueForReview = (char: Character) => {
         if (!char.learnedAt) return false;
         const days = getDaysSince(char.learnedAt);
-        // Using ranges to catch items. E.g. 0.9 - 1.2 days is "1 day review"
-        if (days >= 0.9 && days <= 1.5) return true; // ~1 day
-        if (days >= 2.8 && days <= 3.5) return true; // ~3 days
-        if (days >= 6.5 && days <= 8.0) return true; // ~7 days
-        if (days >= 14.0 && days <= 16.0) return true; // ~15 days
-        if (days >= 28.0 && days <= 32.0) return true; // ~30 days
-        // Fallback: If it's been > 30 days and reviewCount is low (<3), review it
+        if (days >= 0.9 && days <= 1.5) return true;
+        if (days >= 2.8 && days <= 3.5) return true;
+        if (days >= 6.5 && days <= 8.0) return true;
+        if (days >= 14.0 && days <= 16.0) return true;
+        if (days >= 28.0 && days <= 32.0) return true;
         if (days > 30 && (char.reviewCount || 0) < 3) return true;
         return false;
     };
-
-    // Priority 1: Unknown Characters (Explicitly marked as 'Unknown' / Wrong answers)
-    // Limit unknown to 30% of daily limit to prevent overwhelm, or just fill
     let selectedChars: Character[] = [...unknownChars];
-    
-    // Priority 2: Known characters due for Ebbinghaus review
     const reviewCandidates = knownChars.filter(isDueForReview);
-    
-    // Sort review candidates by time since learned (older first? or strictly by curve?)
-    // Let's shuffle them to mix up the review types (1 day vs 7 day)
     reviewCandidates.sort(() => 0.5 - Math.random());
-
-    // Combine: Unknowns + Reviews
-    // Ensure we don't exceed daily limit too much, but always include at least some unknowns if available
-    // Strategy: Take up to 5 Unknowns, fill rest with Review. If Review is empty, take more Unknowns.
-    
-    // If we have review items, prioritize them to prevent forgetting
-    // If dailyLimit is 20, and we have 50 reviews, take 20 reviews? No, we should mix.
-    // 3-1-3 concept: 3 new, 1 day review, 3 day review.
-    
-    // Actually, let's just fill the bucket:
-    // 1. All critical reviews (1day, 3day)
-    // 2. Some Unknowns
-    // 3. Other reviews
-    
-    const criticalReviews = reviewCandidates.filter(c => {
-         const d = getDaysSince(c.learnedAt);
-         return d <= 3.5; // 1 and 3 day reviews are critical
-    });
-    
+    const criticalReviews = reviewCandidates.filter(c => getDaysSince(c.learnedAt) <= 3.5);
     const otherReviews = reviewCandidates.filter(c => !criticalReviews.includes(c));
-
-    // Construct list
-    let list: Character[] = [];
-    
-    // Add critical reviews first
-    list = [...list, ...criticalReviews];
-    
-    // Add some unknowns (up to half of daily limit, or at least 3 if possible)
+    let list: Character[] = [...criticalReviews];
     const newCount = Math.max(3, Math.floor(dailyLimit / 2));
     list = [...list, ...unknownChars.slice(0, newCount)];
-    
-    // Fill remainder with other reviews
     if (list.length < dailyLimit) {
         list = [...list, ...otherReviews.slice(0, dailyLimit - list.length)];
     }
-    
-    // If still not enough, add more unknowns
     if (list.length < dailyLimit && unknownChars.length > newCount) {
          list = [...list, ...unknownChars.slice(newCount, unknownChars.length - newCount + (dailyLimit - list.length))];
     }
-    
-    // If still not enough, add random knowns for reinforcement (Oldest first)
     if (list.length < dailyLimit) {
         const otherKnowns = knownChars.filter(c => !list.includes(c));
-        otherKnowns.sort((a, b) => (a.learnedAt || 0) - (b.learnedAt || 0)); // Oldest first
+        otherKnowns.sort((a, b) => (a.learnedAt || 0) - (b.learnedAt || 0));
         list = [...list, ...otherKnowns.slice(0, dailyLimit - list.length)];
     }
-
-    // Final fallback: New characters from current curriculum if user has finished everything
     if (list.length < 5) {
-        // ... (existing logic to find new chars)
          let allCurriculumChars: Character[] = [];
         if (currentCurriculum) {
             currentCurriculum.grades.forEach(g => g.units.forEach(u => {
@@ -253,28 +365,20 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
                  allCurriculumChars = [...allCurriculumChars, ...u.characters];
              })));
         }
-        
         const existingSet = new Set([...knownChars, ...unknownChars].map(c => c.char));
         const newPool = allCurriculumChars.filter(c => !existingSet.has(c.char));
         const needed = dailyLimit - list.length;
         const newWords = newPool.slice(0, needed);
         list = [...list, ...newWords];
     }
-    
-    // Deduplicate
-    list = Array.from(new Set(list.map(c => c.char)))
-        .map(char => list.find(c => c.char === char)!)
-        .slice(0, dailyLimit * 1.5); // Allow slightly more for robust review
-
+    list = Array.from(new Set(list.map(c => c.char))).map(char => list.find(c => c.char === char)!).slice(0, dailyLimit * 1.5);
     if (list.length === 0) {
         alert("恭喜你！没有需要复习的字，去学习新单元吧！");
         return;
     }
-
     onOpenDailyMenu(list);
   };
 
-  // ... (Rest of component remains same)
   const UnitList = ({ units, limit }: { units: Unit[], limit?: number }) => {
     const displayUnits = limit ? units.slice(0, limit) : units;
     
@@ -308,6 +412,20 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
              </div>
 
              <div className="flex items-center gap-1">
+                 {/* Edit Button for Custom Units */}
+                 {isCustomCurriculum && (
+                     <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditUnit(unit);
+                        }}
+                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors"
+                        title="编辑单元"
+                     >
+                        <Edit2 size={18} />
+                     </button>
+                 )}
+
                  <button 
                     onClick={(e) => {
                         e.stopPropagation();
@@ -355,7 +473,7 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
              title="点击快速切换教材"
            >
               <p className="text-[10px] md:text-sm text-gray-400 font-bold pl-1 group-hover:text-blue-500">
-                {currentCurriculum ? `${currentCurriculum.name} · ${currentGrade?.name || '未知年级'}` : '请设置教材'}
+                {currentCurriculum ? `${currentCurriculum.name} · ${currentGrade?.name || '未知分类'}` : '请设置教材'}
               </p>
               <ArrowRightLeft size={12} className="text-gray-300 group-hover:text-blue-500" />
            </div>
@@ -515,7 +633,7 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
                           </select>
                       </div>
                       <div>
-                          <label className="block text-xs font-bold text-gray-500 mb-1">年级</label>
+                          <label className="block text-xs font-bold text-gray-500 mb-1">分类 (年级)</label>
                           <select 
                              className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:border-blue-500 outline-none"
                              value={quickGradeId}
@@ -556,133 +674,245 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
           </div>
       )}
 
-      {/* --- Custom Unit Creation Modal --- */}
+      {/* --- Custom Unit Creation/Edit Modal --- */}
       {showCustomModal && (
-          <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-             <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl animate-bounce-in flex flex-col overflow-hidden max-h-[90vh]">
+          <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+             <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl animate-bounce-in flex flex-col overflow-hidden max-h-[85vh] mb-safe">
                 <div className="p-4 border-b border-gray-100 bg-blue-50 flex justify-between items-center shrink-0">
                    <h3 className="font-bold text-lg text-blue-900 flex items-center gap-2">
-                      <Plus size={20} /> 创建自定义单元
+                      {editingUnitId ? <Edit2 size={20} /> : <Plus size={20} />} 
+                      {editingUnitId ? '编辑自定义单元' : '创建自定义单元'}
                    </h3>
                    <button onClick={() => setShowCustomModal(false)} className="p-2 hover:bg-blue-100 rounded-full text-blue-700">
                       <X size={20} />
                    </button>
                 </div>
                 
-                <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
-                   {/* Curriculum Name Input */}
-                   <div>
-                      <label className="block text-xs font-bold text-gray-500 mb-1">教材版本 (归类)</label>
-                      <div className="flex gap-2">
-                         {currInputMode === 'SELECT' ? (
-                             <div className="relative flex-1">
-                                 <select 
-                                    className="w-full p-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none appearance-none bg-white"
-                                    value={customCurrName}
-                                    onChange={e => {
-                                        if (e.target.value === '__NEW__') {
-                                            setCurrInputMode('INPUT');
-                                            setCustomCurrName('');
-                                        } else {
-                                            setCustomCurrName(e.target.value);
-                                        }
-                                    }}
-                                 >
-                                    {customCurricula.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                                    <option value="__NEW__">+ 创建新教材/自定义</option>
-                                 </select>
-                                 <ChevronDown className="absolute right-3 top-3.5 text-gray-400 pointer-events-none" size={16} />
-                             </div>
-                         ) : (
-                             <div className="flex-1 relative">
-                                <input 
-                                    type="text" 
-                                    value={customCurrName} 
-                                    onChange={e => setCustomCurrName(e.target.value)}
-                                    className="w-full p-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none"
-                                    placeholder="例如：我的自定义教材"
-                                    autoFocus
-                                />
-                                {customCurricula.length > 0 && (
-                                    <button 
-                                        onClick={() => setCurrInputMode('SELECT')}
-                                        className="absolute right-2 top-2 p-1.5 text-gray-400 hover:text-blue-600 bg-gray-50 rounded-lg text-xs"
-                                    >
-                                        选择现有
-                                    </button>
+                {/* Mode Tabs - Only show when creating new, or just show Manual when editing */}
+                {!editingUnitId && (
+                    <div className="flex bg-gray-100 p-1 mx-4 mt-4 rounded-xl shrink-0">
+                        <button 
+                            onClick={() => setModalTab('MANUAL')}
+                            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${modalTab === 'MANUAL' ? 'bg-white shadow text-blue-600' : 'text-gray-400'}`}
+                        >
+                            <Edit3 size={14}/> 手动录入
+                        </button>
+                        <button 
+                            onClick={() => setModalTab('BATCH_AI')}
+                            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${modalTab === 'BATCH_AI' ? 'bg-white shadow text-purple-600' : 'text-gray-400'}`}
+                        >
+                            <Sparkles size={14}/> AI 批量
+                        </button>
+                    </div>
+                )}
+
+                <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+                   {/* Shared Fields */}
+                   <div className="space-y-3">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1">教材版本 (归类)</label>
+                            <div className="flex gap-2">
+                                {currInputMode === 'SELECT' ? (
+                                    <div className="relative flex-1">
+                                        <select 
+                                            className="w-full p-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none appearance-none bg-white disabled:bg-gray-100 disabled:text-gray-400"
+                                            value={customCurrName}
+                                            disabled={!!editingUnitId} // Disable when editing
+                                            onChange={e => {
+                                                if (e.target.value === '__NEW__') {
+                                                    setCurrInputMode('INPUT');
+                                                    setCustomCurrName('');
+                                                } else {
+                                                    setCustomCurrName(e.target.value);
+                                                }
+                                            }}
+                                        >
+                                            {customCurricula.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                            {!editingUnitId && <option value="__NEW__">+ 创建新教材/自定义</option>}
+                                        </select>
+                                        {!editingUnitId && <ChevronDown className="absolute right-3 top-3.5 text-gray-400 pointer-events-none" size={16} />}
+                                    </div>
+                                ) : (
+                                    <div className="flex-1 relative">
+                                        <input 
+                                            type="text" 
+                                            value={customCurrName} 
+                                            onChange={e => setCustomCurrName(e.target.value)}
+                                            className="w-full p-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none"
+                                            placeholder="例如：我的自定义教材"
+                                            autoFocus
+                                            disabled={!!editingUnitId}
+                                        />
+                                        {!editingUnitId && customCurricula.length > 0 && (
+                                            <button 
+                                                onClick={() => setCurrInputMode('SELECT')}
+                                                className="absolute right-2 top-2 p-1.5 text-gray-400 hover:text-blue-600 bg-gray-50 rounded-lg text-xs"
+                                            >
+                                                选择现有
+                                            </button>
+                                        )}
+                                    </div>
                                 )}
-                             </div>
-                         )}
-                      </div>
-                      <p className="text-[10px] text-orange-400 mt-1 pl-1">* 不能与系统内置教材重名</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1">分类 (年级)</label>
+                            <div className="flex gap-2">
+                                {gradeInputMode === 'SELECT' ? (
+                                    <div className="relative flex-1">
+                                        <select 
+                                            className="w-full p-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none appearance-none bg-white disabled:bg-gray-100 disabled:text-gray-400"
+                                            value={customGradeName}
+                                            disabled={!!editingUnitId} // Disable when editing
+                                            onChange={e => {
+                                                if (e.target.value === '__NEW__') {
+                                                    setGradeInputMode('INPUT');
+                                                    setCustomGradeName('');
+                                                } else {
+                                                    setCustomGradeName(e.target.value);
+                                                }
+                                            }}
+                                        >
+                                            {recentCategories.map(g => <option key={g} value={g}>{g}</option>)}
+                                            {!editingUnitId && <option value="__NEW__">+ 自定义分类</option>}
+                                        </select>
+                                        {!editingUnitId && <ChevronDown className="absolute right-3 top-3.5 text-gray-400 pointer-events-none" size={16} />}
+                                    </div>
+                                ) : (
+                                    <div className="flex-1 relative">
+                                        <input 
+                                            type="text" 
+                                            value={customGradeName} 
+                                            onChange={e => setCustomGradeName(e.target.value)}
+                                            className="w-full p-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none"
+                                            placeholder="例如：课外班"
+                                            disabled={!!editingUnitId}
+                                        />
+                                        {!editingUnitId && (
+                                            <button 
+                                                onClick={() => setGradeInputMode('SELECT')}
+                                                className="absolute right-2 top-2 p-1.5 text-gray-400 hover:text-blue-600 bg-gray-50 rounded-lg text-xs"
+                                            >
+                                                选择常用
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                    </div>
 
-                   {/* Grade Input */}
-                   <div>
-                      <label className="block text-xs font-bold text-gray-500 mb-1">年级</label>
-                      <div className="flex gap-2">
-                         {gradeInputMode === 'SELECT' ? (
-                             <div className="relative flex-1">
-                                 <select 
-                                    className="w-full p-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none appearance-none bg-white"
-                                    value={customGradeName}
-                                    onChange={e => {
-                                        if (e.target.value === '__NEW__') {
-                                            setGradeInputMode('INPUT');
-                                            setCustomGradeName('');
-                                        } else {
-                                            setCustomGradeName(e.target.value);
-                                        }
-                                    }}
-                                 >
-                                    {GRADE_PRESETS.map(g => <option key={g} value={g}>{g}</option>)}
-                                    <option value="__NEW__">+ 自定义年级</option>
-                                 </select>
-                                 <ChevronDown className="absolute right-3 top-3.5 text-gray-400 pointer-events-none" size={16} />
-                             </div>
-                         ) : (
-                             <div className="flex-1 relative">
-                                <input 
-                                    type="text" 
-                                    value={customGradeName} 
-                                    onChange={e => setCustomGradeName(e.target.value)}
-                                    className="w-full p-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none"
-                                    placeholder="例如：课外班"
-                                />
-                                <button 
-                                    onClick={() => setGradeInputMode('SELECT')}
-                                    className="absolute right-2 top-2 p-1.5 text-gray-400 hover:text-blue-600 bg-gray-50 rounded-lg text-xs"
-                                >
-                                    选择常用
-                                </button>
-                             </div>
-                         )}
-                      </div>
-                   </div>
+                   {modalTab === 'MANUAL' ? (
+                       // Manual Mode Content
+                       <>
+                           <div>
+                              <label className="block text-xs font-bold text-gray-500 mb-1">单元名称</label>
+                              <input 
+                                 type="text" 
+                                 value={customUnitName} 
+                                 onChange={e => setCustomUnitName(e.target.value)}
+                                 className="w-full p-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none"
+                                 placeholder="例如：难字突破"
+                              />
+                           </div>
 
-                   {/* Unit Name */}
-                   <div>
-                      <label className="block text-xs font-bold text-gray-500 mb-1">单元名称</label>
-                      <input 
-                         type="text" 
-                         value={customUnitName} 
-                         onChange={e => setCustomUnitName(e.target.value)}
-                         className="w-full p-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none"
-                         placeholder="例如：难字突破"
-                      />
-                   </div>
+                           <div className="flex-1">
+                              <label className="block text-xs font-bold text-gray-500 mb-1">学习生字 (空格或逗号分隔)</label>
+                              <textarea 
+                                 value={customCharsInput}
+                                 onChange={e => setCustomCharsInput(e.target.value)}
+                                 className="w-full p-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none h-32 resize-none font-mono"
+                                 placeholder="请输入汉字，例如：龙 凤 呈 祥"
+                              />
+                              <p className="text-[10px] text-gray-400 mt-1">系统将自动生成拼音。</p>
+                           </div>
+                       </>
+                   ) : (
+                       // AI Batch Mode Content
+                       <div className="space-y-4">
+                           <div className="bg-purple-50 p-3 rounded-xl border border-purple-100">
+                               <label className="block text-xs font-bold text-purple-700 mb-2">每个单元包含汉字数量</label>
+                               <div className="flex items-center gap-3">
+                                   <input 
+                                       type="number" 
+                                       min="1" 
+                                       max="50" 
+                                       value={batchSize}
+                                       onChange={e => {
+                                           const val = parseInt(e.target.value);
+                                           if (!isNaN(val)) setBatchSize(val);
+                                       }}
+                                       className="w-20 p-2 rounded-lg border border-purple-200 text-center font-bold text-purple-800 outline-none focus:border-purple-400"
+                                   />
+                               </div>
+                           </div>
 
-                   {/* Characters Input */}
-                   <div className="flex-1 min-h-[120px]">
-                      <label className="block text-xs font-bold text-gray-500 mb-1">学习生字 (空格或逗号分隔)</label>
-                      <textarea 
-                         value={customCharsInput}
-                         onChange={e => setCustomCharsInput(e.target.value)}
-                         className="w-full p-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none h-32 resize-none font-mono"
-                         placeholder="请输入汉字，例如：龙 凤 呈 祥"
-                      />
-                      <p className="text-[10px] text-gray-400 mt-1">系统将自动生成拼音。</p>
-                   </div>
+                           <div>
+                               <label className="block text-xs font-bold text-gray-500 mb-1 flex justify-between items-center">
+                                   <span>识别内容 / 输入文字</span>
+                                   <button 
+                                      onClick={() => handleAnalyzeBatch(batchInputText)}
+                                      className="text-purple-600 hover:text-purple-800 flex items-center gap-1"
+                                      disabled={!batchInputText}
+                                   >
+                                      <Wand2 size={12}/> 生成预览
+                                   </button>
+                               </label>
+                               <div className="relative">
+                                   <textarea 
+                                       value={batchInputText}
+                                       onChange={e => setBatchInputText(e.target.value)}
+                                       className="w-full p-3 pr-10 rounded-xl border border-gray-200 focus:border-purple-500 outline-none h-32 resize-none font-mono text-sm"
+                                       placeholder="在此粘贴文字，或点击右下角相机拍照识别..."
+                                   />
+                                   
+                                   {/* Floating Camera Button inside Textarea */}
+                                   <div 
+                                      className="absolute bottom-3 right-3 cursor-pointer hover:bg-gray-100 p-2 rounded-full transition-colors text-purple-500"
+                                      onClick={() => fileInputRef.current?.click()}
+                                      title="拍照/上传图片识别文字"
+                                   >
+                                       {isRecognizing ? <Loader2 className="animate-spin" size={20}/> : <Camera size={20} />}
+                                   </div>
+                               </div>
+                               
+                               <input 
+                                   type="file" 
+                                   ref={fileInputRef} 
+                                   accept="image/*" 
+                                   className="hidden" 
+                                   onChange={handlePhotoUpload}
+                                   disabled={isRecognizing}
+                               />
+                           </div>
+
+                           {/* Preview Area */}
+                           {batchPreviews.length > 0 && (
+                               <div className="space-y-2 animate-fade-in">
+                                   <h4 className="text-xs font-bold text-gray-500 flex items-center gap-1">
+                                       <Sparkles size={12} className="text-yellow-500"/> 
+                                       单元预览 ({batchPreviews.length} 个)
+                                   </h4>
+                                   <div className="max-h-[120px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                                       {batchPreviews.map((unit, idx) => (
+                                           <div key={idx} className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-start gap-2">
+                                               <div className="bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-1 rounded mt-0.5 shrink-0">
+                                                   {unit.chars.length}字
+                                               </div>
+                                               <div className="flex-1 min-w-0">
+                                                   <div className="font-bold text-xs text-gray-700 mb-1 truncate">{unit.name}</div>
+                                                   <div className="text-xs text-gray-400 truncate tracking-widest">
+                                                       {unit.chars.map(c => c.char).join(' ')}
+                                                   </div>
+                                               </div>
+                                           </div>
+                                       ))}
+                                   </div>
+                               </div>
+                           )}
+                       </div>
+                   )}
                 </div>
 
                 <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-3 shrink-0">
@@ -692,12 +922,22 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
                     >
                        取消
                     </button>
-                    <button 
-                       onClick={handleSaveCustomUnit}
-                       className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                    >
-                       <Save size={18} /> 保存单元
-                    </button>
+                    {modalTab === 'MANUAL' ? (
+                        <button 
+                           onClick={handleSaveCustomUnit}
+                           className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                           <Save size={18} /> {editingUnitId ? '更新单元' : '保存单元'}
+                        </button>
+                    ) : (
+                        <button 
+                           onClick={handleSaveBatch}
+                           disabled={batchPreviews.length === 0}
+                           className="flex-1 py-3 bg-purple-600 text-white font-bold rounded-xl shadow-md hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                           <Save size={18} /> 批量保存
+                        </button>
+                    )}
                 </div>
              </div>
           </div>
