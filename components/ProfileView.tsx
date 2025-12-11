@@ -1,18 +1,18 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { User, Save, Download, Upload, Activity, Wifi, HelpCircle, Book, Zap, ArrowLeft, Server, Eye, EyeOff, WifiOff, Check, FileJson, Database, Bot, ChevronRight, Settings } from 'lucide-react';
-import { AppSettings } from '../types';
+import { User, Save, Download, Upload, Activity, Wifi, HelpCircle, Book, Zap, ArrowLeft, Server, Eye, EyeOff, WifiOff, Check, FileJson, Database, Bot, ChevronRight, Settings, Image } from 'lucide-react';
+import { AppSettings, ProviderConfig } from '../types';
 import { getSettings, saveSettings, exportUserData, importUserData, getCustomCurricula } from '../services/storage';
-import { testConnection } from '../services/geminiService';
+import { testConnection, testVisionConnection } from '../services/geminiService';
 import { APP_DATA, GRADE_PRESETS } from '../data';
 import { UserManualView } from './UserManualView';
 
 const PROVIDERS = {
-    GOOGLE: { name: 'Google Gemini', url: '', model: 'gemini-2.5-flash' },
-    ZHIPU: { name: '智谱 AI (BigModel)', url: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4-flash' },
-    DEEPSEEK: { name: 'DeepSeek (Official)', url: 'https://api.deepseek.com', model: 'deepseek-chat' },
-    SILICON: { name: 'SiliconFlow (硅基流动)', url: 'https://api.siliconflow.cn/v1', model: 'deepseek-ai/DeepSeek-V3' },
-    CUSTOM: { name: '自定义 / OpenAI 兼容', url: '', model: '' }
+    GOOGLE: { name: 'Google Gemini', url: '', defaultModel: 'gemini-2.5-flash' },
+    ZHIPU: { name: '智谱 AI (BigModel)', url: 'https://open.bigmodel.cn/api/paas/v4', defaultModel: 'glm-4-flash' },
+    DEEPSEEK: { name: 'DeepSeek (Official)', url: 'https://api.deepseek.com', defaultModel: 'deepseek-chat' },
+    SILICON: { name: 'SiliconFlow (硅基流动)', url: 'https://api.siliconflow.cn/v1', defaultModel: 'deepseek-ai/DeepSeek-V3' },
+    CUSTOM: { name: '自定义 / OpenAI 兼容', url: '', defaultModel: '' }
 };
 
 interface ProfileViewProps {
@@ -25,10 +25,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
   // Initialize state directly from storage to ensure it's ready on first render
   const [config, setConfig] = useState<AppSettings>(() => getSettings());
   
+  // Local state to manage provider specific configs
+  const [providerConfigs, setProviderConfigs] = useState<Record<string, ProviderConfig>>({});
   const [activeProvider, setActiveProvider] = useState<string>('GOOGLE');
+
   const [showKey, setShowKey] = useState(false);
+  const [showVisionKey, setShowVisionKey] = useState(false);
+
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [testStatus, setTestStatus] = useState<'IDLE' | 'TESTING' | 'SUCCESS' | 'FAIL'>('IDLE');
+  const [visionTestStatus, setVisionTestStatus] = useState<'IDLE' | 'TESTING' | 'SUCCESS' | 'FAIL'>('IDLE');
   
   // Import State
   const [showImport, setShowImport] = useState(false);
@@ -44,21 +50,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
       return [...APP_DATA, ...customs];
   }, []); 
 
-  // Initial Load Effect (Voices & Provider detection)
+  // Initial Load Effect
   useEffect(() => {
-    // Determine provider from saved URL (using config state initialized from storage)
-    if (!config.apiBaseUrl) {
-        setActiveProvider('GOOGLE');
-    } else if (config.apiBaseUrl.includes('bigmodel.cn')) {
-        setActiveProvider('ZHIPU');
-    } else if (config.apiBaseUrl.includes('deepseek.com')) {
-        setActiveProvider('DEEPSEEK');
-    } else if (config.apiBaseUrl.includes('siliconflow')) {
-        setActiveProvider('SILICON');
-    } else {
-        setActiveProvider('CUSTOM');
-    }
-
+    // 1. Initialize Voices
     const updateVoices = () => {
       const voices = window.speechSynthesis.getVoices();
       const zhVoices = voices.filter(v => v.lang.includes('zh') || v.lang.includes('CN'));
@@ -66,29 +60,74 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
     };
     updateVoices();
     window.speechSynthesis.onvoiceschanged = updateVoices;
+
+    // 2. Initialize Provider Configs from Storage or Defaults
+    const saved = getSettings();
+    const loadedProviderConfigs = saved.savedProviderConfigs || {};
+    
+    // Ensure all known providers have an entry
+    Object.keys(PROVIDERS).forEach(key => {
+        if (!loadedProviderConfigs[key]) {
+            const def = PROVIDERS[key as keyof typeof PROVIDERS];
+            loadedProviderConfigs[key] = {
+                apiKey: '', // Start empty if not saved
+                apiBaseUrl: def.url,
+                model: def.defaultModel
+            };
+        }
+    });
+    setProviderConfigs(loadedProviderConfigs);
+
+    // 3. Determine Active Provider based on current URL
+    let currentKey = 'CUSTOM';
+    if (!saved.apiBaseUrl) {
+        currentKey = 'GOOGLE';
+    } else if (saved.apiBaseUrl.includes('bigmodel.cn')) {
+        currentKey = 'ZHIPU';
+    } else if (saved.apiBaseUrl.includes('deepseek.com')) {
+        currentKey = 'DEEPSEEK';
+    } else if (saved.apiBaseUrl.includes('siliconflow')) {
+        currentKey = 'SILICON';
+    }
+    setActiveProvider(currentKey);
   }, []);
 
   // Auto-Save Effect
   useEffect(() => {
-      // Avoid saving on initial mount if we want to be strict, but since we init from storage, 
-      // saving back same data is harmless. However, `isMounted` helps logical separation.
       if (isMounted.current) {
-          saveSettings(config);
+          // When saving, also update the 'savedProviderConfigs' field in the global config
+          const configToSave = {
+              ...config,
+              savedProviderConfigs: providerConfigs
+          };
+          saveSettings(configToSave);
       } else {
           isMounted.current = true;
       }
-  }, [config]);
+  }, [config, providerConfigs]);
 
-  const handleProviderChange = (providerKey: string) => {
-      setActiveProvider(providerKey);
-      const provider = PROVIDERS[providerKey as keyof typeof PROVIDERS];
-      if (providerKey !== 'CUSTOM') {
+  const handleProviderChange = (newProviderKey: string) => {
+      // 1. Save current input values to the OLD active provider in the 'providerConfigs' map
+      const updatedConfigs = { ...providerConfigs };
+      updatedConfigs[activeProvider] = {
+          apiKey: config.apiKey,
+          apiBaseUrl: config.apiBaseUrl,
+          model: config.model
+      };
+      setProviderConfigs(updatedConfigs);
+
+      // 2. Load values for NEW provider
+      const nextConfig = updatedConfigs[newProviderKey];
+      if (nextConfig) {
           setConfig(prev => ({
               ...prev,
-              apiBaseUrl: provider.url,
-              model: provider.model
+              apiKey: nextConfig.apiKey,
+              apiBaseUrl: nextConfig.apiBaseUrl,
+              model: nextConfig.model
           }));
       }
+
+      setActiveProvider(newProviderKey);
   };
 
   const handleTestConnection = async () => {
@@ -96,6 +135,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
     const success = await testConnection(config);
     setTestStatus(success ? 'SUCCESS' : 'FAIL');
     setTimeout(() => setTestStatus('IDLE'), 3000);
+  };
+
+  const handleTestVisionConnection = async () => {
+    setVisionTestStatus('TESTING');
+    const success = await testVisionConnection(config);
+    setVisionTestStatus(success ? 'SUCCESS' : 'FAIL');
+    setTimeout(() => setVisionTestStatus('IDLE'), 3000);
   };
 
   const handleExport = () => {
@@ -213,8 +259,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                       </div>
                   </div>
 
-                  {/* Config Fields */}
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-5">
+                  {/* Config Fields (Dynamic based on provider) */}
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-5 relative overflow-hidden">
+                      {/* Decorative Label for current provider context */}
+                      <div className="absolute top-0 right-0 bg-gray-100 text-gray-500 text-[10px] px-3 py-1 rounded-bl-xl font-bold uppercase">
+                          {activeProvider} 配置
+                      </div>
+
                       <div>
                           <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">API 代理地址 (Host)</label>
                           <input
@@ -222,13 +273,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                               placeholder={activeProvider === 'GOOGLE' ? '默认无需填写' : 'https://api.example.com/v1'}
                               className="w-full p-4 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-sm font-mono transition-all"
                               value={config.apiBaseUrl}
-                              onChange={e => {
-                                  setConfig({ ...config, apiBaseUrl: e.target.value });
-                                  // Don't auto-switch to CUSTOM here to allow editing default URLs if needed, 
-                                  // or stick to the selected provider logic.
-                                  // For simplicity, if user edits URL, let's treat it as custom modification of that provider or switch to custom.
-                                  // Let's keep the provider active but update config.
-                              }}
+                              onChange={e => setConfig({ ...config, apiBaseUrl: e.target.value })}
                           />
                           <p className="text-[10px] text-gray-400 mt-1.5 ml-1">
                               {activeProvider === 'ZHIPU' ? '智谱 AI 默认地址: https://open.bigmodel.cn/api/paas/v4/' : 
@@ -241,7 +286,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                           <div className="relative">
                               <input
                                   type={showKey ? "text" : "password"}
-                                  placeholder="sk-..."
+                                  placeholder={activeProvider === 'GOOGLE' ? "AIza..." : "sk-..."}
                                   className="w-full p-4 pr-12 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-sm font-mono transition-all"
                                   value={config.apiKey}
                                   onChange={e => setConfig({ ...config, apiKey: e.target.value })}
@@ -303,6 +348,86 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                       </div>
                   </div>
                   
+                  {/* Vision Model Config (Separate) */}
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-5">
+                      <h3 className="font-bold text-gray-800 border-b pb-3 mb-2 flex items-center gap-2">
+                           <Image size={18} className="text-purple-600"/> 视觉模型配置 (选填)
+                      </h3>
+                      <p className="text-xs text-gray-400 mb-2">用于“拍照识别”故事功能。若不填，将默认使用 Google Gemini。</p>
+
+                      <div>
+                          <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">API 地址 (Vision Host)</label>
+                          <input
+                              type="text"
+                              placeholder="默认无需填写 (或 OpenAI 兼容 Vision 接口)"
+                              className="w-full p-4 rounded-xl border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-100 outline-none text-sm font-mono transition-all"
+                              value={config.visionApiBaseUrl || ''}
+                              onChange={e => setConfig({ ...config, visionApiBaseUrl: e.target.value })}
+                          />
+                      </div>
+                      
+                      <div>
+                          <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">API Key (视觉)</label>
+                          <div className="relative">
+                              <input
+                                  type={showVisionKey ? "text" : "password"}
+                                  placeholder="sk-..."
+                                  className="w-full p-4 pr-12 rounded-xl border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-100 outline-none text-sm font-mono transition-all"
+                                  value={config.visionApiKey || ''}
+                                  onChange={e => setConfig({ ...config, visionApiKey: e.target.value })}
+                              />
+                              <button 
+                                  onClick={() => setShowVisionKey(!showVisionKey)}
+                                  className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+                              >
+                                  {showVisionKey ? <EyeOff size={20} /> : <Eye size={20} />}
+                              </button>
+                          </div>
+                      </div>
+
+                      <div>
+                          <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">模型名称 (Vision Model)</label>
+                          <input
+                              type="text"
+                              placeholder="如: gemini-2.5-flash, gpt-4o"
+                              className="w-full p-4 rounded-xl border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-100 outline-none text-sm font-mono transition-all"
+                              value={config.visionModel || ''}
+                              onChange={e => setConfig({ ...config, visionModel: e.target.value })}
+                          />
+                      </div>
+
+                      {/* Vision Test Button */}
+                       <div className="pt-2">
+                          <button
+                              onClick={handleTestVisionConnection}
+                              disabled={visionTestStatus === 'TESTING' || !config.visionApiKey}
+                              className={`w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-sm ${
+                                  visionTestStatus === 'SUCCESS' ? 'bg-green-50 border border-green-200 text-green-600' :
+                                  visionTestStatus === 'FAIL' ? 'bg-red-50 border border-red-200 text-red-600' :
+                                  'bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100'
+                              } disabled:opacity-50 disabled:cursor-not-allowed`}
+                          >
+                              {visionTestStatus === 'TESTING' ? (
+                                  <>
+                                      <Activity className="animate-spin" size={18} /> 测试中...
+                                  </>
+                              ) : visionTestStatus === 'SUCCESS' ? (
+                                  <>
+                                      <Wifi size={18} /> 视觉模型连接成功
+                                  </>
+                              ) : visionTestStatus === 'FAIL' ? (
+                                  <>
+                                      <WifiOff size={18} /> 连接失败
+                                  </>
+                              ) : (
+                                  <>
+                                      <Image size={18} /> 测试视觉模型
+                                  </>
+                              )}
+                          </button>
+                      </div>
+                  </div>
+
                   <div className="text-center text-xs text-gray-400 px-4">
                       <p>配置将自动保存。请确保您的 API Key 有效且有额度。</p>
                   </div>
@@ -313,7 +438,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
 
   // --- HELP VIEW ---
   if (view === 'HELP') {
-      return (
+    // ... (Keep existing help view code)
+    return (
           <div className="max-w-7xl mx-auto min-h-screen bg-white pb-24 animate-fade-in">
              <div className="bg-indigo-50 px-6 py-4 shadow-sm border-b border-indigo-100 sticky top-0 z-10">
                 <button onClick={() => setView('MAIN')} className="flex items-center gap-2 text-indigo-900 font-bold text-xl">
@@ -475,7 +601,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                          AI 模型配置
                      </h3>
                      <p className="text-gray-400 text-xs mb-3">
-                         设置 API Key、选择模型服务商 (Google, DeepSeek, 智谱等)。
+                         设置 API Key、选择模型服务商 (Google, DeepSeek, 智谱等) 及视觉模型。
                      </p>
                      <div className="inline-flex items-center gap-1.5 text-xs font-bold bg-gray-50 text-gray-600 px-3 py-1.5 rounded-lg border border-gray-100 group-hover:bg-indigo-50 group-hover:text-indigo-700 group-hover:border-indigo-100 transition-colors">
                          <Server size={12} />

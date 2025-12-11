@@ -62,6 +62,69 @@ async function callOpenAICompatible(
     return JSON.parse(jsonStr);
 }
 
+/**
+ * Generic OpenAI Vision Call
+ */
+async function callOpenAIVision(
+    baseUrl: string,
+    apiKey: string,
+    model: string,
+    prompt: string,
+    base64Image: string
+): Promise<any> {
+    const payload = {
+        model: model,
+        messages: [
+            {
+                role: "user",
+                content: [
+                    { type: "text", text: prompt },
+                    { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Image}` } }
+                ]
+            }
+        ],
+        max_tokens: 4000 // Increased for full text extraction
+    };
+
+    let url = baseUrl.replace(/\/+$/, '');
+    if (!url.endsWith('/v1') && !url.includes('google')) {
+         if (!url.includes('/chat/completions')) url = `${url}/chat/completions`;
+    } else if (url.endsWith('/v1')) {
+         url = `${url}/chat/completions`;
+    }
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Vision API Error (${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) throw new Error("Empty response from Vision AI");
+    
+    // Check if response mimics JSON (some models do this automatically)
+    const match = content.match(/\{[\s\S]*\}/);
+    if (match) {
+        try {
+            return JSON.parse(match[0]);
+        } catch(e) {
+            // ignore
+        }
+    }
+    
+    // Return raw text structure if not JSON
+    return { title: "识别结果", content: content };
+}
+
 
 export const explainCharacter = async (char: string, forceAI: boolean = false): Promise<AIExplanation> => {
   // 1. Check Offline Dictionary first (unless forced)
@@ -279,60 +342,122 @@ export const generateStoryStream = async (
 };
 
 /**
- * Recognize text from an image (OCR) for story generation
+ * Recognize text from an image (OCR + Storytelling)
+ * Updated to use robust Text parsing instead of strict JSON
  */
-export const recognizeTextFromImage = async (base64Image: string): Promise<{title: string, content: string}> => {
+export const recognizeTextFromImage = async (base64Image: string, customInstruction?: string): Promise<{title: string, content: string}> => {
     const settings = getSettings();
     const envKey = process.env.API_KEY || '';
-    const effectiveKey = settings.apiKey || envKey;
+    
+    // 1. Determine which config to use (Vision specific or Fallback to Main)
+    const visionKey = settings.visionApiKey || settings.apiKey || envKey;
+    const visionHost = settings.visionApiBaseUrl || settings.apiBaseUrl;
+    // Default to gemini-2.5-flash for vision if not specified
+    const visionModel = settings.visionModel || settings.model || "gemini-2.5-flash";
 
-    if (!effectiveKey) throw new Error("Missing API Key");
+    if (!visionKey) throw new Error("请先在设置中配置 Vision API Key");
 
-    const systemPrompt = "你是一个智能OCR助手，请提取图片中的故事内容。";
-    const userPrompt = "请识别这张图片中的文字内容。如果包含标题，请提取标题。请以JSON格式返回：{title: '标题(如果没有则自己起一个)', content: '故事正文'}。只返回JSON，不要其他内容。";
-
-    // Only support Gemini for multimodal for now due to complexity of custom endpoints with images
-    // Fallback to text if using custom endpoint (or throw error)
-    if (settings.apiBaseUrl && settings.apiBaseUrl.trim() !== '' && !settings.apiBaseUrl.includes('google')) {
-       // Simple warning, complex to implement generic multimodal fetch in one go
-       throw new Error("图片识别目前仅支持 Google Gemini 模型"); 
+    // Optimized instruction for robust text extraction
+    let userPrompt = customInstruction;
+    if (!userPrompt) {
+         userPrompt = `
+         任务：OCR 图片文字识别。
+         请仔细提取图片中所有可见的汉字和标点符号。
+         
+         1. 如果图片是绘本或文章，请提取正文内容。
+         2. 如果图片中没有文字，请简要描述图片内容。
+         `;
     }
 
-    try {
-        const ai = new GoogleGenAI({ apiKey: effectiveKey });
-        // Gemini expects base64 without the header prefix for inlineData
-        const base64Data = base64Image.split(',')[1]; 
-        
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash", // Use flash for speed/cost
-            contents: [
-                {
-                    role: 'user',
-                    parts: [
-                        { text: userPrompt },
-                        { inlineData: { mimeType: 'image/jpeg', data: base64Data } }
-                    ]
-                }
-            ],
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        title: { type: Type.STRING },
-                        content: { type: Type.STRING }
-                    }
-                }
-            }
-        });
+    // Force a specific text format that is easy to parse
+    userPrompt += `
+    
+    请严格按照以下格式返回结果：
+    TITLE: [这里写一个简短的标题]
+    CONTENT:
+    [这里写完整的识别内容]
+    `;
 
-        if (response.text) {
-             return JSON.parse(response.text);
+    try {
+        let rawText = '';
+
+        if (visionHost && visionHost.trim() !== '' && !visionHost.includes('google')) {
+             const result = await callOpenAIVision(visionHost, visionKey, visionModel, userPrompt, base64Image.split(',')[1]);
+             // If OpenAI wrapper returns an object (from JSON parse), use it
+             if (typeof result === 'object' && result.content && result.content !== '') {
+                 // Check if it's the fallback object or parsed JSON
+                 if (result.title === "识别结果") {
+                      // It's the raw text fallback, so use content as raw text
+                      rawText = result.content;
+                 } else {
+                      // It's a valid JSON object
+                      return { title: result.title, content: result.content };
+                 }
+             } else {
+                 rawText = String(result);
+             }
+        } else {
+            // Default to Google GenAI
+            const ai = new GoogleGenAI({ apiKey: visionKey });
+            const base64Data = base64Image.split(',')[1]; 
+            
+            const response = await ai.models.generateContent({
+                model: visionModel.includes('gemini') ? visionModel : "gemini-2.5-flash",
+                contents: [
+                    {
+                        role: 'user',
+                        parts: [
+                            { text: userPrompt },
+                            { inlineData: { mimeType: 'image/jpeg', data: base64Data } }
+                        ]
+                    }
+                ]
+                // Note: Removed responseMimeType: "application/json" to prevent empty responses on failure
+            });
+
+            rawText = response.text || '';
         }
-        throw new Error("Recognition failed");
-    } catch (error) {
-        console.error("OCR Error:", error);
-        throw error;
+
+        // --- Post-Processing / Parsing Logic ---
+        let title = "扫描内容";
+        let content = "";
+
+        // Remove markdown block if present
+        rawText = rawText.replace(/^```\w*\s*/, '').replace(/\s*```$/, '').trim();
+
+        // Regex Parse
+        const titleMatch = rawText.match(/TITLE:\s*(.*)/i);
+        const contentMatch = rawText.match(/CONTENT:\s*([\s\S]*)/i);
+
+        if (titleMatch && titleMatch[1]) {
+            title = titleMatch[1].trim();
+        }
+        
+        if (contentMatch && contentMatch[1]) {
+            content = contentMatch[1].trim();
+        } else {
+             // Fallback: Treat whole text as content if markers missing
+             // Attempt to split first line as title if short
+             const lines = rawText.split('\n');
+             if (lines.length > 0 && lines[0].length < 20 && lines.length > 1) {
+                 title = lines[0].trim();
+                 content = lines.slice(1).join('\n').trim();
+             } else {
+                 content = rawText;
+             }
+        }
+        
+        // Sanity Check
+        if (!content || content.length === 0) {
+             // If AI returned strictly nothing
+             throw new Error("未识别到有效文字");
+        }
+        
+        return { title, content };
+
+    } catch (error: any) {
+        console.error("Vision API Error:", error);
+        throw new Error(error.message || "图片识别失败，请检查网络或配置");
     }
 };
 
@@ -438,5 +563,43 @@ export const testConnection = async (settings: AppSettings): Promise<boolean> =>
     } catch (e) { 
         console.error("Connection Test Failed:", e);
         return false; 
+    }
+};
+
+export const testVisionConnection = async (settings: AppSettings): Promise<boolean> => {
+    const envKey = process.env.API_KEY || '';
+    // Use specific vision key if present, else fallback
+    const key = settings.visionApiKey || settings.apiKey || envKey;
+    const host = settings.visionApiBaseUrl || settings.apiBaseUrl;
+    const model = settings.visionModel || settings.model || "gemini-2.5-flash";
+
+    if (!key) return false;
+
+    // Small 1x1 white pixel base64 for testing
+    const testImage = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=";
+
+    try {
+         if (host && host.trim() !== '' && !host.includes('google')) {
+             await callOpenAIVision(host, key, model, "What color is this?", testImage);
+             return true;
+         } else {
+             const ai = new GoogleGenAI({ apiKey: key });
+             await ai.models.generateContent({
+                 model: model,
+                 contents: [
+                     {
+                         role: 'user',
+                         parts: [
+                             { text: "What is this?" },
+                             { inlineData: { mimeType: 'image/jpeg', data: testImage } }
+                         ]
+                     }
+                 ]
+             });
+             return true;
+         }
+    } catch (e) {
+        console.error("Vision Connection Test Failed:", e);
+        return false;
     }
 };

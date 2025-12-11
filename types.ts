@@ -61,10 +61,24 @@ export interface AIExplanation {
   sentenceData: CharPair[]; 
 }
 
+export interface ProviderConfig {
+    apiKey: string;
+    apiBaseUrl: string;
+    model: string;
+}
+
 export interface AppSettings {
   apiBaseUrl: string;
   apiKey: string;
   model: string;
+  // Store specific configs for each provider key (e.g., 'GOOGLE', 'DEEPSEEK')
+  savedProviderConfigs?: Record<string, ProviderConfig>;
+
+  // Vision Model Specifics
+  visionApiBaseUrl?: string;
+  visionApiKey?: string;
+  visionModel?: string;
+  
   ttsRate: number; 
   ttsVoice: string; 
   dailyLimit: number;

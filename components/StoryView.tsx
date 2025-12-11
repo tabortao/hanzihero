@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { BookOpen, Sparkles, Trash2, Volume2, Save, Plus, Archive, RotateCcw, Check, Loader2, PenTool, Search, Tag, X, CheckCircle, GraduationCap, Edit2, ChevronLeft, ChevronRight, Coins } from 'lucide-react';
+import { BookOpen, Sparkles, Trash2, Volume2, Save, Plus, Archive, RotateCcw, Check, Loader2, PenTool, Search, Tag, X, CheckCircle, GraduationCap, Edit2, ChevronLeft, ChevronRight, Coins, Camera, Image as ImageIcon, Wand2, Type } from 'lucide-react';
 import { Story, CharPair, Character } from '../types';
 import { getStories, saveStory, deleteStory, getKnownCharacters, getUnknownCharacters, addUnknownCharacter, addKnownCharacter, isCharacterKnown, getReadingCoins, addReadingCoins } from '../services/storage';
-import { generateStoryStream } from '../services/geminiService';
+import { generateStoryStream, recognizeTextFromImage } from '../services/geminiService';
 import { speakText, WritingGrid } from './SharedComponents';
 import { findCharacterPinyin } from '../data/dictionary';
 import confetti from 'canvas-confetti';
@@ -32,14 +32,30 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
 
   // Create/Input State
   const [showInputModal, setShowInputModal] = useState(false);
-  const [inputType, setInputType] = useState<'AI' | 'MANUAL'>('AI');
+  
+  // Modal Mode: AI Generation, Manual/Type, Photo Recognition
+  const [modalTab, setModalTab] = useState<'AI' | 'MANUAL' | 'PHOTO'>('AI');
+  
+  // Manual/Result Fields
   const [manualTitle, setManualTitle] = useState('');
   const [manualContent, setManualContent] = useState('');
-  const [keywords, setKeywords] = useState(''); // For AI
+  
+  // AI Params
+  const [keywords, setKeywords] = useState(''); 
+  const [streamText, setStreamText] = useState('');
+
+  // Photo Params
+  const [recognitionMode, setRecognitionMode] = useState<'OCR' | 'STORY' | 'CUSTOM'>('OCR');
+  const [photoPrompt, setPhotoPrompt] = useState('');
+  
+  // Common
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customTagInput, setCustomTagInput] = useState(''); 
   const [loading, setLoading] = useState(false);
-  const [streamText, setStreamText] = useState('');
+  
+  // Vision / Camera State
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const isAnalyzingRef = useRef(false); // To handle cancellation
 
   // Reader Edit State
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -94,11 +110,23 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
   useEffect(() => {
       if (initialContext) {
           setShowInputModal(true);
-          setInputType('AI');
+          setModalTab('AI');
           setKeywords(initialContext.topic);
           setSelectedTags(['单元复习']);
       }
   }, [initialContext]);
+
+  // Update Photo Prompt based on Mode
+  useEffect(() => {
+      if (recognitionMode === 'OCR') {
+          // Explicit instruction to extract text and handle story books
+          setPhotoPrompt("任务：提取文字。\n请将图片中所有的汉字、标点符号完整的提取出来。保持原文的换行和格式。");
+      } else if (recognitionMode === 'STORY') {
+          setPhotoPrompt("任务：看图写话。\n请仔细观察这张图片，发挥想象力，用生动有趣、适合小学生阅读的语言（一年级水平），根据画面内容编写一个小故事。");
+      } else {
+          setPhotoPrompt(""); // Custom let user type
+      }
+  }, [recognitionMode]);
 
   const handleCloseModal = () => {
       setShowInputModal(false);
@@ -109,6 +137,8 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
       setSelectedTags([]);
       setCustomTagInput('');
       setLoading(false);
+      // Logic cancellation
+      isAnalyzingRef.current = false; 
       if(onClearContext) onClearContext();
   };
 
@@ -149,7 +179,70 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
           alert("标题和内容不能为空");
           return;
       }
-      saveNewStory(manualTitle, manualContent, 'MANUAL');
+      saveNewStory(manualTitle, manualContent, modalTab === 'AI' ? 'AI' : (modalTab === 'PHOTO' ? 'OCR' : 'MANUAL'));
+  };
+  
+  // --- Vision / Camera Handlers ---
+  const handleCameraClick = () => {
+      fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      // Reset input value so same file can be selected again
+      e.target.value = '';
+
+      // Simple Validation
+      if (!file.type.startsWith('image/')) {
+          alert("请选择图片文件");
+          return;
+      }
+
+      setLoading(true);
+      isAnalyzingRef.current = true;
+
+      try {
+          const base64 = await convertFileToBase64(file);
+          // Pass the specific prompt based on user selection
+          const result = await recognizeTextFromImage(base64, photoPrompt || undefined);
+          
+          if (!isAnalyzingRef.current) return; // Cancelled
+
+          if (result) {
+              setManualTitle(result.title);
+              setManualContent(result.content);
+              
+              // Switch to Manual tab to show result for editing
+              setModalTab('MANUAL'); 
+              
+              // Add appropriate tags
+              const newTags = [...selectedTags];
+              if (!newTags.includes('拍照识别')) newTags.push('拍照识别');
+              if (recognitionMode === 'OCR' && !newTags.includes('绘本')) newTags.push('绘本');
+              if (recognitionMode === 'STORY' && !newTags.includes('看图说话')) newTags.push('看图说话');
+              setSelectedTags(newTags);
+          }
+      } catch (err: any) {
+          if (!isAnalyzingRef.current) return;
+          console.error(err);
+          alert(err.message || "图片识别失败，请检查网络或 API 配置");
+      } finally {
+          if (isAnalyzingRef.current) {
+              setLoading(false);
+              isAnalyzingRef.current = false;
+          }
+      }
+  };
+
+  const convertFileToBase64 = (file: File): Promise<string> => {
+      return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = error => reject(error);
+      });
   };
 
   const saveNewStory = (title: string, contentStr: string, source: 'AI' | 'MANUAL' | 'OCR') => {
@@ -187,14 +280,14 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
   };
 
   useEffect(() => {
-      if (!loading && streamText.length > 10 && inputType === 'AI' && showInputModal) {
+      if (!loading && streamText.length > 10 && modalTab === 'AI' && showInputModal) {
           const lines = streamText.split('\n').filter(l => l.trim() !== '');
           const title = lines[0]?.replace(/^#+\s*/, '') || '无题';
           const content = lines.slice(1).join('\n');
           
           setManualTitle(title);
           setManualContent(content);
-          setInputType('MANUAL');
+          setModalTab('MANUAL');
           if (!selectedTags.includes('AI生成')) {
               setSelectedTags(prev => [...prev, 'AI生成']);
           }
@@ -365,27 +458,49 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
   const renderInputModal = () => (
       <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-white w-full max-w-lg h-[90vh] sm:h-auto sm:max-h-[90vh] sm:rounded-3xl rounded-t-3xl shadow-2xl flex flex-col animate-slide-up overflow-hidden">
-              <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-amber-50">
+              <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-amber-50 shrink-0">
                   <h3 className="font-bold text-lg text-amber-900 flex items-center gap-2">
-                      {inputType === 'AI' && <Sparkles size={20}/>}
-                      {inputType === 'MANUAL' && <PenTool size={20}/>}
-                      {inputType === 'AI' ? 'AI 创作故事' : '录入/编辑故事'}
+                      {modalTab === 'AI' && <Sparkles size={20}/>}
+                      {modalTab === 'MANUAL' && <PenTool size={20}/>}
+                      {modalTab === 'PHOTO' && <Camera size={20}/>}
+                      {modalTab === 'AI' ? 'AI 创作故事' : modalTab === 'PHOTO' ? '拍照/图片识别' : '编辑故事'}
                   </h3>
                   <button onClick={handleCloseModal} className="p-2 hover:bg-amber-100 rounded-full"><X size={20}/></button>
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {!loading && !streamText && (
-                      <div className="flex bg-gray-100 p-1 rounded-xl mb-4">
-                          <button onClick={() => setInputType('AI')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${inputType === 'AI' ? 'bg-white shadow text-amber-600' : 'text-gray-400'}`}>AI 生成</button>
-                          <button onClick={() => setInputType('MANUAL')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${inputType === 'MANUAL' ? 'bg-white shadow text-blue-600' : 'text-gray-400'}`}>手动录入</button>
+                  {/* Mode Tabs */}
+                  <div className="flex bg-gray-100 p-1 rounded-xl mb-4 shrink-0">
+                      <button onClick={() => setModalTab('AI')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${modalTab === 'AI' ? 'bg-white shadow text-amber-600' : 'text-gray-400'}`}>
+                          <Sparkles size={14}/> AI生成
+                      </button>
+                      <button onClick={() => setModalTab('PHOTO')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${modalTab === 'PHOTO' ? 'bg-white shadow text-purple-600' : 'text-gray-400'}`}>
+                          <Camera size={14}/> 拍照识别
+                      </button>
+                      <button onClick={() => setModalTab('MANUAL')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${modalTab === 'MANUAL' ? 'bg-white shadow text-blue-600' : 'text-gray-400'}`}>
+                          <Edit2 size={14}/> 手动/编辑
+                      </button>
+                  </div>
+                  
+                  {/* Loading Overlay */}
+                   {loading && (
+                      <div className="absolute inset-0 bg-white/80 z-20 flex flex-col items-center justify-center backdrop-blur-sm">
+                          <Loader2 className="animate-spin text-blue-500 mb-2" size={40} />
+                          <p className="text-blue-600 font-bold">
+                              {modalTab === 'PHOTO' ? '正在识别图片内容...' : 'AI 正在创作中...'}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-2">
+                             {modalTab === 'PHOTO' ? '图片越清晰，文字越多，识别时间可能稍长...' : '正在构思精彩的故事...'}
+                          </p>
+                          <button onClick={() => { isAnalyzingRef.current = false; setLoading(false); }} className="mt-4 px-4 py-2 bg-gray-100 rounded-full text-xs font-bold text-gray-500">取消</button>
                       </div>
                   )}
 
-                  {inputType === 'AI' && (
+                  {/* AI Mode Content */}
+                  {modalTab === 'AI' && (
                       <div className="space-y-4">
                           {streamText ? (
-                              <div className="bg-amber-50 p-4 rounded-xl text-sm leading-relaxed whitespace-pre-wrap min-h-[200px] border border-amber-200">
+                              <div className="bg-amber-50 p-4 rounded-xl text-sm leading-relaxed whitespace-pre-wrap min-h-[200px] border border-amber-200 animate-fade-in">
                                   {streamText}
                                   {loading && <span className="inline-block w-2 h-4 bg-amber-500 ml-1 animate-pulse"/>}
                               </div>
@@ -394,7 +509,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                                   <label className="block text-sm font-bold text-gray-500 mb-2">故事主题关键词</label>
                                   <input 
                                       type="text" 
-                                      className="w-full p-3 rounded-xl border border-gray-200 focus:border-amber-400 outline-none"
+                                      className="w-full p-4 rounded-xl border border-gray-200 focus:border-amber-400 outline-none transition-all"
                                       placeholder="例如：春天、小狗、勇敢..."
                                       value={keywords}
                                       onChange={e => setKeywords(e.target.value)}
@@ -402,91 +517,151 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                                   {initialContext && (
                                      <p className="text-xs text-green-600 mt-2 flex items-center gap-1"><CheckCircle size={12}/> 已根据选择的单元设置了识字范围</p>
                                   )}
+                                  
+                                  <div className="mt-6 bg-amber-50/50 p-4 rounded-xl border border-amber-100 text-xs text-amber-700">
+                                      <p className="font-bold mb-1">💡 提示：</p>
+                                      <p>AI 会优先使用你“我的字库”中已掌握的汉字来编写故事，帮助你巩固复习。</p>
+                                  </div>
                               </div>
                           )}
                       </div>
                   )}
 
-                  {inputType === 'MANUAL' && (
-                      <div className="space-y-3">
+                  {/* Photo Mode Content */}
+                  {modalTab === 'PHOTO' && (
+                      <div className="space-y-5 animate-fade-in">
+                          <div>
+                              <label className="block text-sm font-bold text-gray-700 mb-3">1. 选择识别模式</label>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                  <button 
+                                      onClick={() => setRecognitionMode('OCR')}
+                                      className={`p-3 rounded-xl border-2 text-left transition-all ${recognitionMode === 'OCR' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-200 text-gray-500 hover:border-purple-200'}`}
+                                  >
+                                      <div className="font-bold text-sm mb-1 flex items-center gap-1"><Type size={16}/> 提取文字</div>
+                                      <div className="text-[10px] opacity-70">识别绘本/课本上的文字内容</div>
+                                  </button>
+                                  <button 
+                                      onClick={() => setRecognitionMode('STORY')}
+                                      className={`p-3 rounded-xl border-2 text-left transition-all ${recognitionMode === 'STORY' ? 'border-pink-500 bg-pink-50 text-pink-700' : 'border-gray-200 text-gray-500 hover:border-pink-200'}`}
+                                  >
+                                      <div className="font-bold text-sm mb-1 flex items-center gap-1"><Wand2 size={16}/> 看图写话</div>
+                                      <div className="text-[10px] opacity-70">AI 根据图片画面编写有趣故事</div>
+                                  </button>
+                                  <button 
+                                      onClick={() => setRecognitionMode('CUSTOM')}
+                                      className={`p-3 rounded-xl border-2 text-left transition-all ${recognitionMode === 'CUSTOM' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-500 hover:border-blue-200'}`}
+                                  >
+                                      <div className="font-bold text-sm mb-1 flex items-center gap-1"><PenTool size={16}/> 自定义</div>
+                                      <div className="text-[10px] opacity-70">输入你自己的特殊要求</div>
+                                  </button>
+                              </div>
+                          </div>
+
+                          <div>
+                               <label className="block text-sm font-bold text-gray-700 mb-2">2. 识别要求 (提示词)</label>
+                               <textarea 
+                                  className="w-full p-3 rounded-xl border border-gray-200 text-sm focus:border-purple-400 outline-none min-h-[80px]"
+                                  value={photoPrompt}
+                                  onChange={e => setPhotoPrompt(e.target.value)}
+                                  placeholder="请输入具体的识别要求..."
+                               />
+                          </div>
+
+                          <div>
+                              <label className="block text-sm font-bold text-gray-700 mb-3">3. 上传图片</label>
+                              <div 
+                                onClick={handleCameraClick}
+                                className="border-2 border-dashed border-gray-300 rounded-2xl h-32 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 hover:border-purple-300 transition-colors group"
+                              >
+                                  <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-purple-500 mb-2 group-hover:scale-110 transition-transform">
+                                      <Camera size={24} />
+                                  </div>
+                                  <span className="text-gray-400 text-sm font-bold">点击拍摄或选择图片</span>
+                              </div>
+                              <input 
+                                  type="file" 
+                                  ref={fileInputRef} 
+                                  accept="image/*" 
+                                  className="hidden" 
+                                  onChange={handleFileChange}
+                              />
+                          </div>
+                      </div>
+                  )}
+
+                  {/* Manual Mode Content */}
+                  {modalTab === 'MANUAL' && (
+                      <div className="space-y-3 relative animate-fade-in">
                           <input 
                               type="text" 
                               placeholder="故事标题" 
-                              className="w-full p-3 rounded-xl border border-gray-200 font-bold text-lg focus:border-blue-400 outline-none"
+                              className="w-full p-4 rounded-xl border border-gray-200 font-bold text-lg focus:border-blue-400 outline-none"
                               value={manualTitle}
                               onChange={e => setManualTitle(e.target.value)}
                           />
                           <textarea 
                               placeholder="在此输入故事内容..." 
-                              className="w-full p-3 rounded-xl border border-gray-200 h-60 focus:border-blue-400 outline-none resize-none"
+                              className="w-full p-4 rounded-xl border border-gray-200 h-64 focus:border-blue-400 outline-none resize-none leading-relaxed"
                               value={manualContent}
                               onChange={e => setManualContent(e.target.value)}
                           />
-                      </div>
-                  )}
-
-                  {!streamText && (
-                      <div>
-                          <label className="block text-sm font-bold text-gray-500 mb-2 flex items-center gap-1"><Tag size={14}/> 分类标签 (分级)</label>
-                          <div className="flex flex-wrap gap-2 mb-2">
-                              {AVAILABLE_TAGS.map(tag => (
-                                  <button
-                                      key={tag}
-                                      onClick={() => {
-                                          if (selectedTags.includes(tag)) setSelectedTags(prev => prev.filter(t => t !== tag));
-                                          else setSelectedTags(prev => [...prev, tag]);
-                                      }}
-                                      className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors ${selectedTags.includes(tag) ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-500'}`}
-                                  >
-                                      {tag}
-                                  </button>
-                              ))}
-                              {selectedTags.filter(t => !AVAILABLE_TAGS.includes(t)).map(tag => (
-                                  <button
-                                      key={tag}
-                                      onClick={() => setSelectedTags(prev => prev.filter(t => t !== tag))}
-                                      className="px-3 py-1 rounded-full text-xs font-bold border bg-indigo-100 border-indigo-300 text-indigo-700 flex items-center gap-1"
-                                  >
-                                      {tag} <X size={10} />
-                                  </button>
-                              ))}
-                          </div>
-                          
-                          <div className="flex items-center gap-2">
-                              <input 
-                                type="text" 
-                                className="flex-1 p-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-indigo-300"
-                                placeholder="添加自定义标签..."
-                                value={customTagInput}
-                                onChange={e => setCustomTagInput(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && addCustomTag()}
-                              />
-                              <button 
-                                onClick={addCustomTag}
-                                disabled={!customTagInput}
-                                className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 disabled:opacity-50"
-                              >
-                                  <Plus size={14} />
-                              </button>
+                          {/* Tags Selection only visible here for final saving */}
+                          <div>
+                              <label className="block text-sm font-bold text-gray-500 mb-2 flex items-center gap-1"><Tag size={14}/> 分类标签</label>
+                              <div className="flex flex-wrap gap-2 mb-2">
+                                  {AVAILABLE_TAGS.map(tag => (
+                                      <button
+                                          key={tag}
+                                          onClick={() => {
+                                              if (selectedTags.includes(tag)) setSelectedTags(prev => prev.filter(t => t !== tag));
+                                              else setSelectedTags(prev => [...prev, tag]);
+                                          }}
+                                          className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors ${selectedTags.includes(tag) ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-500'}`}
+                                      >
+                                          {tag}
+                                      </button>
+                                  ))}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <input 
+                                    type="text" 
+                                    className="flex-1 p-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-indigo-300"
+                                    placeholder="添加自定义标签..."
+                                    value={customTagInput}
+                                    onChange={e => setCustomTagInput(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && addCustomTag()}
+                                />
+                                <button 
+                                    onClick={addCustomTag}
+                                    disabled={!customTagInput}
+                                    className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 disabled:opacity-50"
+                                >
+                                    <Plus size={14} />
+                                </button>
+                             </div>
                           </div>
                       </div>
                   )}
               </div>
 
-              <div className="p-4 border-t border-gray-100 bg-white">
-                  {inputType === 'AI' ? (
+              <div className="p-4 border-t border-gray-100 bg-white shrink-0">
+                  {modalTab === 'AI' ? (
                       <button 
                           onClick={handleGenerateAI}
                           disabled={loading || streamText.length > 0}
-                          className="w-full py-3 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-xl font-bold shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+                          className="w-full py-3 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-xl font-bold shadow-md flex items-center justify-center gap-2 disabled:opacity-50 hover:shadow-lg transition-all transform active:scale-95"
                       >
                           {loading ? <Loader2 className="animate-spin" /> : <Sparkles size={18} />}
-                          {loading ? '创作中...' : '开始生成'}
+                          {loading ? 'AI 创作中...' : '开始生成故事'}
                       </button>
+                  ) : modalTab === 'PHOTO' ? (
+                      <div className="text-center text-xs text-gray-400">
+                          请点击上方相机图标上传图片
+                      </div>
                   ) : (
                       <button 
                           onClick={handleManualSave}
-                          className="w-full py-3 bg-blue-500 text-white rounded-xl font-bold shadow-md flex items-center justify-center gap-2"
+                          className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-md flex items-center justify-center gap-2 hover:bg-blue-700 transition-all transform active:scale-95"
                       >
                           <Save size={18} /> 保存故事
                       </button>
@@ -497,6 +672,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
   );
 
   const renderCharActionModal = () => {
+      // ... (Keep existing implementation)
       if (!selectedCharPair) return null;
       const isKnown = isCharacterKnown(selectedCharPair.char);
 
@@ -533,6 +709,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
       );
   };
 
+  // ... (Return existing JSX)
   return (
     <div className="max-w-7xl mx-auto min-h-screen bg-amber-50 pb-24 flex flex-col relative h-[100dvh] overflow-hidden">
        
@@ -608,7 +785,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                          <div className="flex justify-between items-start">
                              <div className="flex items-center gap-3">
                                  <div className="w-10 h-10 bg-amber-50 rounded-full flex items-center justify-center text-amber-500">
-                                     {story.source === 'MANUAL' ? <PenTool size={18}/> : <Sparkles size={18}/>}
+                                     {story.source === 'MANUAL' ? <PenTool size={18}/> : story.source === 'OCR' ? <Camera size={18}/> : <Sparkles size={18}/>}
                                  </div>
                                  <div>
                                      <h3 className="font-bold text-gray-800 text-lg line-clamp-1">{story.title}</h3>

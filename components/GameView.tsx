@@ -12,8 +12,6 @@ interface GameViewProps {
   onExit: (newStars: number) => void;
 }
 
-const PRAISE_WORDS = ["Amazing", "Excellent", "Great", "Good Job", "Wonderful", "Super", "Awesome", "Well done", "Fantastic", "Brilliant"];
-
 export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [viewState, setViewState] = useState<'INITIAL' | 'LEARNING'>('INITIAL');
@@ -56,13 +54,9 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
     markLearned();
     setScore(prev => prev + 1); // 1 point per character
     
-    // 1. Speak the character
+    // 1. Speak the character only
     speakText(currentCharacter.char);
     
-    // 2. Speak random English praise (queued after char)
-    const randomPraise = PRAISE_WORDS[Math.floor(Math.random() * PRAISE_WORDS.length)];
-    speakText(randomPraise, undefined, 'en-US');
-
     nextChar();
   };
 

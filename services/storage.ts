@@ -145,6 +145,10 @@ const DEFAULT_SETTINGS: AppSettings = {
   apiBaseUrl: '',
   apiKey: '',
   model: 'gemini-2.5-flash',
+  savedProviderConfigs: {}, // Initialize empty
+  visionApiBaseUrl: '',
+  visionApiKey: '',
+  visionModel: 'gemini-2.5-flash',
   ttsRate: 1.0,
   ttsVoice: '',
   dailyLimit: 10,
