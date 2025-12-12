@@ -16,6 +16,8 @@ const DailyChallengeMenu = React.lazy(() => import('./components/DailyChallengeM
 const ListenIdentifyGame = React.lazy(() => import('./components/ListenIdentifyGame').then(module => ({ default: module.ListenIdentifyGame })));
 const LookIdentifyGame = React.lazy(() => import('./components/LookIdentifyGame').then(module => ({ default: module.LookIdentifyGame })));
 const CrushGame = React.lazy(() => import('./components/CrushGame').then(module => ({ default: module.CrushGame })));
+// Updated: Use standard lazy import for default export
+const FlashCardGame = React.lazy(() => import('./components/FlashCardGame'));
 
 // Simple Loading Spinner for Suspense Fallback
 const LoadingScreen = () => (
@@ -35,8 +37,13 @@ const App: React.FC = () => {
   
   // New: State for Daily Challenge Characters
   const [dailyChars, setDailyChars] = useState<Character[]>([]);
+  const [menuTitle, setMenuTitle] = useState("每日挑战");
+
   // Track if current game session was started from Daily Menu
   const [isDailySession, setIsDailySession] = useState(false);
+  
+  // New: State for Card Game Mode
+  const [isCardLevelMode, setIsCardLevelMode] = useState(false);
 
   useEffect(() => {
     // Load initial stars
@@ -46,6 +53,7 @@ const App: React.FC = () => {
   const handleStartGame = (config: GameConfig) => {
     setGameConfig(config);
     setIsDailySession(false); // Reset unless specified otherwise
+    setIsCardLevelMode(false);
     setView('GAME');
   };
 
@@ -71,6 +79,7 @@ const App: React.FC = () => {
         characters: [char]
     });
     setIsDailySession(false);
+    setIsCardLevelMode(false);
     setView('GAME');
   };
 
@@ -92,8 +101,9 @@ const App: React.FC = () => {
   };
 
   // Open Daily Challenge Menu
-  const handleOpenDailyMenu = (chars: Character[]) => {
+  const handleOpenDailyMenu = (chars: Character[], title: string = "每日挑战") => {
       setDailyChars(chars);
+      setMenuTitle(title);
       setView('DAILY_MENU');
   };
 
@@ -102,16 +112,9 @@ const App: React.FC = () => {
       setIsDailySession(true); // Mark as daily session so back button returns to menu
       
       if (mode === 'CARD') {
-          // Classic Flashcard Game
-          setGameConfig({
-            mode: 'CHALLENGE',
-            title: '📅 每日挑战 (识字卡片)',
-            curriculumId: 'daily',
-            gradeId: 'daily',
-            unitId: 'daily',
-            characters: dailyChars
-          });
-          setView('GAME');
+          // New Level-based Flashcard Game
+          setIsCardLevelMode(true);
+          setView('GAME'); // Reuses GAME view key but renders FlashCardGame conditionally
       } else if (mode === 'LISTEN') {
           setView('GAME_LISTEN');
       } else if (mode === 'LOOK') {
@@ -152,12 +155,22 @@ const App: React.FC = () => {
           )}
 
           {/* Sub Views */}
-          {view === 'GAME' && gameConfig && (
-            <GameView 
-              config={gameConfig} 
-              onExit={handleExitGame} 
-            />
+          {view === 'GAME' && (
+             isCardLevelMode ? (
+                 <FlashCardGame 
+                    characters={dailyChars}
+                    onExit={handleBackFromDailyGame}
+                 />
+             ) : (
+                gameConfig && (
+                    <GameView 
+                      config={gameConfig} 
+                      onExit={handleExitGame} 
+                    />
+                )
+             )
           )}
+          
           {view === 'REVIEW' && (
             <ReviewView 
               onBack={handleBackToHome} 
@@ -176,6 +189,8 @@ const App: React.FC = () => {
                 onBack={handleBackToHome}
                 onSelectMode={handleSelectDailyMode}
                 characterCount={dailyChars.length}
+                characters={dailyChars}
+                title={menuTitle}
              />
           )}
           {view === 'GAME_LISTEN' && (

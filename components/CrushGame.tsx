@@ -1,80 +1,78 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, RefreshCw, Star, CheckCircle, Trophy, Volume2, Plus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, LayoutGrid, Star, Plus, CheckCircle, Trophy, RefreshCw } from 'lucide-react';
 import { Character } from '../types';
+import { getKnownCharacters, getUnknownCharacters, getGameStats, saveGameStats, getCrushLevelData, saveCrushLevelData } from '../services/storage';
 import { generateMatchGameData } from '../services/geminiService';
 import { speakText } from './SharedComponents';
-import { 
-    addStars, 
-    addKnownCharacter, 
-    addUnknownCharacter, 
-    recordLearning, 
-    getCrushLevelData, 
-    saveCrushLevelData,
-    getCrushMaxLevel,
-    setCrushMaxLevel,
-    getKnownCharacters,
-    getUnknownCharacters
-} from '../services/storage';
-import { getOfflineDict, findCharacterPinyin } from '../data/dictionary';
-import confetti from 'canvas-confetti';
 
 interface CrushGameProps {
   characters: Character[];
   onExit: () => void;
 }
 
-interface MatchPair {
-  id: string;
-  word: string;
-  pinyin: string;
-  hint?: string;
-}
-
-interface GameItem {
-  uid: string;
-  pairId: string;
-  content: string;
-  isPinyin: boolean;
-  fullPinyin?: string;
-  matched: boolean;
-  relatedHint?: string;
+interface GridItem {
+    id: string; // Unique for pair (e.g., "1")
+    uid: string; // Unique for grid cell (e.g., "1-pinyin")
+    content: string;
+    isPinyin: boolean;
+    hint?: string;
+    pairId: string;
+    fullChar?: string;
+    fullPinyin?: string;
 }
 
 export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
-  // Views: MENU (Level Select) | PLAYING
   const [view, setView] = useState<'MENU' | 'PLAYING'>('MENU');
-  
-  // Game State
   const [level, setLevel] = useState(1);
-  const [maxReached, setMaxReached] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [gridItems, setGridItems] = useState<GameItem[]>([]);
+  const [maxReached, setMaxReached] = useState(1);
+  const [totalGameScore, setTotalGameScore] = useState(0);
+  
+  const [gridItems, setGridItems] = useState<GridItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [matchedIds, setMatchedIds] = useState<string[]>([]);
-  const [score, setScore] = useState(0);
-  const [showModal, setShowModal] = useState<boolean>(false);
-  const [modalContent, setModalContent] = useState<{char: string, pinyin: string, hint?: string} | null>(null);
   const [errorShake, setErrorShake] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [currentScore, setCurrentScore] = useState(0);
   
-  // Refs
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showDailyComplete, setShowDailyComplete] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [modalContent, setModalContent] = useState<{char: string, pinyin: string, hint?: string} | null>(null);
 
-  // Initialize Progress
   useEffect(() => {
-      setMaxReached(getCrushMaxLevel());
-  }, [view]);
+    const stats = getGameStats('crush');
+    setMaxReached(stats.maxLevel);
+    setTotalGameScore(stats.totalScore);
+  }, []);
 
-  // --- Logic: Start a Level ---
+  const generateFallbackPairs = (chars: Character[]) => {
+      const pairs = chars.slice(0, 10).map((c, i) => ({
+          id: `fallback-${i}`,
+          word: c.char,
+          pinyin: c.pinyin,
+          hint: "基础练习"
+      }));
+      return { pairs };
+  };
+
   const startLevel = async (targetLevel: number) => {
+    const CHARS_PER_LEVEL_ESTIMATE = 10;
+    const maxDailyLevels = Math.ceil(characters.length / CHARS_PER_LEVEL_ESTIMATE);
+
+    if (characters.length > 0 && targetLevel > maxDailyLevels) {
+        setShowDailyComplete(true);
+        setView('PLAYING');
+        return;
+    }
+    setShowDailyComplete(false);
+
     setLevel(targetLevel);
     setView('PLAYING');
     setLoading(true);
     setMatchedIds([]);
     setSelectedIds([]);
-    setScore(0); // Reset score for new level
+    setCurrentScore(0); 
     
-    // 1. Try to load specific level data from storage first
     const cached = getCrushLevelData(targetLevel);
     if (cached && cached.pairs && cached.pairs.length === 10) {
         setupGrid(cached.pairs);
@@ -82,25 +80,17 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
         return;
     }
 
-    // 2. Determine source characters for AI
     const knownChars = getKnownCharacters();
     const unknownChars = getUnknownCharacters();
     
-    // Mix current context with global history
     let pool = [...characters, ...unknownChars, ...knownChars];
-    
-    // Deduplicate based on char
     const uniquePool = Array.from(new Map(pool.map(item => [item.char, item])).values());
     
-    // If pool is too small, fallback/pad with default hardcoded chars if needed (handled by fallback generator)
     let sourceChars = uniquePool;
     
-    // Randomize and slice to get a batch for the AI to choose words from
-    // We send more than 10 to give AI flexibility
     if (sourceChars.length > 15) {
         sourceChars = sourceChars.sort(() => 0.5 - Math.random()).slice(0, 15);
     } else if (sourceChars.length < 5) {
-        // Absolute fallback for brand new users
         sourceChars = [
             {char:'天', pinyin:'tiān'}, {char:'地', pinyin:'dì'}, {char:'人', pinyin:'rén'}, 
             {char:'你', pinyin:'nǐ'}, {char:'我', pinyin:'wǒ'}, {char:'他', pinyin:'tā'},
@@ -108,7 +98,6 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
         ];
     }
 
-    // 3. Generate
     try {
         const aiPromise = generateMatchGameData(sourceChars);
         const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000));
@@ -133,202 +122,121 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
     }
   };
 
-  const generateFallbackPairs = (chars: Character[]) => {
-      const dict = getOfflineDict();
-      const pairs: MatchPair[] = [];
-      const usedChars = new Set<string>();
-      
-      // Shuffle chars to ensure fallback isn't always same order
-      const shuffledChars = [...chars].sort(() => 0.5 - Math.random());
-
-      for (const char of shuffledChars) {
-          if (pairs.length >= 10) break;
-          if (usedChars.has(char.char)) continue;
-
-          const entry = dict[char.char];
-          if (entry && entry.words && entry.words.length > 0) {
-              const w = entry.words[0];
-              pairs.push({
-                  id: Date.now() + Math.random().toString(),
-                  word: w.word,
-                  pinyin: w.pinyin,
-                  hint: entry.memoryTip
-              });
-              usedChars.add(char.char);
-          } else {
-              pairs.push({
-                  id: Date.now() + Math.random().toString(),
-                  word: char.char,
-                  pinyin: char.pinyin || findCharacterPinyin(char.char),
-                  hint: "生字"
-              });
-              usedChars.add(char.char);
-          }
-      }
-      
-      // Fill if needed with random dict words
-      let attempts = 0;
-      const allDictKeys = Object.keys(dict);
-      while (pairs.length < 10 && attempts < 50) {
-          const randomChar = allDictKeys[Math.floor(Math.random() * allDictKeys.length)];
-          if (usedChars.has(randomChar)) {
-             attempts++;
-             continue;
-          }
-          const entry = dict[randomChar];
-           if (entry && entry.words && entry.words.length > 0) {
-              pairs.push({
-                  id: Date.now() + Math.random().toString(),
-                  word: entry.words[0].word,
-                  pinyin: entry.words[0].pinyin,
-                  hint: "补充词汇"
-              });
-              usedChars.add(randomChar);
-          }
-          attempts++;
-      }
-      return { pairs: pairs.slice(0, 10) };
-  };
-
-  const setupGrid = (pairs: MatchPair[]) => {
-      const newItems: GameItem[] = [];
-      const validPairs = pairs.slice(0, 10);
-      
-      validPairs.forEach((pair) => {
-          newItems.push({
-              uid: `${pair.id}-word`,
-              pairId: pair.id,
-              content: pair.word,
+  const setupGrid = (pairs: any[]) => {
+      const items: GridItem[] = [];
+      pairs.forEach((p: any) => {
+          items.push({
+              id: p.id,
+              uid: `${p.id}-word`,
+              content: p.word,
               isPinyin: false,
-              fullPinyin: pair.pinyin,
-              matched: false,
-              relatedHint: pair.hint
+              hint: p.hint,
+              pairId: p.id,
+              fullChar: p.word,
+              fullPinyin: p.pinyin
           });
-          newItems.push({
-              uid: `${pair.id}-pinyin`,
-              pairId: pair.id,
-              content: pair.pinyin,
+          items.push({
+              id: p.id,
+              uid: `${p.id}-pinyin`,
+              content: p.pinyin,
               isPinyin: true,
-              fullPinyin: pair.pinyin,
-              matched: false,
-              relatedHint: pair.hint
+              hint: p.hint,
+              pairId: p.id,
+              fullChar: p.word,
+              fullPinyin: p.pinyin
           });
       });
-      setGridItems(newItems.sort(() => 0.5 - Math.random()));
-  }
+      
+      // Shuffle
+      items.sort(() => 0.5 - Math.random());
+      setGridItems(items);
+  };
 
-  // --- Game Interaction ---
-
-  const handleCardClick = (item: GameItem) => {
-      if (loading || item.matched || selectedIds.includes(item.uid)) return;
-      if (selectedIds.length === 2 && errorShake.length > 0) return;
+  const handleCardClick = (item: GridItem) => {
+      if (matchedIds.includes(item.uid) || selectedIds.includes(item.uid) || selectedIds.length >= 2) return;
 
       const newSelected = [...selectedIds, item.uid];
       setSelectedIds(newSelected);
       
-      // Remove speech on click to speed up game and focus on visual matching
-      // if (!item.isPinyin) speakText(item.content);
+      if (!item.isPinyin) {
+          speakText(item.content);
+      }
 
       if (newSelected.length === 2) {
-          checkMatch(newSelected[0], newSelected[1]);
-      }
-  };
+          const first = gridItems.find(i => i.uid === newSelected[0])!;
+          const second = item;
 
-  const checkMatch = (id1: string, id2: string) => {
-      const item1 = gridItems.find(i => i.uid === id1);
-      const item2 = gridItems.find(i => i.uid === id2);
+          if (first.pairId === second.pairId) {
+              // Match
+              setTimeout(() => {
+                  setMatchedIds(prev => [...prev, first.uid, second.uid]);
+                  setSelectedIds([]);
+                  setCurrentScore(prev => prev + 10);
+                  
+                  // Show modal
+                  setModalContent({
+                      char: first.fullChar || '',
+                      pinyin: first.fullPinyin || '',
+                      hint: first.hint
+                  });
+                  setShowModal(true);
+                  setTimeout(() => setShowModal(false), 1500);
 
-      if (item1 && item2 && item1.pairId === item2.pairId) {
-          // MATCH
-          timeoutRef.current = setTimeout(() => {
-              setMatchedIds(prev => [...prev, id1, id2]);
-              setSelectedIds([]);
-              setScore(prev => prev + 1); // 1 point per pair
-              
-              // Immediately award star to user record
-              addStars(1);
-              
-              const textItem = item1.isPinyin ? item2 : item1;
-              
-              // Record Learning
-              const chars = textItem.content.split('');
-              chars.forEach(c => {
-                 if(c.match(/[\u4e00-\u9fa5]/)) {
-                    addKnownCharacter({ char: c, pinyin: '' });
-                 }
-              });
-              recordLearning(chars.map(c => ({char: c, pinyin: ''})));
-
-              setModalContent({
-                  char: textItem.content,
-                  pinyin: textItem.fullPinyin || '',
-                  hint: textItem.relatedHint
-              });
-              setShowModal(true);
-
-              // Speak content on success, then close modal automatically
-              speakText(textItem.content, () => {
+              }, 300);
+          } else {
+              // Mismatch
+              setTimeout(() => {
+                  setErrorShake([first.uid, second.uid]);
+                  speakText("不对哦");
                   setTimeout(() => {
-                      setShowModal(false);
-                  }, 500); // Close 0.5s after speech finishes
-              });
-
-              if (matchedIds.length + 2 === gridItems.length) {
-                   confetti({ particleCount: 150, spread: 60 });
-                   // Level Complete - Update Progress
-                   if (level > maxReached) {
-                       setCrushMaxLevel(level);
-                       setMaxReached(level);
-                   }
-              }
-          }, 300);
-      } else {
-          // NO MATCH - ERROR
-          setErrorShake([id1, id2]);
-          
-          // Record Error: Add to global Unknown List immediately
-          if (item1 && !item1.isPinyin) recordErrorToUnknown(item1);
-          if (item2 && !item2.isPinyin) recordErrorToUnknown(item2);
-          
-          timeoutRef.current = setTimeout(() => {
-              setSelectedIds([]);
-              setErrorShake([]);
-          }, 800);
+                      setErrorShake([]);
+                      setSelectedIds([]);
+                  }, 500);
+              }, 500);
+          }
       }
-  };
-
-  const recordErrorToUnknown = (item: GameItem) => {
-       const chars = item.content.split('');
-       chars.forEach(c => {
-           if(c.match(/[\u4e00-\u9fa5]/)) {
-               // Directly add to main vocabulary unknown list
-               addUnknownCharacter({ char: c, pinyin: findCharacterPinyin(c) });
-           }
-       });
   };
 
   const handleNextLevel = () => {
-      startLevel(level + 1);
-      setShowModal(false); 
+      const newTotal = totalGameScore + currentScore;
+      setTotalGameScore(newTotal);
+      
+      const nextLevel = level + 1;
+      if (nextLevel > maxReached) setMaxReached(nextLevel);
+      saveGameStats('crush', { maxLevel: Math.max(maxReached, nextLevel), totalScore: newTotal });
+      
+      startLevel(nextLevel);
   };
 
   const handleBackToMenu = () => {
+      if (currentScore > 0) {
+          const newTotal = totalGameScore + currentScore;
+          setTotalGameScore(newTotal);
+          saveGameStats('crush', { maxLevel: maxReached, totalScore: newTotal });
+      }
       setView('MENU');
   };
-
-  // --- RENDERERS ---
 
   if (view === 'MENU') {
       return (
         <div className="min-h-screen bg-[#fdfbf7] flex flex-col relative overflow-hidden font-sans max-w-7xl mx-auto">
             <div className="bg-white/80 backdrop-blur-md p-4 shadow-sm border-b border-gray-100 flex justify-between items-center z-10">
-                <button onClick={onExit} className="flex items-center gap-2 text-gray-600 font-bold"><ArrowLeft /> 退出游戏</button>
+                <div className="flex items-center gap-2">
+                    <button onClick={onExit} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 text-gray-600 transition-colors">
+                        <ArrowLeft size={20}/>
+                    </button>
+                    <div className="flex items-center gap-2 font-bold text-green-900 text-lg">
+                        <LayoutGrid className="text-green-600"/> 汉字消消乐
+                    </div>
+                </div>
+                
+                <div className="bg-white/50 px-3 py-1 rounded-full text-green-800 font-bold text-sm flex items-center gap-1 border border-green-100">
+                   <Star size={16} className="text-yellow-500 fill-yellow-500"/> {totalGameScore}
+                </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
                 <div className="grid grid-cols-3 gap-4 max-w-md mx-auto">
-                    
-                    {/* 1. Generate New Level Button (First) */}
                     <button 
                         onClick={() => startLevel(maxReached + 1)}
                         className="aspect-square rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-green-400 text-green-600 hover:bg-green-50 hover:border-green-500 transition-all bg-white/60 shadow-sm group"
@@ -339,11 +247,8 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
                         <span className="text-xs font-bold">挑战新关卡</span>
                     </button>
 
-                    {/* 2. Render Completed Levels (Reverse Order) */}
                     {Array.from({ length: maxReached }).map((_, i) => {
-                        // Logic: If maxReached is 3, we want levels 3, 2, 1
                         const lvl = maxReached - i;
-                        
                         return (
                             <button 
                                 key={lvl}
@@ -359,12 +264,28 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
                     
                 </div>
             </div>
-            {/* Removed footer text as requested */}
         </div>
       );
   }
 
-  // --- PLAYING VIEW ---
+  if (showDailyComplete) {
+       return (
+          <div className="flex flex-col items-center justify-center min-h-screen bg-green-50 p-4 max-w-7xl mx-auto">
+              <div className="bg-white rounded-3xl p-8 shadow-xl text-center max-w-sm w-full animate-bounce-in border-4 border-green-100">
+                  <CheckCircle size={64} className="text-green-500 mx-auto mb-4" />
+                  <h2 className="text-2xl font-bold text-green-900 mb-2">今日挑战已完成!</h2>
+                  <p className="text-gray-500 mb-6 text-sm">今天要学习和复习的汉字已经全部完成啦。<br/>好好休息，明天再来挑战吧！</p>
+                  
+                  <button 
+                      onClick={() => setView('MENU')}
+                      className="w-full py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all"
+                  >
+                      返回菜单
+                  </button>
+              </div>
+          </div>
+      );
+  }
 
   if (matchedIds.length > 0 && matchedIds.length === gridItems.length) {
       return (
@@ -372,7 +293,8 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
               <div className="bg-white p-8 rounded-[2rem] shadow-2xl border-4 border-yellow-200 text-center max-w-sm w-full animate-bounce-in">
                   <Trophy size={64} className="text-yellow-500 mx-auto mb-4" />
                   <h2 className="text-3xl font-bold text-gray-800 mb-2">关卡 {level} 完成!</h2>
-                  <p className="text-gray-500 mb-6">获得 {score} 积分</p>
+                  <p className="text-gray-500 mb-6">本关积分 +{currentScore}</p>
+                  <div className="text-sm text-gray-400 mb-6 font-bold">Good Job!</div>
                   <div className="flex justify-center gap-2 mb-8">
                       <Star size={32} className="text-yellow-400 fill-yellow-400 animate-pulse" />
                       <Star size={32} className="text-yellow-400 fill-yellow-400 animate-pulse delay-100" />
@@ -399,7 +321,6 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
       <div className="absolute top-[-50px] left-[-50px] w-48 h-48 bg-pink-200 rounded-full blur-3xl opacity-40 pointer-events-none"></div>
       <div className="absolute bottom-[-50px] right-[-50px] w-64 h-64 bg-blue-200 rounded-full blur-3xl opacity-40 pointer-events-none"></div>
 
-      {/* Header - Styled to match LookIdentifyGame but with Crush Theme colors (Green/Yellow) */}
       <div className="flex justify-between items-center p-4 relative z-10">
         <div className="flex items-center gap-2">
             <button onClick={handleBackToMenu} className="p-2 bg-white/50 rounded-full hover:bg-white text-green-800 transition-colors">
@@ -412,12 +333,11 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
                关卡 {level}
             </div>
             <div className="bg-white/50 px-3 py-1 rounded-full text-green-800 font-bold text-sm flex items-center gap-1">
-               <Star size={14} className="text-yellow-500 fill-yellow-500"/> {score}
+               <Star size={14} className="text-yellow-500 fill-yellow-500"/> {totalGameScore}
             </div>
         </div>
       </div>
 
-      {/* Game Grid */}
       <div className="flex-1 overflow-y-auto p-4 flex items-center justify-center relative z-10">
           {loading ? (
               <div className="flex flex-col items-center gap-3 text-gray-400">
@@ -475,7 +395,6 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
           )}
       </div>
 
-      {/* Success Modal (Brief, Auto-closing) */}
       {showModal && modalContent && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowModal(false)}>
               <div 
@@ -502,21 +421,9 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
                           <span className="text-xl font-bold text-gray-600">{modalContent.pinyin}</span>
                       </div>
                   </div>
-                  {/* No Button - Auto Close */}
               </div>
           </div>
       )}
-      
-      <style>{`
-         @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-         }
-         .animate-shake {
-            animation: shake 0.3s ease-in-out;
-         }
-      `}</style>
     </div>
   );
 };

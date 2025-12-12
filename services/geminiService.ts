@@ -419,6 +419,9 @@ export const recognizeTextFromImage = async (base64Image: string, customInstruct
         }
 
         // --- Post-Processing / Parsing Logic ---
+        // Clean up common artifact from some vision models
+        rawText = rawText.replace(/<lend_of_boxl>/g, '').replace(/<box_2d>/g, '');
+
         let title = "扫描内容";
         let content = "";
 

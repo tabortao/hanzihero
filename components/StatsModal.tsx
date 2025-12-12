@@ -1,7 +1,7 @@
+
 import React, { useMemo } from 'react';
-import { X, Flame, Calendar, Trophy, PieChart, Activity } from 'lucide-react';
+import { X, Flame, PieChart, Activity } from 'lucide-react';
 import { getDailyActivity, getKnownCharacters, getUnknownCharacters } from '../services/storage';
-import { APP_DATA } from '../data';
 
 interface StatsModalProps {
   isOpen: boolean;
@@ -20,7 +20,8 @@ export const StatsModal: React.FC<StatsModalProps> = ({ isOpen, onClose }) => {
     let month = 0;
     let year = 0;
 
-    Object.entries(activity).forEach(([dateStr, count]) => {
+    Object.entries(activity).forEach(([dateStr, val]) => {
+      const count = val as number;
       const date = new Date(dateStr);
       const diffTime = Math.abs(today.getTime() - date.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -53,7 +54,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({ isOpen, onClose }) => {
       const dateStr = d.toISOString().split('T')[0];
       data.push({
         date: dateStr,
-        count: activity[dateStr] || 0,
+        count: (activity[dateStr] as number) || 0,
         dayOfWeek: d.getDay()
       });
     }

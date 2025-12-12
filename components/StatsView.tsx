@@ -68,7 +68,8 @@ export const StatsView: React.FC = () => {
     let month = 0;
     let year = 0;
 
-    Object.entries(activity).forEach(([dateStr, count]) => {
+    Object.entries(activity).forEach(([dateStr, val]) => {
+      const count = val as number;
       const date = new Date(dateStr);
       // Reset time for accurate comparison
       date.setHours(0,0,0,0);
@@ -106,7 +107,7 @@ export const StatsView: React.FC = () => {
        
        for (let i = 0; i < 7; i++) {
            const dStr = dateCursor.toISOString().split('T')[0];
-           const count = activity[dStr] || 0;
+           const count = (activity[dStr] as number) || 0;
            if (count > maxVal) maxVal = count;
            data.push({ 
                date: dStr, 
@@ -128,7 +129,7 @@ export const StatsView: React.FC = () => {
        for (let i=0; i<42; i++) {
            const dStr = dateCursor.toISOString().split('T')[0];
            const isCurrentMonth = dateCursor.getMonth() === month;
-           const count = activity[dStr] || 0;
+           const count = (activity[dStr] as number) || 0;
            if (count > maxVal) maxVal = count;
            data.push({ 
                date: dStr, 
@@ -149,7 +150,7 @@ export const StatsView: React.FC = () => {
                const testDate = new Date(year, m, d);
                if (testDate.getMonth() !== m) break; 
                const dStr = testDate.toISOString().split('T')[0];
-               count += (activity[dStr] || 0);
+               count += ((activity[dStr] as number) || 0);
            }
            if (count > maxVal) maxVal = count;
            data.push({ date: `${year}-${m+1}`, count, dayLabel: `${m+1}月` });

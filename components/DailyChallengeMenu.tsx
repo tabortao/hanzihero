@@ -2,20 +2,44 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Book, Volume2, Eye, LayoutGrid, Play, Star } from 'lucide-react';
 import { Character } from '../types';
-import { getStars } from '../services/storage';
+import { getStars, getLearningProgress } from '../services/storage';
 
 interface DailyChallengeMenuProps {
   onBack: () => void;
   onSelectMode: (mode: 'CARD' | 'LISTEN' | 'LOOK' | 'CRUSH') => void;
   characterCount: number;
+  characters?: Character[]; // Pass the actual characters to analyze
+  title?: string;
 }
 
-export const DailyChallengeMenu: React.FC<DailyChallengeMenuProps> = ({ onBack, onSelectMode, characterCount }) => {
+export const DailyChallengeMenu: React.FC<DailyChallengeMenuProps> = ({ onBack, onSelectMode, characterCount, characters = [], title }) => {
   const [totalStars, setTotalStars] = useState(0);
+  const [newCount, setNewCount] = useState(0);
+  const [reviewCount, setReviewCount] = useState(0);
 
   useEffect(() => {
     setTotalStars(getStars());
-  }, []);
+    
+    // Analyze the provided characters
+    const progressMap = getLearningProgress();
+    
+    let n = 0;
+    let r = 0;
+    
+    if (characters.length > 0) {
+        characters.forEach(c => {
+            if (progressMap[c.char]) r++;
+            else n++;
+        });
+    } else {
+        // Fallback if empty (shouldn't happen)
+        n = characterCount;
+    }
+    
+    setNewCount(n);
+    setReviewCount(r);
+
+  }, [characterCount, characters]);
 
   return (
     <div className="max-w-7xl mx-auto min-h-screen bg-[#ecfdf5] p-4 md:p-6 flex flex-col relative overflow-hidden">
@@ -34,11 +58,16 @@ export const DailyChallengeMenu: React.FC<DailyChallengeMenuProps> = ({ onBack, 
             </button>
             <div>
               <h1 className="text-xl md:text-2xl font-fun text-gray-800 flex items-center gap-2">
-                每日挑战 <span className="text-2xl">🏆</span>
+                {title || "每日挑战"} <span className="text-2xl">🏆</span>
               </h1>
-              <p className="text-gray-600 text-xs font-bold mt-0.5">
-                今日任务：<span className="text-indigo-600 text-base">{characterCount}</span> 个汉字
-              </p>
+              <div className="flex gap-3 text-xs font-bold mt-1">
+                 <span className="text-green-600 bg-green-100 px-2 py-0.5 rounded-md border border-green-200">
+                     新学: {newCount}
+                 </span>
+                 <span className="text-orange-600 bg-orange-100 px-2 py-0.5 rounded-md border border-orange-200">
+                     复习: {reviewCount}
+                 </span>
+              </div>
             </div>
         </div>
         
@@ -147,28 +176,6 @@ export const DailyChallengeMenu: React.FC<DailyChallengeMenuProps> = ({ onBack, 
            </div>
         </button>
       </div>
-      
-      {/* Styles for blobs */}
-      <style>{`
-        @keyframes blob {
-          0% { transform: translate(0px, 0px) scale(1); }
-          33% { transform: translate(30px, -50px) scale(1.1); }
-          66% { transform: translate(-20px, 20px) scale(0.9); }
-          100% { transform: translate(0px, 0px) scale(1); }
-        }
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-        .animate-bounce-slow {
-             animation: bounce 3s infinite;
-        }
-      `}</style>
     </div>
   );
 };

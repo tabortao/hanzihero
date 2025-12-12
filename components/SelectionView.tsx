@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Book, Grid, Star, PlayCircle, Trophy, CheckCircle, List, X, Library, BookOpen, Sparkles, Plus, Save, ChevronDown, Edit3, ArrowRightLeft, Camera, Loader2, Image as ImageIcon, FileText, Wand2, Edit2 } from 'lucide-react';
+import { Book, Grid, Star, PlayCircle, Trophy, CheckCircle, List, X, Library, BookOpen, Sparkles, Plus, Save, ChevronDown, Edit3, ArrowRightLeft, Camera, Loader2, Image as ImageIcon, FileText, Wand2, Edit2, Gamepad2 } from 'lucide-react';
 import { GameConfig, Character, Unit, Curriculum } from '../types';
 import { APP_DATA, GRADE_PRESETS } from '../data';
-import { getSettings, getUnknownCharacters, getKnownCharacters, getCustomCurricula, saveCustomUnit, updateCustomUnit, saveSettings } from '../services/storage';
+import { getSettings, getUnknownCharacters, getKnownCharacters, getCustomCurricula, saveCustomUnit, updateCustomUnit, saveSettings, getDailyPlan } from '../services/storage';
 import { findCharacterPinyin } from '../data/dictionary';
 import { recognizeTextFromImage } from '../services/geminiService';
 
@@ -12,7 +12,7 @@ interface SelectionViewProps {
   onReview: () => void;
   onOpenBank: () => void;
   onGenerateUnitStory?: (unit: Unit) => void;
-  onOpenDailyMenu: (chars: Character[]) => void; 
+  onOpenDailyMenu: (chars: Character[], title?: string) => void; 
   stars: number;
 }
 
@@ -98,6 +98,51 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
     });
     return { todo, done };
   }, [currentGrade, knownChars]);
+
+  // Ebbinghaus Forgetting Curve Logic & Smart Fill
+  const prepareDailyChallenge = () => {
+    // 1. Basic Validation
+    if (needsSetup) {
+        alert("请先点击左上角，设置您的教材和年级！");
+        return;
+    }
+
+    const dailyPlan = getDailyPlan();
+    let targets = [...dailyPlan.review, ...dailyPlan.newChars];
+    let modeTitle = "每日挑战";
+    
+    // 2. If Ebbinghaus queue is empty (e.g. New User or caught up), 
+    // try to fetch new characters from the first incomplete unit in the curriculum.
+    if (targets.length === 0) {
+        const nextUnit = processedUnits.todo[0];
+        
+        if (nextUnit) {
+             const knownSet = new Set(knownChars.map(c => c.char));
+             // Find unlearned chars in this unit
+             const unlearnedInUnit = nextUnit.characters.filter(c => !knownSet.has(c.char));
+             
+             // Take daily limit count (default 5 if not set)
+             const limit = settings.dailyNewLimit || 5;
+             const newBatch = unlearnedInUnit.slice(0, limit);
+             
+             if (newBatch.length > 0) {
+                 targets = newBatch;
+                 modeTitle = "每日挑战 (新课)";
+             }
+        }
+    }
+    
+    if (targets.length === 0) {
+        alert("🎉 太棒了！\n\n今天没有需要复习的汉字，本册书的新课也已全部完成。\n\n您可以去【生字本】自由复习，或进入【阅读】生成新故事！");
+        return;
+    }
+    
+    // Dedup just in case
+    const unique = Array.from(new Set(targets.map(c => c.char)))
+        .map(char => targets.find(c => c.char === char)!);
+
+    onOpenDailyMenu(unique, modeTitle);
+  };
 
   // Pre-fill custom modal logic
   const openCustomModal = () => {
@@ -318,67 +363,6 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
     });
   };
 
-  // Ebbinghaus Forgetting Curve Logic
-  const prepareDailyChallenge = () => {
-    // ... (Keep existing logic)
-    const dailyLimit = settings.dailyLimit || 10;
-    const now = Date.now();
-    const getDaysSince = (ts?: number) => ts ? (now - ts) / (1000 * 60 * 60 * 24) : 999;
-    const isDueForReview = (char: Character) => {
-        if (!char.learnedAt) return false;
-        const days = getDaysSince(char.learnedAt);
-        if (days >= 0.9 && days <= 1.5) return true;
-        if (days >= 2.8 && days <= 3.5) return true;
-        if (days >= 6.5 && days <= 8.0) return true;
-        if (days >= 14.0 && days <= 16.0) return true;
-        if (days >= 28.0 && days <= 32.0) return true;
-        if (days > 30 && (char.reviewCount || 0) < 3) return true;
-        return false;
-    };
-    let selectedChars: Character[] = [...unknownChars];
-    const reviewCandidates = knownChars.filter(isDueForReview);
-    reviewCandidates.sort(() => 0.5 - Math.random());
-    const criticalReviews = reviewCandidates.filter(c => getDaysSince(c.learnedAt) <= 3.5);
-    const otherReviews = reviewCandidates.filter(c => !criticalReviews.includes(c));
-    let list: Character[] = [...criticalReviews];
-    const newCount = Math.max(3, Math.floor(dailyLimit / 2));
-    list = [...list, ...unknownChars.slice(0, newCount)];
-    if (list.length < dailyLimit) {
-        list = [...list, ...otherReviews.slice(0, dailyLimit - list.length)];
-    }
-    if (list.length < dailyLimit && unknownChars.length > newCount) {
-         list = [...list, ...unknownChars.slice(newCount, unknownChars.length - newCount + (dailyLimit - list.length))];
-    }
-    if (list.length < dailyLimit) {
-        const otherKnowns = knownChars.filter(c => !list.includes(c));
-        otherKnowns.sort((a, b) => (a.learnedAt || 0) - (b.learnedAt || 0));
-        list = [...list, ...otherKnowns.slice(0, dailyLimit - list.length)];
-    }
-    if (list.length < 5) {
-         let allCurriculumChars: Character[] = [];
-        if (currentCurriculum) {
-            currentCurriculum.grades.forEach(g => g.units.forEach(u => {
-                allCurriculumChars = [...allCurriculumChars, ...u.characters];
-            }));
-        } else {
-             allCurricula.forEach(c => c.grades.forEach(g => g.units.forEach(u => {
-                 allCurriculumChars = [...allCurriculumChars, ...u.characters];
-             })));
-        }
-        const existingSet = new Set([...knownChars, ...unknownChars].map(c => c.char));
-        const newPool = allCurriculumChars.filter(c => !existingSet.has(c.char));
-        const needed = dailyLimit - list.length;
-        const newWords = newPool.slice(0, needed);
-        list = [...list, ...newWords];
-    }
-    list = Array.from(new Set(list.map(c => c.char))).map(char => list.find(c => c.char === char)!).slice(0, dailyLimit * 1.5);
-    if (list.length === 0) {
-        alert("恭喜你！没有需要复习的字，去学习新单元吧！");
-        return;
-    }
-    onOpenDailyMenu(list);
-  };
-
   const UnitList = ({ units, limit }: { units: Unit[], limit?: number }) => {
     const displayUnits = limit ? units.slice(0, limit) : units;
     
@@ -425,6 +409,17 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
                         <Edit2 size={18} />
                      </button>
                  )}
+
+                 <button 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenDailyMenu(unit.characters, `单元挑战: ${unit.name}`);
+                    }}
+                    className="p-2 text-purple-400 hover:text-purple-600 hover:bg-purple-50 rounded-full transition-colors"
+                    title="单元游戏挑战"
+                 >
+                    <Gamepad2 size={20} />
+                 </button>
 
                  <button 
                     onClick={(e) => {
@@ -499,7 +494,7 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
                    </div>
                    <div className="text-center">
                       <div className="font-bold text-sm">每日挑战</div>
-                      <div className="text-[10px] text-gray-400">3-1-3 识字法</div>
+                      <div className="text-[10px] text-gray-400">AI 记忆曲线</div>
                    </div>
                 </button>
                 
@@ -580,7 +575,7 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
         <Plus size={28} />
       </button>
 
-      {/* --- Full Unit List Modal --- */}
+      {/* ... (Keep existing Modals: Full Unit List, Quick Switch, Custom Unit) ... */}
       {isAllUnitsOpen && (
          <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-40 flex items-end sm:items-center justify-center p-0 sm:p-4">
             <div className="bg-white w-full max-w-2xl sm:rounded-3xl h-[80vh] flex flex-col shadow-2xl animate-slide-up">
@@ -602,10 +597,11 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
          </div>
       )}
 
-      {/* --- Quick Switch Modal --- */}
+      {/* Quick Switch and Custom Modal logic remains the same... */}
       {showSwitchModal && (
           <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl animate-bounce-in p-6">
+             {/* ... content same as previous ... */}
+             <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl animate-bounce-in p-6">
                   <div className="flex justify-between items-center mb-4">
                       <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">
                           <ArrowRightLeft size={20} className="text-blue-500"/> 快速切换教材
@@ -674,9 +670,9 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
           </div>
       )}
 
-      {/* --- Custom Unit Creation/Edit Modal --- */}
       {showCustomModal && (
           <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+             {/* ... content same as previous ... */}
              <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl animate-bounce-in flex flex-col overflow-hidden max-h-[85vh] mb-safe">
                 <div className="p-4 border-b border-gray-100 bg-blue-50 flex justify-between items-center shrink-0">
                    <h3 className="font-bold text-lg text-blue-900 flex items-center gap-2">

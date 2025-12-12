@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Volume2, Sparkles, BookOpen, Star, RefreshCw, Layers, Check, X, Puzzle, GraduationCap, CheckCircle, XCircle } from 'lucide-react';
 import { GameConfig, AIExplanation, Character } from '../types';
 import { explainCharacter } from '../services/geminiService';
-import { addUnknownCharacter, addKnownCharacter, addStars, getSettings, recordLearning, isCharacterKnown, getUnknownCharacters } from '../services/storage';
+import { addUnknownCharacter, addKnownCharacter, addStars, getSettings, recordLearning, isCharacterKnown, getUnknownCharacters, updateCharacterProgress } from '../services/storage';
 import { WritingGrid, StrokeOrderDisplay, speakText } from './SharedComponents';
 import confetti from 'canvas-confetti';
 
@@ -50,7 +50,9 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
 
   // User clicked "I Know It"
   const handleKnown = () => {
-    addKnownCharacter(currentCharacter);
+    // New AI Agent Logic: Record success
+    updateCharacterProgress(currentCharacter, true);
+    
     markLearned();
     setScore(prev => prev + 1); // 1 point per character
     
@@ -62,8 +64,9 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
 
   // User clicked "I Don't Know"
   const handleUnknown = async () => {
-    // Add to unknown immediately (will update later with AI info if needed)
-    addUnknownCharacter(currentCharacter);
+    // New AI Agent Logic: Record failure (reset/shorten interval)
+    updateCharacterProgress(currentCharacter, false);
+
     markLearned();
     setViewState('LEARNING');
     speakText(currentCharacter.char); // Speak char immediately
@@ -83,8 +86,8 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
         if (!currentCharacter.pinyin && data.pinyin) {
             // Update current character in config (local state) so UI updates
             currentCharacter.pinyin = data.pinyin;
-            // Update in storage as "Unknown" with the new pinyin info
-            addUnknownCharacter({ ...currentCharacter, pinyin: data.pinyin });
+            // Also update storage with new pinyin
+             updateCharacterProgress({ ...currentCharacter, pinyin: data.pinyin }, false);
         }
     } catch (e) {
         console.error(e);
@@ -127,9 +130,8 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
     // Trigger celebration
     triggerCelebration();
 
-    // Record stats
-    const charsLearned = config.characters.filter(c => sessionLearned.has(c.char));
-    recordLearning(charsLearned);
+    // Stats recording is handled inside updateCharacterProgress now for detailed metrics,
+    // but we can still call recordLearning for daily activity counts if needed (storage.ts handles this inside updateCharacterProgress too)
 
     // Save points
     const totalStars = addStars(score);
@@ -166,12 +168,13 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
         speakText(`学习: ${modalChar.char}`);
         break;
       case 'KNOWN':
-        addKnownCharacter(modalChar);
+        // Update progress manually via modal
+        updateCharacterProgress(modalChar, true);
         speakText('认识');
         setModalChar(null);
         break;
       case 'UNKNOWN':
-        addUnknownCharacter(modalChar);
+        updateCharacterProgress(modalChar, false);
         speakText('不认识');
         setModalChar(null);
         break;
@@ -417,7 +420,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
         </div>
       </div>
 
-      {/* --- Action Modal (Copied from CharacterBankView but adapted) --- */}
+      {/* --- Action Modal --- */}
       {modalChar && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setModalChar(null)}>
               <div 

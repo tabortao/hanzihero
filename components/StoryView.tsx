@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { BookOpen, Sparkles, Trash2, Volume2, Save, Plus, Archive, RotateCcw, Check, Loader2, PenTool, Search, Tag, X, CheckCircle, GraduationCap, Edit2, ChevronLeft, ChevronRight, Coins, Camera, Image as ImageIcon, Wand2, Type } from 'lucide-react';
-import { Story, CharPair, Character } from '../types';
-import { getStories, saveStory, deleteStory, getKnownCharacters, getUnknownCharacters, addUnknownCharacter, addKnownCharacter, isCharacterKnown, getReadingCoins, addReadingCoins } from '../services/storage';
+import { BookOpen, Sparkles, Trash2, Volume2, Save, Plus, Archive, RotateCcw, Check, Loader2, PenTool, Search, Tag, X, CheckCircle, GraduationCap, Edit2, ChevronLeft, ChevronRight, Coins, Camera, Image as ImageIcon, Wand2, Type, Star } from 'lucide-react';
+import { Story, CharPair, Character, VisionPrompt } from '../types';
+import { getStories, saveStory, deleteStory, getKnownCharacters, getUnknownCharacters, addUnknownCharacter, addKnownCharacter, isCharacterKnown, getReadingCoins, addReadingCoins, getVisionPrompts, saveVisionPrompt, deleteVisionPrompt } from '../services/storage';
 import { generateStoryStream, recognizeTextFromImage } from '../services/geminiService';
 import { speakText, WritingGrid } from './SharedComponents';
 import { findCharacterPinyin } from '../data/dictionary';
@@ -47,6 +47,8 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
   // Photo Params
   const [recognitionMode, setRecognitionMode] = useState<'OCR' | 'STORY' | 'CUSTOM'>('OCR');
   const [photoPrompt, setPhotoPrompt] = useState('');
+  const [customPrompts, setCustomPrompts] = useState<VisionPrompt[]>([]);
+  const [selectedPromptId, setSelectedPromptId] = useState<string>('');
   
   // Common
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -74,6 +76,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
   useEffect(() => {
     setStories(getStories());
     setCoins(getReadingCoins());
+    setCustomPrompts(getVisionPrompts());
   }, []);
 
   // Reset page when story changes
@@ -119,14 +122,17 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
   // Update Photo Prompt based on Mode
   useEffect(() => {
       if (recognitionMode === 'OCR') {
-          // Explicit instruction to extract text and handle story books
           setPhotoPrompt("任务：提取文字。\n请将图片中所有的汉字、标点符号完整的提取出来。保持原文的换行和格式。");
       } else if (recognitionMode === 'STORY') {
           setPhotoPrompt("任务：看图写话。\n请仔细观察这张图片，发挥想象力，用生动有趣、适合小学生阅读的语言（一年级水平），根据画面内容编写一个小故事。");
-      } else {
-          setPhotoPrompt(""); // Custom let user type
+      } else if (recognitionMode === 'CUSTOM') {
+         // Keep custom input or select from saved
+         if (selectedPromptId) {
+             const p = customPrompts.find(c => c.id === selectedPromptId);
+             if(p) setPhotoPrompt(p.text);
+         }
       }
-  }, [recognitionMode]);
+  }, [recognitionMode, selectedPromptId, customPrompts]);
 
   const handleCloseModal = () => {
       setShowInputModal(false);
@@ -233,6 +239,32 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
               setLoading(false);
               isAnalyzingRef.current = false;
           }
+      }
+  };
+
+  const handleSavePrompt = () => {
+      if (!photoPrompt.trim()) return;
+      const alias = prompt("给这个提示词起个名字：", "我的自定义提示词");
+      if (alias) {
+          const newPrompt: VisionPrompt = {
+              id: generateId(),
+              alias,
+              text: photoPrompt
+          };
+          saveVisionPrompt(newPrompt);
+          setCustomPrompts(getVisionPrompts());
+          setSelectedPromptId(newPrompt.id);
+          alert("保存成功！");
+      }
+  };
+
+  const handleDeletePrompt = () => {
+      if (!selectedPromptId) return;
+      if (confirm("确定要删除这个提示词吗？")) {
+          deleteVisionPrompt(selectedPromptId);
+          setCustomPrompts(getVisionPrompts());
+          setSelectedPromptId('');
+          setPhotoPrompt('');
       }
   };
 
@@ -534,14 +566,20 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                               <label className="block text-sm font-bold text-gray-700 mb-3">1. 选择识别模式</label>
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                   <button 
-                                      onClick={() => setRecognitionMode('OCR')}
+                                      onClick={() => {
+                                          setRecognitionMode('OCR');
+                                          setSelectedPromptId('');
+                                      }}
                                       className={`p-3 rounded-xl border-2 text-left transition-all ${recognitionMode === 'OCR' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-200 text-gray-500 hover:border-purple-200'}`}
                                   >
                                       <div className="font-bold text-sm mb-1 flex items-center gap-1"><Type size={16}/> 提取文字</div>
                                       <div className="text-[10px] opacity-70">识别绘本/课本上的文字内容</div>
                                   </button>
                                   <button 
-                                      onClick={() => setRecognitionMode('STORY')}
+                                      onClick={() => {
+                                          setRecognitionMode('STORY');
+                                          setSelectedPromptId('');
+                                      }}
                                       className={`p-3 rounded-xl border-2 text-left transition-all ${recognitionMode === 'STORY' ? 'border-pink-500 bg-pink-50 text-pink-700' : 'border-gray-200 text-gray-500 hover:border-pink-200'}`}
                                   >
                                       <div className="font-bold text-sm mb-1 flex items-center gap-1"><Wand2 size={16}/> 看图写话</div>
@@ -552,19 +590,48 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                                       className={`p-3 rounded-xl border-2 text-left transition-all ${recognitionMode === 'CUSTOM' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-500 hover:border-blue-200'}`}
                                   >
                                       <div className="font-bold text-sm mb-1 flex items-center gap-1"><PenTool size={16}/> 自定义</div>
-                                      <div className="text-[10px] opacity-70">输入你自己的特殊要求</div>
+                                      <div className="text-[10px] opacity-70">输入或选择保存的提示词</div>
                                   </button>
                               </div>
                           </div>
 
                           <div>
-                               <label className="block text-sm font-bold text-gray-700 mb-2">2. 识别要求 (提示词)</label>
+                               <div className="flex justify-between items-center mb-2">
+                                  <label className="block text-sm font-bold text-gray-700">2. 识别要求 (提示词)</label>
+                                  {recognitionMode === 'CUSTOM' && (
+                                      <div className="flex gap-2">
+                                          <select 
+                                            className="text-xs p-1 border rounded"
+                                            value={selectedPromptId}
+                                            onChange={e => setSelectedPromptId(e.target.value)}
+                                          >
+                                              <option value="">-- 选择常用 --</option>
+                                              {customPrompts.map(p => (
+                                                  <option key={p.id} value={p.id}>{p.alias}</option>
+                                              ))}
+                                          </select>
+                                      </div>
+                                  )}
+                               </div>
                                <textarea 
                                   className="w-full p-3 rounded-xl border border-gray-200 text-sm focus:border-purple-400 outline-none min-h-[80px]"
                                   value={photoPrompt}
                                   onChange={e => setPhotoPrompt(e.target.value)}
                                   placeholder="请输入具体的识别要求..."
+                                  disabled={recognitionMode !== 'CUSTOM' && recognitionMode !== 'OCR' && recognitionMode !== 'STORY'} // Actually always editable is better UX
                                />
+                               {recognitionMode === 'CUSTOM' && (
+                                   <div className="flex gap-2 mt-2 justify-end">
+                                       <button onClick={handleSavePrompt} className="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-lg hover:bg-blue-100 flex items-center gap-1">
+                                           <Save size={12} /> 保存常用
+                                       </button>
+                                       {selectedPromptId && (
+                                           <button onClick={handleDeletePrompt} className="text-xs bg-red-50 text-red-600 px-3 py-1 rounded-lg hover:bg-red-100 flex items-center gap-1">
+                                               <Trash2 size={12} /> 删除
+                                           </button>
+                                       )}
+                                   </div>
+                               )}
                           </div>
 
                           <div>

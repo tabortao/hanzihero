@@ -30,6 +30,19 @@ export interface UserProgress {
   stars: number; 
 }
 
+// New: Ebbinghaus Learning Record
+export interface LearningRecord {
+  char: string;
+  pinyin: string;
+  firstLearned: number;       // Timestamp when first encountered
+  lastReviewed: number;       // Timestamp of last review
+  nextReview: number;         // Calculated timestamp for next review
+  reviewCount: number;        // Total reviews
+  intervalIndex: number;      // Current index in the interval array (0-7)
+  memoryStrength: number;     // 0.0 - 1.0 (Visualization of mastery)
+  difficulty: number;         // 0.0 - 1.0 (Adaptive difficulty)
+}
+
 export type ViewState = 'TAB_HOME' | 'TAB_STORY' | 'TAB_STATS' | 'TAB_PROFILE' | 'GAME' | 'REVIEW' | 'BANK' | 'DAILY_MENU' | 'GAME_LISTEN' | 'GAME_LOOK' | 'GAME_CRUSH';
 
 export interface GameConfig {
@@ -81,7 +94,7 @@ export interface AppSettings {
   
   ttsRate: number; 
   ttsVoice: string; 
-  dailyLimit: number;
+  dailyNewLimit: number; // Changed from dailyLimit to control New Words specifically
   storyLength: number;
   selectedCurriculumId?: string;
   selectedGradeId?: string;
@@ -102,4 +115,10 @@ export interface Story {
   keywords?: string;
   tags?: string[]; 
   source?: 'AI' | 'MANUAL' | 'OCR'; 
+}
+
+export interface VisionPrompt {
+    id: string;
+    alias: string;
+    text: string;
 }
