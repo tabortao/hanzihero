@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Book, Volume2, Eye, LayoutGrid, Play, Star } from 'lucide-react';
+import { ArrowLeft, Book, Volume2, Eye, LayoutGrid, Play, Star, Plus, CheckCircle, GraduationCap, BarChart } from 'lucide-react';
 import { Character } from '../types';
 import { getStars, getLearningProgress } from '../services/storage';
 
 interface DailyChallengeMenuProps {
   onBack: () => void;
-  onSelectMode: (mode: 'CARD' | 'LISTEN' | 'LOOK' | 'CRUSH') => void;
+  onSelectMode: (mode: 'CARD' | 'LISTEN' | 'LOOK' | 'CRUSH' | 'TEST') => void;
   characterCount: number;
   characters?: Character[]; // Pass the actual characters to analyze
   title?: string;
@@ -58,7 +58,7 @@ export const DailyChallengeMenu: React.FC<DailyChallengeMenuProps> = ({ onBack, 
             </button>
             <div>
               <h1 className="text-xl md:text-2xl font-fun text-gray-800 flex items-center gap-2">
-                {title || "每日挑战"} <span className="text-2xl">🏆</span>
+                <span className="text-2xl">🏆</span> {title || "每日挑战"} 
               </h1>
               <div className="flex gap-3 text-xs font-bold mt-1">
                  <span className="text-green-600 bg-green-100 px-2 py-0.5 rounded-md border border-green-200">
@@ -175,6 +175,31 @@ export const DailyChallengeMenu: React.FC<DailyChallengeMenuProps> = ({ onBack, 
                <span>GO</span> <Play size={14} fill="currentColor" />
            </div>
         </button>
+
+        {/* Mode 5: Literacy Volume Test */}
+        <button 
+          onClick={() => onSelectMode('TEST')}
+          className="bg-white p-5 rounded-[1.5rem] shadow-md border-2 border-cyan-50 hover:border-cyan-200 hover:shadow-lg hover:-translate-y-1 transition-all group text-left relative overflow-hidden h-40 flex flex-col justify-between"
+        >
+           <div className="absolute inset-0 bg-gradient-to-br from-white via-cyan-50/30 to-cyan-100/50 opacity-0 group-hover:opacity-100 transition-opacity z-0" />
+           <div className="absolute right-[-10px] bottom-[-20px] text-[6rem] group-hover:scale-110 transition-transform duration-500 opacity-10 group-hover:opacity-30 rotate-3 select-none pointer-events-none z-0">🎓</div>
+
+           <div className="relative z-10 flex justify-between w-full">
+              <div>
+                  <div className="flex items-center gap-2 mb-2">
+                      <div className="p-2 bg-cyan-100 rounded-lg text-cyan-600"><BarChart size={20} /></div>
+                      <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1">TEST</span>
+                  </div>
+                  <h3 className="text-lg font-fun text-gray-800 font-bold group-hover:text-cyan-700 transition-colors">识字量测试</h3>
+                  <p className="text-xs text-gray-400 font-medium mt-1 line-clamp-2">快速测试识字量，标记已会汉字。</p>
+              </div>
+           </div>
+           
+           <div className="relative z-10 mt-auto flex items-center gap-1 text-cyan-600 text-xs font-bold opacity-60 group-hover:opacity-100 transition-opacity self-end">
+               <span>GO</span> <Play size={14} fill="currentColor" />
+           </div>
+        </button>
+
       </div>
     </div>
   );

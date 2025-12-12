@@ -157,7 +157,9 @@ export const LookIdentifyGame: React.FC<LookIdentifyGameProps> = ({ characters, 
 
           if (newIndices.length === targetSentence.length) {
               setTimeout(() => {
-                   setLevelScore(prev => prev + 10);
+                   // Add score instantly (1 point)
+                   setLevelScore(prev => prev + 1);
+
                    if (currentRoundInLevel < QUESTIONS_PER_LEVEL - 1) {
                        setCurrentRoundInLevel(prev => prev + 1);
                        loadRound(currentLevel, currentRoundInLevel + 1);
@@ -177,15 +179,25 @@ export const LookIdentifyGame: React.FC<LookIdentifyGameProps> = ({ characters, 
   };
 
   const handleLevelComplete = () => {
-      const newTotal = totalScore + levelScore + 10;
-      setTotalScore(newTotal);
+      const isReplay = currentLevel < maxLevel;
+      const finalLevelScore = QUESTIONS_PER_LEVEL;
+
+      if (!isReplay) {
+          const newTotal = totalScore + finalLevelScore;
+          setTotalScore(newTotal);
+          const nextLevel = currentLevel + 1;
+          if (nextLevel > maxLevel) setMaxLevel(nextLevel);
+          saveGameStats('look', { maxLevel: Math.max(maxLevel, nextLevel), totalScore: newTotal });
+      }
       
-      const nextLevel = currentLevel + 1;
-      if (nextLevel > maxLevel) setMaxLevel(nextLevel);
-      
-      saveGameStats('look', { maxLevel: Math.max(maxLevel, nextLevel), totalScore: newTotal });
+      setLevelScore(finalLevelScore);
       setShowLevelComplete(true);
   };
+
+  // Display Logic
+  const isReplay = currentLevel < maxLevel;
+  const displayTotalScore = totalScore + (isReplay ? 0 : levelScore);
+
 
   if (view === 'MENU') {
       return (
@@ -217,8 +229,9 @@ export const LookIdentifyGame: React.FC<LookIdentifyGameProps> = ({ characters, 
                         <span className="text-xs font-bold">挑战新关卡</span>
                     </button>
 
-                    {Array.from({ length: maxLevel }).map((_, i) => {
-                        const lvl = maxLevel - i;
+                    {/* Only show COMPLETED levels (below current max) */}
+                    {Array.from({ length: maxLevel - 1 }).map((_, i) => {
+                        const lvl = (maxLevel - 1) - i;
                         return (
                             <button 
                                 key={lvl}
@@ -299,7 +312,7 @@ export const LookIdentifyGame: React.FC<LookIdentifyGameProps> = ({ characters, 
                   进度 {currentRoundInLevel + 1} / {QUESTIONS_PER_LEVEL}
                </div>
                <div className="bg-white/50 px-3 py-1 rounded-full text-orange-800 font-bold text-sm flex items-center gap-1">
-                  <Star size={14} className="text-yellow-500 fill-yellow-500"/> {totalScore}
+                  <Star size={14} className="text-yellow-500 fill-yellow-500"/> {displayTotalScore}
                </div>
            </div>
        </div>

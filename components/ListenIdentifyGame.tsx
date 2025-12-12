@@ -32,7 +32,6 @@ export const ListenIdentifyGame: React.FC<ListenIdentifyGameProps> = ({ characte
   const [isWrongAnim, setIsWrongAnim] = useState(false);
   const [showArrowAnim, setShowArrowAnim] = useState<'HIT' | 'MISS' | null>(null);
   
-  // Track wrong answers to show later
   const wrongCharsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -157,7 +156,9 @@ export const ListenIdentifyGame: React.FC<ListenIdentifyGameProps> = ({ characte
           if (newIndices.length === targetSentence.length) {
               // Round Complete
               setTimeout(() => {
-                   setLevelScore(prev => prev + 10);
+                   // Add score immediately for this round (1 point per question)
+                   setLevelScore(prev => prev + 1);
+                   
                    if (currentRoundInLevel < QUESTIONS_PER_LEVEL - 1) {
                        setCurrentRoundInLevel(prev => prev + 1);
                        loadRound(currentLevel, currentRoundInLevel + 1);
@@ -178,17 +179,33 @@ export const ListenIdentifyGame: React.FC<ListenIdentifyGameProps> = ({ characte
   };
 
   const handleLevelComplete = () => {
-      const newTotal = totalScore + levelScore + 10; // Bonus for completion
-      setTotalScore(newTotal);
+      const isReplay = currentLevel < maxLevel;
+      const pointsEarned = levelScore + 1; // +1 because levelScore state lags one step in the final round update above? No, wait.
+      // Logic fix: setLevelScore adds 1 on round completion. So at end, levelScore is 5.
       
-      const nextLevel = currentLevel + 1;
-      if (nextLevel > maxLevel) setMaxLevel(nextLevel);
+      // Calculate final stars for this session
+      // Since we updated levelScore iteratively, 'levelScore' variable here holds (QUESTIONS_PER_LEVEL - 1) because of closure?
+      // No, let's use functional update or rely on known count (5).
+      const finalLevelScore = QUESTIONS_PER_LEVEL;
       
-      saveGameStats('listen', { maxLevel: Math.max(maxLevel, nextLevel), totalScore: newTotal });
+      if (!isReplay) {
+          const newTotal = totalScore + finalLevelScore;
+          setTotalScore(newTotal);
+          const nextLevel = currentLevel + 1;
+          if (nextLevel > maxLevel) setMaxLevel(nextLevel);
+          saveGameStats('listen', { maxLevel: Math.max(maxLevel, nextLevel), totalScore: newTotal });
+      }
+      
+      // Update UI state just for display
+      setLevelScore(finalLevelScore);
       setShowLevelComplete(true);
   };
 
   // --- Renders ---
+
+  // Calculate realtime total score for display
+  const isReplay = currentLevel < maxLevel;
+  const displayTotalScore = totalScore + (isReplay ? 0 : levelScore);
 
   if (view === 'MENU') {
       return (
@@ -220,8 +237,9 @@ export const ListenIdentifyGame: React.FC<ListenIdentifyGameProps> = ({ characte
                         <span className="text-xs font-bold">挑战新关卡</span>
                     </button>
 
-                    {Array.from({ length: maxLevel }).map((_, i) => {
-                        const lvl = maxLevel - i;
+                    {/* Only show COMPLETED levels (below current max) */}
+                    {Array.from({ length: maxLevel - 1 }).map((_, i) => {
+                        const lvl = (maxLevel - 1) - i;
                         return (
                             <button 
                                 key={lvl}
@@ -302,7 +320,7 @@ export const ListenIdentifyGame: React.FC<ListenIdentifyGameProps> = ({ characte
                    进度 {currentRoundInLevel + 1} / {QUESTIONS_PER_LEVEL}
                 </div>
                 <div className="bg-white/50 px-3 py-1 rounded-full text-indigo-800 font-bold text-sm flex items-center gap-1">
-                   <Star size={14} className="text-yellow-500 fill-yellow-500"/> {totalScore}
+                   <Star size={14} className="text-yellow-500 fill-yellow-500"/> {displayTotalScore}
                 </div>
            </div>
        </div>

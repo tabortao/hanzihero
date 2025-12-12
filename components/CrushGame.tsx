@@ -171,7 +171,7 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
               setTimeout(() => {
                   setMatchedIds(prev => [...prev, first.uid, second.uid]);
                   setSelectedIds([]);
-                  setCurrentScore(prev => prev + 10);
+                  setCurrentScore(prev => prev + 1); // 1 point per match
                   
                   // Show modal
                   setModalContent({
@@ -198,24 +198,33 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
   };
 
   const handleNextLevel = () => {
-      const newTotal = totalGameScore + currentScore;
-      setTotalGameScore(newTotal);
+      // Logic for saving score if not replay
+      const isReplay = level < maxReached;
       
-      const nextLevel = level + 1;
-      if (nextLevel > maxReached) setMaxReached(nextLevel);
-      saveGameStats('crush', { maxLevel: Math.max(maxReached, nextLevel), totalScore: newTotal });
-      
-      startLevel(nextLevel);
+      if (!isReplay) {
+         const newTotal = totalGameScore + currentScore;
+         setTotalGameScore(newTotal);
+         
+         const nextLevel = level + 1;
+         if (nextLevel > maxReached) setMaxReached(nextLevel);
+         saveGameStats('crush', { maxLevel: Math.max(maxReached, nextLevel), totalScore: newTotal });
+         startLevel(nextLevel);
+      } else {
+         // Just move next without saving stars
+         startLevel(level + 1);
+      }
   };
 
   const handleBackToMenu = () => {
-      if (currentScore > 0) {
-          const newTotal = totalGameScore + currentScore;
-          setTotalGameScore(newTotal);
-          saveGameStats('crush', { maxLevel: maxReached, totalScore: newTotal });
-      }
+      // If we abort, we don't save partial score if it's new.
+      // But if we want to save partial, we check isReplay.
+      // For now, simple exit.
       setView('MENU');
   };
+
+  // Display Score Logic
+  const isReplay = level < maxReached;
+  const displayTotalScore = totalGameScore + (isReplay ? 0 : currentScore);
 
   if (view === 'MENU') {
       return (
@@ -247,8 +256,9 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
                         <span className="text-xs font-bold">挑战新关卡</span>
                     </button>
 
-                    {Array.from({ length: maxReached }).map((_, i) => {
-                        const lvl = maxReached - i;
+                    {/* Only show COMPLETED levels (below current max) */}
+                    {Array.from({ length: maxReached - 1 }).map((_, i) => {
+                        const lvl = (maxReached - 1) - i;
                         return (
                             <button 
                                 key={lvl}
@@ -333,7 +343,7 @@ export const CrushGame: React.FC<CrushGameProps> = ({ characters, onExit }) => {
                关卡 {level}
             </div>
             <div className="bg-white/50 px-3 py-1 rounded-full text-green-800 font-bold text-sm flex items-center gap-1">
-               <Star size={14} className="text-yellow-500 fill-yellow-500"/> {totalGameScore}
+               <Star size={14} className="text-yellow-500 fill-yellow-500"/> {displayTotalScore}
             </div>
         </div>
       </div>

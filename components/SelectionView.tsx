@@ -50,7 +50,8 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
   const [gradeInputMode, setGradeInputMode] = useState<'SELECT' | 'INPUT'>('SELECT');
   
   // Load settings and data
-  const settings = getSettings();
+  // We fetch settings inside functions to ensure freshness, but keep a reference here for initial rendering if needed
+  const settings = getSettings(); 
   const knownChars = getKnownCharacters();
   const unknownChars = getUnknownCharacters();
 
@@ -99,7 +100,9 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
     return { todo, done };
   }, [currentGrade, knownChars]);
 
-  // Ebbinghaus Forgetting Curve Logic & Smart Fill
+  // AI Agent Logic for Daily Challenge
+  // 1. Fetch Ebbinghaus Reviews (Due today)
+  // 2. Fetch New Characters from selected Curriculum (Up to daily limit)
   const prepareDailyChallenge = () => {
     // 1. Basic Validation
     if (needsSetup) {
@@ -107,41 +110,47 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
         return;
     }
 
-    const dailyPlan = getDailyPlan();
-    let targets = [...dailyPlan.review, ...dailyPlan.newChars];
-    let modeTitle = "每日挑战";
+    // Refresh settings & data
+    const currentSettings = getSettings();
+    const dailyPlan = getDailyPlan(); // This only gets review items (Ebbinghaus)
+    const reviewTargets = dailyPlan.review;
     
-    // 2. If Ebbinghaus queue is empty (e.g. New User or caught up), 
-    // try to fetch new characters from the first incomplete unit in the curriculum.
-    if (targets.length === 0) {
-        const nextUnit = processedUnits.todo[0];
+    let newTargets: Character[] = [];
+    
+    // 2. Determine New Characters to Learn (Based on Curriculum Sequence)
+    const dailyNewLimit = currentSettings.dailyNewLimit || 5;
+    
+    // Iterate through units in the current grade to find the first unlearned characters
+    // Note: processedUnits.todo contains units that are NOT fully complete
+    if (processedUnits.todo.length > 0) {
+        const knownSet = new Set(knownChars.map(c => c.char));
+        const unlearnedBuffer: Character[] = [];
         
-        if (nextUnit) {
-             const knownSet = new Set(knownChars.map(c => c.char));
-             // Find unlearned chars in this unit
-             const unlearnedInUnit = nextUnit.characters.filter(c => !knownSet.has(c.char));
-             
-             // Take daily limit count (default 5 if not set)
-             const limit = settings.dailyNewLimit || 5;
-             const newBatch = unlearnedInUnit.slice(0, limit);
-             
-             if (newBatch.length > 0) {
-                 targets = newBatch;
-                 modeTitle = "每日挑战 (新课)";
-             }
+        // Collect unlearned chars from todo units until we hit the limit
+        for (const unit of processedUnits.todo) {
+            if (unlearnedBuffer.length >= dailyNewLimit) break;
+            
+            const unlearnedInUnit = unit.characters.filter(c => !knownSet.has(c.char));
+            unlearnedBuffer.push(...unlearnedInUnit);
         }
+        
+        // Slice to exact limit
+        newTargets = unlearnedBuffer.slice(0, dailyNewLimit);
     }
     
-    if (targets.length === 0) {
+    // 3. Combine Review + New
+    const combinedTargets = [...reviewTargets, ...newTargets];
+    
+    if (combinedTargets.length === 0) {
         alert("🎉 太棒了！\n\n今天没有需要复习的汉字，本册书的新课也已全部完成。\n\n您可以去【生字本】自由复习，或进入【阅读】生成新故事！");
         return;
     }
     
     // Dedup just in case
-    const unique = Array.from(new Set(targets.map(c => c.char)))
-        .map(char => targets.find(c => c.char === char)!);
+    const unique = Array.from(new Set(combinedTargets.map(c => c.char)))
+        .map(char => combinedTargets.find(c => c.char === char)!);
 
-    onOpenDailyMenu(unique, modeTitle);
+    onOpenDailyMenu(unique, "每日挑战");
   };
 
   // Pre-fill custom modal logic
@@ -410,16 +419,7 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
                      </button>
                  )}
 
-                 <button 
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenDailyMenu(unit.characters, `单元挑战: ${unit.name}`);
-                    }}
-                    className="p-2 text-purple-400 hover:text-purple-600 hover:bg-purple-50 rounded-full transition-colors"
-                    title="单元游戏挑战"
-                 >
-                    <Gamepad2 size={20} />
-                 </button>
+                 {/* Removed Gamepad2 button as requested */}
 
                  <button 
                     onClick={(e) => {
@@ -446,6 +446,7 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
     );
   };
 
+  // ... (rest of the file remains same, return existing JSX)
   return (
     <div className="max-w-7xl mx-auto min-h-screen bg-gray-50 flex flex-col pb-24 relative transition-all">
       

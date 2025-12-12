@@ -3,7 +3,9 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { ViewState, GameConfig, Character, Unit } from './types';
 import { SelectionView } from './components/SelectionView';
 import { BottomNav } from './components/SharedComponents';
-import { getStars } from './services/storage';
+import { getStars, getKnownCharacters, getUnknownCharacters, getSettings } from './services/storage';
+import { findCharacterPinyin, getAllDictionaryChars } from './data/dictionary';
+import { getOrderedCurriculumChars } from './data';
 
 // Lazy Load Heavy Components to speed up initial rendering
 const GameView = React.lazy(() => import('./components/GameView').then(module => ({ default: module.GameView })));
@@ -44,6 +46,9 @@ const App: React.FC = () => {
   
   // New: State for Card Game Mode
   const [isCardLevelMode, setIsCardLevelMode] = useState(false);
+  
+  // New: Test Mode State
+  const [isTestMode, setIsTestMode] = useState(false);
 
   useEffect(() => {
     // Load initial stars
@@ -54,6 +59,7 @@ const App: React.FC = () => {
     setGameConfig(config);
     setIsDailySession(false); // Reset unless specified otherwise
     setIsCardLevelMode(false);
+    setIsTestMode(false);
     setView('GAME');
   };
 
@@ -80,6 +86,7 @@ const App: React.FC = () => {
     });
     setIsDailySession(false);
     setIsCardLevelMode(false);
+    setIsTestMode(false);
     setView('GAME');
   };
 
@@ -108,8 +115,9 @@ const App: React.FC = () => {
   };
 
   // Select Mode from Menu
-  const handleSelectDailyMode = (mode: 'CARD' | 'LISTEN' | 'LOOK' | 'CRUSH') => {
+  const handleSelectDailyMode = (mode: 'CARD' | 'LISTEN' | 'LOOK' | 'CRUSH' | 'TEST') => {
       setIsDailySession(true); // Mark as daily session so back button returns to menu
+      setIsTestMode(false);
       
       if (mode === 'CARD') {
           // New Level-based Flashcard Game
@@ -121,6 +129,40 @@ const App: React.FC = () => {
           setView('GAME_LOOK');
       } else if (mode === 'CRUSH') {
           setView('GAME_CRUSH');
+      } else if (mode === 'TEST') {
+          // Literacy Volume Test Logic: 
+          // Use ordered curriculum characters to test difficulty progression (Grade 1 -> 6)
+          // Default to 'renjiaoban' (RJB) as standard reference
+          const settings = getSettings();
+          const currId = settings.selectedCurriculumId || 'renjiaoban';
+          
+          const orderedChars = getOrderedCurriculumChars(currId);
+          const knownSet = new Set(getKnownCharacters().map(c => c.char));
+          
+          // Filter out characters the user already knows
+          // The remaining list starts with the easiest unknown words
+          const unknownOrdered = orderedChars.filter(c => !knownSet.has(c.char));
+          
+          // Fallback: If user knows all RJB chars, grab randoms from dictionary
+          let testSet: Character[] = [];
+          if (unknownOrdered.length < 5) {
+              const allDict = getAllDictionaryChars();
+              const remaining = allDict.filter(c => !knownSet.has(c));
+              testSet = remaining.slice(0, 20).map(c => ({ char: c, pinyin: findCharacterPinyin(c) }));
+          } else {
+              // Take the first 20 unknown characters from the curriculum order
+              testSet = unknownOrdered.slice(0, 20);
+          }
+          
+          if (testSet.length === 0) {
+              alert("太棒了！字库里的汉字你都学过啦！");
+              return;
+          }
+
+          setDailyChars(testSet);
+          setIsCardLevelMode(true);
+          setIsTestMode(true);
+          setView('GAME');
       }
   };
 
@@ -160,6 +202,7 @@ const App: React.FC = () => {
                  <FlashCardGame 
                     characters={dailyChars}
                     onExit={handleBackFromDailyGame}
+                    isTestMode={isTestMode}
                  />
              ) : (
                 gameConfig && (

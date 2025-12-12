@@ -3,16 +3,21 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Volume2, Sparkles, BookOpen, Star, RefreshCw, Layers, Check, X, Puzzle, GraduationCap, CheckCircle, XCircle } from 'lucide-react';
 import { GameConfig, AIExplanation, Character } from '../types';
 import { explainCharacter } from '../services/geminiService';
-import { addUnknownCharacter, addKnownCharacter, addStars, getSettings, recordLearning, isCharacterKnown, getUnknownCharacters, updateCharacterProgress } from '../services/storage';
+import { addUnknownCharacter, addKnownCharacter, addStars, getSettings, recordLearning, isCharacterKnown, getUnknownCharacters, updateCharacterProgress, getStars } from '../services/storage';
 import { WritingGrid, StrokeOrderDisplay, speakText } from './SharedComponents';
 import confetti from 'canvas-confetti';
 
 interface GameViewProps {
   config: GameConfig;
-  onExit: (newStars: number) => void;
+  onExit: (newStars: number, sessionScore?: number) => void;
+  ignoreUnknown?: boolean; // If true, "Don't Know" won't add to Unknown list (for Testing)
+  onBack?: () => void; // Optional: Override back button behavior (e.g. for aborting without saving)
+  showScore?: boolean; // Optional: Toggle score display
+  skipLearning?: boolean; // Optional: If true, "Don't Know" skips explanation and goes to next char
+  disableRewards?: boolean; // If true, do not save stars/points to storage
 }
 
-export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
+export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknown = false, onBack, showScore = true, skipLearning = false, disableRewards = false }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [viewState, setViewState] = useState<'INITIAL' | 'LEARNING'>('INITIAL');
   const [score, setScore] = useState(0);
@@ -64,10 +69,20 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
 
   // User clicked "I Don't Know"
   const handleUnknown = async () => {
-    // New AI Agent Logic: Record failure (reset/shorten interval)
-    updateCharacterProgress(currentCharacter, false);
+    // Only update progress (add to unknown) if NOT ignoring unknown
+    if (!ignoreUnknown) {
+        updateCharacterProgress(currentCharacter, false);
+    }
 
     markLearned();
+
+    // If skipLearning is true (e.g. Test Mode), go directly to next char
+    if (skipLearning) {
+        speakText(currentCharacter.char);
+        nextChar();
+        return;
+    }
+
     setViewState('LEARNING');
     speakText(currentCharacter.char); // Speak char immediately
     
@@ -87,7 +102,11 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
             // Update current character in config (local state) so UI updates
             currentCharacter.pinyin = data.pinyin;
             // Also update storage with new pinyin
-             updateCharacterProgress({ ...currentCharacter, pinyin: data.pinyin }, false);
+            // Note: If ignoreUnknown is true, we might skip this sync to avoid side effects in Test Mode, 
+            // but saving pinyin is generally safe/good.
+             if (!ignoreUnknown) {
+                 updateCharacterProgress({ ...currentCharacter, pinyin: data.pinyin }, false);
+             }
         }
     } catch (e) {
         console.error(e);
@@ -127,19 +146,23 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
   };
 
   const handleFinish = () => {
-    // Trigger celebration
-    triggerCelebration();
+    if (!skipLearning) {
+        // Trigger celebration only if it's not a dry test
+        triggerCelebration();
+    }
 
-    // Stats recording is handled inside updateCharacterProgress now for detailed metrics,
-    // but we can still call recordLearning for daily activity counts if needed (storage.ts handles this inside updateCharacterProgress too)
-
-    // Save points
-    const totalStars = addStars(score);
+    // Save points ONLY if not disabled
+    let totalStars;
+    if (disableRewards) {
+        totalStars = getStars(); // Get current without adding
+    } else {
+        totalStars = addStars(score);
+    }
 
     // Delay exit slightly to show celebration
     setTimeout(() => {
-        onExit(totalStars);
-    }, 2000);
+        onExit(totalStars, score);
+    }, skipLearning ? 100 : 2000); // Faster exit for test mode
   };
 
   const nextChar = () => {
@@ -174,7 +197,9 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
         setModalChar(null);
         break;
       case 'UNKNOWN':
-        updateCharacterProgress(modalChar, false);
+        if (!ignoreUnknown) {
+             updateCharacterProgress(modalChar, false);
+        }
         speakText('不认识');
         setModalChar(null);
         break;
@@ -200,7 +225,15 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
       <div className="flex items-center justify-between p-4 mb-2">
         <div className="flex items-center gap-2">
             <button 
-              onClick={() => onExit(addStars(score))} // Exit with current score added if manual
+              onClick={() => {
+                  if (onBack) {
+                      onBack();
+                  } else {
+                      // Legacy/Default behavior
+                      const currentStars = disableRewards ? getStars() : addStars(score);
+                      onExit(currentStars, score);
+                  }
+              }}
               className="p-2 bg-white/50 rounded-full hover:bg-white text-emerald-800 transition-colors"
             >
               <ArrowLeft />
@@ -211,9 +244,11 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit }) => {
             <div className="bg-white/50 px-3 py-1 rounded-full text-emerald-800 font-bold text-sm flex items-center">
                  {currentIndex + 1} / {config.characters.length}
             </div>
-            <div className="bg-white/50 px-3 py-1 rounded-full text-emerald-800 font-bold text-sm flex items-center gap-1">
-                 <Star size={14} className="text-yellow-500 fill-yellow-500"/> {score}
-            </div>
+            {showScore && (
+                <div className="bg-white/50 px-3 py-1 rounded-full text-emerald-800 font-bold text-sm flex items-center gap-1">
+                     <Star size={14} className="text-yellow-500 fill-yellow-500"/> {score}
+                </div>
+            )}
         </div>
       </div>
 
