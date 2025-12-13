@@ -84,6 +84,17 @@ export interface ProviderConfig {
     visionModel?: string;
 }
 
+export interface CustomTTSProfile {
+    id: string;
+    name: string;
+    apiUrl: string; // e.g. https://tts.vercel.app/api/tts
+    voiceId: string; // e.g. zh-CN-XiaoxiaoNeural
+    apiKey?: string; // Optional Bearer Token
+    method?: 'GET' | 'POST'; 
+    speed?: number; // 0.5 - 2.0 (Default 1.0)
+    pitch?: number; // 0.5 - 1.5 (Default 1.0)
+}
+
 export interface AppSettings {
   apiBaseUrl: string;
   apiKey: string;
@@ -97,7 +108,12 @@ export interface AppSettings {
   visionModel?: string;
   
   ttsRate: number; 
-  ttsVoice: string; 
+  ttsVoice: string; // System voice URI or Custom Profile ID
+  
+  // Custom TTS Settings
+  activeTTSProfileId?: string; // If 'SYSTEM' or undefined, use browser. If UUID, use custom.
+  customTTSProfiles?: CustomTTSProfile[];
+
   dailyNewLimit: number; // Changed from dailyLimit to control New Words specifically
   storyLength: number;
   selectedCurriculumId?: string;

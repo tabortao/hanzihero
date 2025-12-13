@@ -1,10 +1,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Settings, Database, Download, Upload, Info, Bot, ArrowLeft, HelpCircle, BookOpen, ChevronRight, Heart, ExternalLink, MessageCircle, Check, X, Server, FileJson, Activity, WifiOff } from 'lucide-react';
+import { User, Settings, Database, Download, Upload, Info, Bot, ArrowLeft, HelpCircle, BookOpen, ChevronRight, Heart, ExternalLink, MessageCircle, Check, X, Server, FileJson, Activity, WifiOff, Sliders } from 'lucide-react';
 import { AppSettings, ViewState } from '../types';
 import { getSettings, saveSettings, exportUserData, importUserData } from '../services/storage';
 import { AIConfigurationView } from './AIConfigurationView';
 import { UserManualView } from './UserManualView';
+import { HabitsAndVoiceView } from './HabitsAndVoiceView';
 
 // Stub for provider constants
 const PROVIDERS = {
@@ -20,10 +21,9 @@ interface ProfileViewProps {
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
-  const [view, setView] = useState<'MAIN' | 'AI_CONFIG' | 'ABOUT' | 'HELP' | 'MANUAL'>('MAIN');
+  const [view, setView] = useState<'MAIN' | 'AI_CONFIG' | 'ABOUT' | 'HELP' | 'MANUAL' | 'HABITS'>('MAIN');
   const [config, setConfig] = useState<AppSettings>(getSettings());
   const [activeProvider, setActiveProvider] = useState<string>('GOOGLE');
-  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   
   const [showImport, setShowImport] = useState(false);
   const [importStatus, setImportStatus] = useState<'IDLE' | 'READING' | 'SUCCESS' | 'ERROR'>('IDLE');
@@ -48,20 +48,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
     else if (saved.apiBaseUrl.includes('siliconflow')) foundProvider = 'SILICON';
     else if (saved.apiBaseUrl.includes('bigmodel.cn')) foundProvider = 'ZHIPU';
     setActiveProvider(foundProvider);
-    
-    const voices = window.speechSynthesis.getVoices();
-    setAvailableVoices(voices);
 
     isMounted.current = true;
     return () => { isMounted.current = false; };
   }, [view]); // Reload when view changes back to main
-
-  // Auto-save effect
-  useEffect(() => {
-    if (isMounted.current) {
-        saveSettings(config);
-    }
-  }, [config]);
 
   const handleCopyWeChat = async () => {
       try {
@@ -119,6 +109,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
 
   if (view === 'AI_CONFIG') {
       return <AIConfigurationView onBack={() => setView('MAIN')} />
+  }
+  
+  if (view === 'HABITS') {
+      return <HabitsAndVoiceView onBack={() => setView('MAIN')} />
   }
   
   if (view === 'ABOUT') {
@@ -271,77 +265,29 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
              </div>
           </div>
           
-           {/* Voice & Habits */}
-           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-             <h3 className="font-bold text-gray-800 border-b pb-3 mb-4">⚙️ 习惯与语音</h3>
-             <div className="space-y-4">
-                 <div>
-                    <label className="text-xs font-bold text-gray-500 mb-1 block">每日新学数量: {config.dailyNewLimit} 字</label>
-                    <input
-                        type="range"
-                        min="3"
-                        max="100"
-                        className="w-full h-2 bg-indigo-100 rounded-lg"
-                        value={config.dailyNewLimit || 5}
-                        onChange={e => setConfig({ ...config, dailyNewLimit: parseInt(e.target.value) })}
-                    />
-                    <p className="text-[10px] text-gray-400 mt-1">复习数量由 AI 根据记忆曲线自动安排。</p>
-                 </div>
-                 
-                 <div>
-                    <div className="flex justify-between text-xs font-bold text-gray-500 mb-1">
-                        <label>阅读最大字数 (上限 10000)</label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="number"
-                            min="10"
-                            max="10000"
-                            className="w-full p-3 rounded-xl border border-gray-300 focus:border-indigo-500 outline-none font-mono"
-                            value={config.storyLength || ''}
-                            onChange={e => {
-                                const strVal = e.target.value;
-                                if (strVal === '') {
-                                    setConfig({ ...config, storyLength: 0 });
-                                    return;
-                                }
-                                let val = parseInt(strVal);
-                                if (isNaN(val)) val = 0;
-                                if (val > 10000) val = 10000;
-                                setConfig({ ...config, storyLength: val });
-                            }}
-                        />
-                        <span className="text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-3 rounded-xl border border-indigo-100">
-                            字
-                        </span>
-                    </div>
-                 </div>
-
-                 <div>
-                    <label className="text-xs font-bold text-gray-500 mb-1 block">语速: {config.ttsRate}x</label>
-                    <input
-                        type="range"
-                        min="0.5"
-                        max="1.5"
-                        step="0.1"
-                        className="w-full h-2 bg-indigo-100 rounded-lg"
-                        value={config.ttsRate}
-                        onChange={e => setConfig({ ...config, ttsRate: parseFloat(e.target.value) })}
-                    />
-                 </div>
-                 <div>
-                    <select 
-                        className="w-full p-3 rounded-xl border border-gray-300 text-sm bg-white"
-                        value={config.ttsVoice}
-                        onChange={e => setConfig({ ...config, ttsVoice: e.target.value })}
-                    >
-                        <option value="">默认声音</option>
-                        {availableVoices.map((v) => (
-                        <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>
-                        ))}
-                    </select>
-                 </div>
-             </div>
+           {/* Habits & Voice Card (New separate view) */}
+           <div 
+             onClick={() => setView('HABITS')}
+             className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 cursor-pointer hover:border-blue-300 hover:shadow-md transition-all group"
+           >
+              <div className="flex justify-between items-center h-full">
+                  <div className="flex-1">
+                      <h3 className="font-bold text-gray-800 text-lg mb-2 flex items-center gap-2">
+                          <div className="p-2 bg-blue-50 text-blue-600 rounded-xl group-hover:scale-110 transition-transform">
+                              <Sliders size={22} />
+                          </div>
+                          习惯与语音
+                      </h3>
+                      <p className="text-gray-400 text-xs mb-1">
+                          设置每日学习量、故事字数，以及自定义 TTS 语音接口。
+                      </p>
+                  </div>
+                  <div className="pl-4">
+                      <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                          <ChevronRight size={20} />
+                      </div>
+                  </div>
+              </div>
            </div>
 
            {/* Data Management */}

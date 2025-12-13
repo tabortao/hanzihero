@@ -4,20 +4,150 @@ import { PenTool, Grid, BookOpen, BarChart3, User } from 'lucide-react';
 import { getSettings } from '../services/storage';
 import { ViewState } from '../types';
 
+// Global variable to keep track of current audio to stop overlap
+let currentAudio: HTMLAudioElement | null = null;
+
 // Helper to speak individual characters
-export const speakText = (text: string, onEnd?: () => void, lang: string = 'zh-CN') => {
+export const speakText = async (text: string, onEnd?: () => void, lang: string = 'zh-CN') => {
   const settings = getSettings();
   
-  // Cancel current speech if any to avoid overlap issues if needed, 
-  // but for "Char + Praise" sequence we want them to queue.
-  // window.speechSynthesis.cancel(); 
+  // 1. Stop any currently playing custom audio
+  if (currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
+  }
+  // Cancel browser synthesis
+  window.speechSynthesis.cancel();
 
+  // 2. Check for Custom TTS
+  if (settings.activeTTSProfileId && settings.activeTTSProfileId !== 'SYSTEM' && settings.customTTSProfiles) {
+      const profile = settings.customTTSProfiles.find(p => p.id === settings.activeTTSProfileId);
+      if (profile && profile.apiUrl) {
+          try {
+              // Common: Prepare Headers
+              const headers: HeadersInit = {};
+              if (profile.apiKey) {
+                  headers['Authorization'] = `Bearer ${profile.apiKey}`;
+              }
+
+              // Determine URL and Method
+              let baseUrl = profile.apiUrl.trim();
+              if (!baseUrl.startsWith('http')) {
+                  baseUrl = 'https://' + baseUrl;
+              }
+              // Don't strip trailing slash aggressively here, trust what was saved in test
+
+              // Calculate Effective Rate & Pitch
+              // App Global Rate * Profile specific rate
+              const globalRate = settings.ttsRate || 1.0;
+              const profileSpeed = profile.speed || 1.0;
+              const finalSpeed = globalRate * profileSpeed;
+              
+              const profilePitch = profile.pitch || 1.0;
+
+              // -- POST METHOD (OpenAI Compatible) --
+              if (profile.method === 'POST') {
+                   // If URL is full path, use it. Otherwise append standard path.
+                   let finalUrl = baseUrl;
+                   if (!finalUrl.endsWith('/speech')) {
+                       finalUrl = finalUrl.replace(/\/+$/, '') + '/v1/audio/speech';
+                   }
+
+                   headers['Content-Type'] = 'application/json';
+                   const body = JSON.stringify({
+                       model: 'tts-1',
+                       input: text,
+                       voice: profile.voiceId || 'zh-CN-XiaoxiaoNeural',
+                       speed: finalSpeed, // OpenAI standard speed (0.25 - 4.0)
+                       pitch: profilePitch, // Note: Not standard OpenAI, but sending just in case custom backend supports it
+                       response_format: 'mp3'
+                   });
+
+                   const res = await fetch(finalUrl, {
+                       method: 'POST',
+                       headers,
+                       body
+                   });
+
+                   if (!res.ok) throw new Error(`TTS API Error: ${res.status}`);
+                   
+                   const blob = await res.blob();
+                   const audioUrl = URL.createObjectURL(blob);
+                   const audio = new Audio(audioUrl);
+                   
+                   currentAudio = audio;
+                   audio.play().catch(e => console.warn("Audio play error", e));
+                   audio.onended = () => {
+                       currentAudio = null;
+                       URL.revokeObjectURL(audioUrl);
+                       if (onEnd) onEnd();
+                   };
+                   return;
+              }
+
+              // -- GET METHOD (Standard Edge-TTS Wrapper) --
+              const urlObj = new URL(baseUrl);
+              urlObj.searchParams.set('text', text);
+              
+              if (profile.voiceId) {
+                  urlObj.searchParams.set('voice', profile.voiceId);
+              }
+              
+              // Calculate Rate parameter for Edge-TTS style APIs
+              // Browser rate 1.0 = 0%, 1.5 = +50%, 0.8 = -20%
+              // Here we use finalSpeed which combines global and profile settings
+              const ratePercent = Math.round((finalSpeed - 1) * 100);
+              const rateStr = (ratePercent >= 0 ? '+' : '') + ratePercent + '%';
+              urlObj.searchParams.set('rate', rateStr);
+
+              // Calculate Pitch parameter
+              // Simple mapping: 1.0 = +0Hz. 1.2 = +10Hz approx? Or allow backend to handle %.
+              // Let's assume the backend supports standard edge-tts pitch format which is often Hz or %.
+              // We'll send Hz as a safer guess for some, or just assume linear.
+              // Logic: (pitch - 1) * 20 Hz. e.g. 1.5 -> +10Hz. 0.5 -> -10Hz.
+              const pitchDiff = Math.round((profilePitch - 1) * 20);
+              const pitchStr = (pitchDiff >= 0 ? '+' : '') + pitchDiff + 'Hz';
+              urlObj.searchParams.set('pitch', pitchStr);
+              
+              const res = await fetch(urlObj.toString(), { headers });
+              if (!res.ok) throw new Error(`TTS API Error: ${res.status}`);
+              
+              const blob = await res.blob();
+              const audioUrl = URL.createObjectURL(blob);
+              const audio = new Audio(audioUrl);
+              
+              // Also set playbackRate on audio element as backup (though source audio should already be adjusted)
+              // audio.playbackRate = finalSpeed; 
+              
+              currentAudio = audio;
+              
+              const playPromise = audio.play();
+              if (playPromise !== undefined) {
+                  playPromise.catch(e => {
+                      console.warn("Audio play blocked or failed:", e);
+                  });
+              }
+              
+              audio.onended = () => {
+                  currentAudio = null;
+                  URL.revokeObjectURL(audioUrl);
+                  if (onEnd) onEnd();
+              };
+              
+              return; // Exit, handled by Custom TTS
+          } catch (e) {
+              console.warn("Custom TTS Failed, falling back to System", e);
+              // Fallthrough to system
+          }
+      }
+  }
+
+  // 3. System Fallback
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = lang;
-  utterance.rate = settings.ttsRate;
+  utterance.rate = settings.ttsRate || 1.0;
   
-  // Only apply custom voice for Chinese if configured
-  if (lang === 'zh-CN' && settings.ttsVoice) {
+  if (lang === 'zh-CN' && settings.ttsVoice && settings.activeTTSProfileId === 'SYSTEM') {
     const voices = window.speechSynthesis.getVoices();
     const selectedVoice = voices.find(v => v.voiceURI === settings.ttsVoice);
     if (selectedVoice) {
@@ -90,8 +220,6 @@ export const WritingGrid: React.FC<WritingGridProps> = ({ char, pinyin, isTarget
   }
 
   // --- NOTEBOOK STYLE (Square, Continuous Border, No Gaps) ---
-  // Fix: Use full border + negative left/top margins to ensure rightmost/bottommost borders are visible
-  // and dashed lines for the inner Mi grid.
   return (
     <div 
       className={`flex flex-col items-center group relative -ml-[1px] -mt-[1px] border border-red-300 box-border ${isEmpty ? '' : 'cursor-pointer hover:bg-red-50/30'}`} 
@@ -163,19 +291,13 @@ export const StrokeOrderDisplay: React.FC<{ char: string }> = ({ char }) => {
           radicalColor: '#166534', 
           showCharacter: true,
           showHintAfterMisses: 1,
-          // Hook into loading process roughly if possible or rely on existence
         });
         
-        // HanziWriter doesn't have a direct 'onLoad' in create options in all versions, 
-        // but we can assume if we start animation it's ready. 
-        // However, let's set isLoaded to true after a short timeout to ensure the svg is inserted, 
-        // or check writerRef.current
         setTimeout(() => setIsLoaded(true), 500);
 
         startAnimationLoop();
       } catch (e) {
         console.error("HanziWriter error", e);
-        // If error, we still want fallback visible
         setIsLoaded(false);
       }
     }

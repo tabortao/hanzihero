@@ -36,6 +36,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   visionModel: 'gemini-2.5-flash',
   ttsRate: 1.0,
   ttsVoice: '',
+  activeTTSProfileId: 'SYSTEM',
+  customTTSProfiles: [],
   dailyNewLimit: 5,
   storyLength: 100,
   selectedCurriculumId: 'renjiaoban',
@@ -44,9 +46,14 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 export const getSettings = (): AppSettings => {
   const saved = safeParse<AppSettings>(STORAGE_KEY_SETTINGS, DEFAULT_SETTINGS);
+  
+  // Migration checks
   if ((saved as any).dailyLimit && !saved.dailyNewLimit) {
       saved.dailyNewLimit = 5;
   }
+  if (!saved.customTTSProfiles) saved.customTTSProfiles = [];
+  if (!saved.activeTTSProfileId) saved.activeTTSProfileId = 'SYSTEM';
+
   return { ...DEFAULT_SETTINGS, ...saved };
 };
 
