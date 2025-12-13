@@ -123,17 +123,22 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
 
   // Update Photo Prompt based on Mode
   useEffect(() => {
+      // If a specific prompt is selected, it takes precedence
+      if (selectedPromptId) {
+          const p = customPrompts.find(c => c.id === selectedPromptId);
+          if(p) {
+              setPhotoPrompt(p.text);
+              return;
+          }
+      }
+
+      // Default prompts for modes
       if (recognitionMode === 'OCR') {
-          setPhotoPrompt("任务：提取文字。\n请将图片中所有的汉字、标点符号完整的提取出来。保持原文的换行和格式。");
+          setPhotoPrompt("任务：提取文字。\n请将图片中所有的汉字、标点符号完整的提取出来，不提取拼音、页眉和页脚。保持原文的换行和格式。");
       } else if (recognitionMode === 'STORY') {
           setPhotoPrompt("任务：看图写话。\n请仔细观察这张图片，发挥想象力，用生动有趣、适合小学生阅读的语言（一年级水平），根据画面内容编写一个小故事。");
-      } else if (recognitionMode === 'CUSTOM') {
-         // Keep custom input or select from saved
-         if (selectedPromptId) {
-             const p = customPrompts.find(c => c.id === selectedPromptId);
-             if(p) setPhotoPrompt(p.text);
-         }
-      }
+      } 
+      // CUSTOM mode preserves current input unless prompt ID selected
   }, [recognitionMode, selectedPromptId, customPrompts]);
 
   // Get all unique tags from stories + default
@@ -296,7 +301,10 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
   };
 
   const handleSavePrompt = () => {
-      if (!photoPrompt.trim()) return;
+      if (!photoPrompt.trim()) {
+          alert("提示词内容不能为空");
+          return;
+      }
       const alias = prompt("给这个提示词起个名字：", "我的自定义提示词");
       if (alias) {
           const newPrompt: VisionPrompt = {
@@ -307,7 +315,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
           saveVisionPrompt(newPrompt);
           setCustomPrompts(getVisionPrompts());
           setSelectedPromptId(newPrompt.id);
-          alert("保存成功！");
+          alert("保存成功！您可以在“选择常用”中找到它。");
       }
   };
 
@@ -317,7 +325,14 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
           deleteVisionPrompt(selectedPromptId);
           setCustomPrompts(getVisionPrompts());
           setSelectedPromptId('');
-          setPhotoPrompt('');
+          // Revert to default text for current mode
+          if (recognitionMode === 'OCR') {
+              setPhotoPrompt("任务：提取文字。\n请将图片中所有的汉字、标点符号完整的提取出来，不提取拼音、页眉和页脚。保持原文的换行和格式。");
+          } else if (recognitionMode === 'STORY') {
+              setPhotoPrompt("任务：看图写话。\n请仔细观察这张图片，发挥想象力，用生动有趣、适合小学生阅读的语言（一年级水平），根据画面内容编写一个小故事。");
+          } else {
+              setPhotoPrompt('');
+          }
       }
   };
 
@@ -639,7 +654,10 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                                       <div className="text-[10px] opacity-70">AI 根据图片画面编写有趣故事</div>
                                   </button>
                                   <button 
-                                      onClick={() => setRecognitionMode('CUSTOM')}
+                                      onClick={() => {
+                                          setRecognitionMode('CUSTOM');
+                                          setSelectedPromptId('');
+                                      }}
                                       className={`p-3 rounded-xl border-2 text-left transition-all ${recognitionMode === 'CUSTOM' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-500 hover:border-blue-200'}`}
                                   >
                                       <div className="font-bold text-sm mb-1 flex items-center gap-1"><PenTool size={16}/> 自定义</div>
@@ -651,40 +669,35 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                           <div>
                                <div className="flex justify-between items-center mb-2">
                                   <label className="block text-sm font-bold text-gray-700">2. 识别要求 (提示词)</label>
-                                  {recognitionMode === 'CUSTOM' && (
-                                      <div className="flex gap-2">
-                                          <select 
-                                            className="text-xs p-1 border rounded"
-                                            value={selectedPromptId}
-                                            onChange={e => setSelectedPromptId(e.target.value)}
-                                          >
-                                              <option value="">-- 选择常用 --</option>
-                                              {customPrompts.map(p => (
-                                                  <option key={p.id} value={p.id}>{p.alias}</option>
-                                              ))}
-                                          </select>
-                                      </div>
-                                  )}
+                                  <div className="flex gap-2">
+                                      <select 
+                                        className="text-xs p-1 border rounded text-gray-600 outline-none focus:border-purple-400"
+                                        value={selectedPromptId}
+                                        onChange={e => setSelectedPromptId(e.target.value)}
+                                      >
+                                          <option value="">-- 选择常用 --</option>
+                                          {customPrompts.map(p => (
+                                              <option key={p.id} value={p.id}>{p.alias}</option>
+                                          ))}
+                                      </select>
+                                  </div>
                                </div>
                                <textarea 
                                   className="w-full p-3 rounded-xl border border-gray-200 text-sm focus:border-purple-400 outline-none min-h-[80px]"
                                   value={photoPrompt}
                                   onChange={e => setPhotoPrompt(e.target.value)}
                                   placeholder="请输入具体的识别要求..."
-                                  disabled={recognitionMode !== 'CUSTOM' && recognitionMode !== 'OCR' && recognitionMode !== 'STORY'} // Actually always editable is better UX
                                />
-                               {recognitionMode === 'CUSTOM' && (
-                                   <div className="flex gap-2 mt-2 justify-end">
-                                       <button onClick={handleSavePrompt} className="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-lg hover:bg-blue-100 flex items-center gap-1">
-                                           <Save size={12} /> 保存常用
+                               <div className="flex gap-2 mt-2 justify-end">
+                                   <button onClick={handleSavePrompt} className="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-lg hover:bg-blue-100 flex items-center gap-1">
+                                       <Save size={12} /> 保存常用
+                                   </button>
+                                   {selectedPromptId && (
+                                       <button onClick={handleDeletePrompt} className="text-xs bg-red-50 text-red-600 px-3 py-1 rounded-lg hover:bg-red-100 flex items-center gap-1">
+                                           <Trash2 size={12} /> 删除
                                        </button>
-                                       {selectedPromptId && (
-                                           <button onClick={handleDeletePrompt} className="text-xs bg-red-50 text-red-600 px-3 py-1 rounded-lg hover:bg-red-100 flex items-center gap-1">
-                                               <Trash2 size={12} /> 删除
-                                           </button>
-                                       )}
-                                   </div>
-                               )}
+                                   )}
+                               </div>
                           </div>
 
                           <div>
