@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { BookOpen, Sparkles, Trash2, Volume2, Save, Plus, Archive, RotateCcw, Check, Loader2, PenTool, Search, Tag, X, CheckCircle, GraduationCap, Edit2, ChevronLeft, ChevronRight, Coins, Camera, Image as ImageIcon, Wand2, Type, Star } from 'lucide-react';
+import { BookOpen, Sparkles, Trash2, Volume2, Save, Plus, Archive, RotateCcw, Check, Loader2, PenTool, Search, Tag, X, CheckCircle, GraduationCap, Edit2, ChevronLeft, ChevronRight, Coins, Camera, Image as ImageIcon, Wand2, Type, Star, Filter } from 'lucide-react';
 import { Story, CharPair, Character, VisionPrompt } from '../types';
 import { getStories, saveStory, deleteStory, getKnownCharacters, getUnknownCharacters, addUnknownCharacter, addKnownCharacter, isCharacterKnown, getReadingCoins, addReadingCoins, getVisionPrompts, saveVisionPrompt, deleteVisionPrompt } from '../services/storage';
 import { generateStoryStream, recognizeTextFromImage } from '../services/geminiService';
@@ -67,6 +67,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
   // Filter State
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTagFilter, setActiveTagFilter] = useState('ALL');
+  const [showTagFilterDropdown, setShowTagFilterDropdown] = useState(false);
 
   // Reader Interaction State
   const [selectedCharPair, setSelectedCharPair] = useState<CharPair | null>(null);
@@ -134,6 +135,15 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
          }
       }
   }, [recognitionMode, selectedPromptId, customPrompts]);
+
+  // Get all unique tags from stories + default
+  const allUserTags = useMemo(() => {
+      const tagSet = new Set<string>(AVAILABLE_TAGS);
+      stories.forEach(s => {
+          if (s.tags) s.tags.forEach(t => tagSet.add(t));
+      });
+      return Array.from(tagSet);
+  }, [stories]);
 
   const handleCloseModal = () => {
       setShowInputModal(false);
@@ -369,9 +379,9 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
       }
   }, [loading, streamText]);
 
-  const handleDelete = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if(confirm("确定要删除这篇短文吗？")) {
+  const handleDelete = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if(window.confirm("确定要删除这篇短文吗？")) {
         deleteStory(id);
         setStories(prev => prev.filter(s => s.id !== id));
         if (currentStory?.id === id) setCurrentStory(null);
@@ -810,32 +820,49 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
           {/* Sidebar: Story List */}
           <div className={`w-full md:w-80 bg-white border-r border-gray-100 flex flex-col z-10 ${currentStory ? 'hidden md:flex' : 'flex'}`}>
               <div className="p-4 border-b border-gray-100 space-y-3">
-                  <div className="relative">
-                      <Search className="absolute left-3 top-3 text-gray-400" size={16} />
-                      <input 
-                         type="text" 
-                         placeholder="搜索故事..." 
-                         className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border-transparent focus:bg-white focus:border-amber-300 rounded-xl text-sm outline-none transition-all"
-                         value={searchQuery}
-                         onChange={e => setSearchQuery(e.target.value)}
-                      />
-                  </div>
-                  <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                      <button 
-                         onClick={() => setActiveTagFilter('ALL')}
-                         className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${activeTagFilter === 'ALL' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-                      >
-                          全部
-                      </button>
-                      {AVAILABLE_TAGS.slice(0, 5).map(tag => (
+                  <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                          <Search className="absolute left-3 top-3 text-gray-400" size={16} />
+                          <input 
+                             type="text" 
+                             placeholder="搜索故事..." 
+                             className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border-transparent focus:bg-white focus:border-amber-300 rounded-xl text-sm outline-none transition-all"
+                             value={searchQuery}
+                             onChange={e => setSearchQuery(e.target.value)}
+                          />
+                      </div>
+                      
+                      <div className="relative">
                           <button 
-                             key={tag}
-                             onClick={() => setActiveTagFilter(tag)}
-                             className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${activeTagFilter === tag ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                            onClick={() => setShowTagFilterDropdown(!showTagFilterDropdown)}
+                            className={`p-2.5 rounded-xl border transition-all ${showTagFilterDropdown ? 'bg-amber-100 border-amber-300 text-amber-600' : 'bg-gray-50 border-gray-100 text-gray-500 hover:bg-gray-100'}`}
+                            title="筛选标签"
                           >
-                              {tag}
+                             <Filter size={18} />
                           </button>
-                      ))}
+                          
+                          {showTagFilterDropdown && (
+                              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 z-30 p-2 animate-bounce-in max-h-64 overflow-y-auto custom-scrollbar">
+                                  <div className="text-xs font-bold text-gray-400 mb-2 px-2">筛选标签</div>
+                                  <button 
+                                     onClick={() => { setActiveTagFilter('ALL'); setShowTagFilterDropdown(false); }}
+                                     className={`w-full text-left px-3 py-2 rounded-lg text-sm font-bold mb-1 transition-colors ${activeTagFilter === 'ALL' ? 'bg-amber-50 text-amber-700' : 'text-gray-600 hover:bg-gray-50'}`}
+                                  >
+                                      全部
+                                  </button>
+                                  {allUserTags.map(tag => (
+                                      <button 
+                                         key={tag}
+                                         onClick={() => { setActiveTagFilter(tag); setShowTagFilterDropdown(false); }}
+                                         className={`w-full text-left px-3 py-2 rounded-lg text-sm font-bold mb-1 transition-colors ${activeTagFilter === tag ? 'bg-amber-50 text-amber-700' : 'text-gray-600 hover:bg-gray-50'}`}
+                                      >
+                                          {tag}
+                                      </button>
+                                  ))}
+                                  {allUserTags.length === 0 && <div className="text-center py-2 text-xs text-gray-300">暂无标签</div>}
+                              </div>
+                          )}
+                      </div>
                   </div>
               </div>
 
@@ -863,8 +890,8 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                               <span>{new Date(story.createdAt).toLocaleDateString()}</span>
                           </div>
                           
-                          {/* Hover Actions */}
-                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-white/90 rounded-lg p-1 shadow-sm">
+                          {/* Hover Actions - Added z-index to ensure clickable */}
+                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-white/90 rounded-lg p-1 shadow-sm z-10">
                               <button 
                                 onClick={(e) => handleArchive(story, e)}
                                 className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-500" 
@@ -887,11 +914,23 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                       <div className="pt-4 border-t border-gray-100">
                           <p className="text-xs font-bold text-gray-400 mb-3 px-2">已归档 ({archivedStories.length})</p>
                           {archivedStories.map(story => (
-                              <div key={story.id} onClick={() => openStory(story)} className="px-4 py-3 rounded-xl bg-gray-50 border border-transparent hover:border-gray-200 mb-2 cursor-pointer opacity-70 hover:opacity-100 transition-all">
+                              <div key={story.id} onClick={() => openStory(story)} className="px-4 py-3 rounded-xl bg-gray-50 border border-transparent hover:border-gray-200 mb-2 cursor-pointer opacity-70 hover:opacity-100 transition-all relative group">
                                   <div className="flex justify-between items-center">
                                       <span className="text-sm font-bold text-gray-600 truncate">{story.title}</span>
-                                      <button onClick={(e) => handleArchive(story, e)} className="text-xs text-blue-500 hover:underline">还原</button>
+                                      <div className="flex gap-2">
+                                          <button onClick={(e) => handleArchive(story, e)} className="text-xs text-blue-500 hover:underline">还原</button>
+                                      </div>
                                   </div>
+                                   {/* Allow delete from archive too */}
+                                   <div className="absolute top-2 right-12 opacity-0 group-hover:opacity-100 transition-opacity">
+                                       <button 
+                                          onClick={(e) => handleDelete(story.id, e)}
+                                          className="p-1 text-gray-400 hover:text-red-500"
+                                          title="彻底删除"
+                                       >
+                                          <Trash2 size={12} />
+                                       </button>
+                                   </div>
                               </div>
                           ))}
                       </div>
@@ -940,13 +979,6 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                           </div>
                           <div className="flex items-center gap-2">
                                <button 
-                                  onClick={() => speakText(currentStory.content.map(c => c.char).join(''))}
-                                  className="p-2 bg-white rounded-full text-gray-500 hover:text-amber-600 shadow-sm border border-gray-100"
-                                  title="朗读全文"
-                               >
-                                  <Volume2 size={20} />
-                               </button>
-                               <button 
                                   onClick={() => {
                                       setManualTitle(currentStory.title);
                                       setManualContent(currentStory.content.map(c => c.char).join(''));
@@ -958,6 +990,14 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                                   title="编辑内容"
                                >
                                   <Edit2 size={20} />
+                               </button>
+                               {/* Added Delete Button directly in Reader Header for easier access */}
+                               <button 
+                                  onClick={(e) => handleDelete(currentStory.id, e)}
+                                  className="p-2 bg-white rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 shadow-sm border border-gray-100 transition-colors"
+                                  title="删除当前故事"
+                               >
+                                  <Trash2 size={20} />
                                </button>
                           </div>
                       </div>
