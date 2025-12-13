@@ -8,7 +8,7 @@ interface UserManualViewProps {
 
 export const UserManualView: React.FC<UserManualViewProps> = ({ onBack }) => {
   return (
-    <div className="max-w-4xl mx-auto min-h-screen bg-white pb-24 animate-fade-in relative z-20">
+    <div className="max-w-7xl mx-auto min-h-screen bg-white pb-24 animate-fade-in relative z-20">
        {/* Header */}
        <div className="bg-white/90 backdrop-blur-md px-6 py-4 shadow-sm border-b border-gray-100 sticky top-0 z-30 flex items-center gap-3">
           <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600">

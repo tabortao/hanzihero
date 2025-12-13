@@ -78,6 +78,10 @@ export interface ProviderConfig {
     apiKey: string;
     apiBaseUrl: string;
     model: string;
+    // Vision specifics per provider
+    visionApiKey?: string;
+    visionApiBaseUrl?: string;
+    visionModel?: string;
 }
 
 export interface AppSettings {
@@ -87,7 +91,7 @@ export interface AppSettings {
   // Store specific configs for each provider key (e.g., 'GOOGLE', 'DEEPSEEK')
   savedProviderConfigs?: Record<string, ProviderConfig>;
 
-  // Vision Model Specifics
+  // Vision Model Specifics (Current active)
   visionApiBaseUrl?: string;
   visionApiKey?: string;
   visionModel?: string;

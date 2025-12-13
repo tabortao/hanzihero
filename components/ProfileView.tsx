@@ -3,12 +3,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { User, Settings, Database, Download, Upload, Info, Bot, ArrowLeft, HelpCircle, BookOpen, ChevronRight, Heart, ExternalLink, MessageCircle, Check, X, Server, FileJson, Activity, WifiOff } from 'lucide-react';
 import { AppSettings, ViewState } from '../types';
 import { getSettings, saveSettings, exportUserData, importUserData } from '../services/storage';
-import { SettingsModal } from './SettingsModal';
+import { AIConfigurationView } from './AIConfigurationView';
 import { UserManualView } from './UserManualView';
 
-// Stub for provider constants if not imported
+// Stub for provider constants
 const PROVIDERS = {
     GOOGLE: { name: 'Google Gemini' },
+    ZHIPU: { name: '智谱 AI' },
     DEEPSEEK: { name: 'DeepSeek' },
     SILICON: { name: 'SiliconFlow' },
     CUSTOM: { name: 'Custom' }
@@ -37,14 +38,23 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
 
   useEffect(() => {
     // Load initial settings
-    setConfig(getSettings());
+    const saved = getSettings();
+    setConfig(saved);
+    
+    // Determine provider name for display
+    let foundProvider = 'CUSTOM';
+    if (!saved.apiBaseUrl) foundProvider = 'GOOGLE';
+    else if (saved.apiBaseUrl.includes('deepseek.com')) foundProvider = 'DEEPSEEK';
+    else if (saved.apiBaseUrl.includes('siliconflow')) foundProvider = 'SILICON';
+    else if (saved.apiBaseUrl.includes('bigmodel.cn')) foundProvider = 'ZHIPU';
+    setActiveProvider(foundProvider);
     
     const voices = window.speechSynthesis.getVoices();
     setAvailableVoices(voices);
 
     isMounted.current = true;
     return () => { isMounted.current = false; };
-  }, []);
+  }, [view]); // Reload when view changes back to main
 
   // Auto-save effect
   useEffect(() => {
@@ -108,7 +118,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
   }
 
   if (view === 'AI_CONFIG') {
-      return <SettingsModal isOpen={true} onClose={() => setView('MAIN')} />
+      return <AIConfigurationView onBack={() => setView('MAIN')} />
   }
   
   if (view === 'ABOUT') {
@@ -127,13 +137,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                           🐼
                       </div>
                       <h2 className="text-2xl font-fun font-bold text-gray-800 mb-1">汉字小英雄</h2>
-                      <p className="text-gray-400 text-sm font-mono">Version 1.0.0</p>
+                      <p className="text-gray-400 text-sm font-mono">Version 1.2.0</p>
                       <p className="text-gray-500 text-sm mt-2 font-bold">Author: Tabor</p>
                   </div>
 
                   {/* Actions - Responsive Grid */}
                   <div className="w-full max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Note: HELP view logic not fully implemented in snippet, pointing to Manual for now */}
                       <button 
                          onClick={() => setView('MANUAL')}
                          className="w-full bg-white p-4 rounded-xl border border-gray-200 flex items-center justify-between hover:bg-gray-50 transition-colors shadow-sm group"
@@ -143,19 +152,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                                  <HelpCircle size={20} />
                              </div>
                              <span className="font-bold text-gray-700">设计理念</span>
-                         </div>
-                         <ChevronRight size={18} className="text-gray-400" />
-                      </button>
-
-                      <button 
-                         onClick={() => setView('MANUAL')}
-                         className="w-full bg-white p-4 rounded-xl border border-gray-200 flex items-center justify-between hover:bg-gray-50 transition-colors shadow-sm group"
-                      >
-                         <div className="flex items-center gap-3">
-                             <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-100 transition-colors">
-                                 <BookOpen size={20} />
-                             </div>
-                             <span className="font-bold text-gray-700">使用说明</span>
                          </div>
                          <ChevronRight size={18} className="text-gray-400" />
                       </button>
@@ -237,9 +233,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
           <div className="flex justify-between items-center">
               <div>
                   <h1 className="text-2xl font-bold flex items-center gap-2 mb-2">
-                      <User className="text-indigo-600" /> 我的设置
+                      <User className="text-indigo-600" /> 我的
                   </h1>
-                  <p className="text-gray-400 text-sm">修改配置后会自动保存</p>
               </div>
           </div>
        </div>
