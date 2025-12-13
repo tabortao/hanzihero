@@ -54,6 +54,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customTagInput, setCustomTagInput] = useState(''); 
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState(''); // New: To show "Processing 1/3..."
   
   // Vision / Camera State
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -143,6 +144,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
       setSelectedTags([]);
       setCustomTagInput('');
       setLoading(false);
+      setLoadingMessage('');
       // Logic cancellation
       isAnalyzingRef.current = false; 
       if(onClearContext) onClearContext();
@@ -152,6 +154,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
 
   const handleGenerateAI = async () => {
     setLoading(true);
+    setLoadingMessage('');
     setStreamText(''); 
     
     let available: Character[] = [];
@@ -194,42 +197,79 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      // Reset input value so same file can be selected again
-      e.target.value = '';
-
-      // Simple Validation
-      if (!file.type.startsWith('image/')) {
-          alert("请选择图片文件");
-          return;
-      }
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
 
       setLoading(true);
       isAnalyzingRef.current = true;
+      
+      let combinedContent = "";
+      let firstTitle = "";
+      const totalFiles = files.length;
+      let successCount = 0;
+      let failCount = 0;
 
       try {
-          const base64 = await convertFileToBase64(file);
-          // Pass the specific prompt based on user selection
-          const result = await recognizeTextFromImage(base64, photoPrompt || undefined);
-          
-          if (!isAnalyzingRef.current) return; // Cancelled
+          for (let i = 0; i < totalFiles; i++) {
+              if (!isAnalyzingRef.current) break; // Cancelled
 
-          if (result) {
-              setManualTitle(result.title);
-              setManualContent(result.content);
+              const file = files[i];
               
-              // Switch to Manual tab to show result for editing
-              setModalTab('MANUAL'); 
-              
-              // Add appropriate tags
-              const newTags = [...selectedTags];
-              if (!newTags.includes('拍照识别')) newTags.push('拍照识别');
-              if (recognitionMode === 'OCR' && !newTags.includes('绘本')) newTags.push('绘本');
-              if (recognitionMode === 'STORY' && !newTags.includes('看图说话')) newTags.push('看图说话');
-              setSelectedTags(newTags);
+              // Simple Validation
+              if (!file.type.startsWith('image/')) {
+                  continue;
+              }
+
+              // Update message for multiple files
+              if (totalFiles > 1) {
+                  setLoadingMessage(`正在处理第 ${i + 1} / ${totalFiles} 张图片...`);
+              } else {
+                  setLoadingMessage(modalTab === 'PHOTO' ? '正在识别图片内容...' : '');
+              }
+
+              try {
+                  const base64 = await convertFileToBase64(file);
+                  // Pass the specific prompt based on user selection
+                  const result = await recognizeTextFromImage(base64, photoPrompt || undefined);
+                  
+                  if (result) {
+                      // Use title from the first valid image, or update if still empty
+                      if (!firstTitle) firstTitle = result.title;
+                      
+                      // Concatenate content
+                      if (combinedContent) combinedContent += "\n\n";
+                      combinedContent += result.content;
+                      successCount++;
+                  }
+              } catch (innerErr) {
+                  console.warn(`Failed to process image ${i+1}:`, innerErr);
+                  failCount++;
+              }
           }
+
+          if (isAnalyzingRef.current) {
+              if (combinedContent) {
+                  setManualTitle(prev => prev || firstTitle);
+                  setManualContent(prev => (prev ? prev + "\n\n" : "") + combinedContent);
+                  
+                  // Switch to Manual tab to show result for editing
+                  setModalTab('MANUAL'); 
+                  
+                  // Add appropriate tags
+                  const newTags = [...selectedTags];
+                  if (!newTags.includes('拍照识别')) newTags.push('拍照识别');
+                  if (recognitionMode === 'OCR' && !newTags.includes('绘本')) newTags.push('绘本');
+                  if (recognitionMode === 'STORY' && !newTags.includes('看图说话')) newTags.push('看图说话');
+                  setSelectedTags(newTags);
+                  
+                  if (failCount > 0) {
+                      alert(`识别完成！成功 ${successCount} 张，失败 ${failCount} 张。\n请检查内容是否完整。`);
+                  }
+              } else {
+                   throw new Error("未能识别出有效内容，请重试或检查图片清晰度。");
+              }
+          }
+
       } catch (err: any) {
           if (!isAnalyzingRef.current) return;
           console.error(err);
@@ -237,7 +277,10 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
       } finally {
           if (isAnalyzingRef.current) {
               setLoading(false);
+              setLoadingMessage('');
               isAnalyzingRef.current = false;
+              // Reset input
+              e.target.value = '';
           }
       }
   };
@@ -519,7 +562,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                       <div className="absolute inset-0 bg-white/80 z-20 flex flex-col items-center justify-center backdrop-blur-sm">
                           <Loader2 className="animate-spin text-blue-500 mb-2" size={40} />
                           <p className="text-blue-600 font-bold">
-                              {modalTab === 'PHOTO' ? '正在识别图片内容...' : 'AI 正在创作中...'}
+                              {loadingMessage || (modalTab === 'PHOTO' ? '正在识别图片内容...' : 'AI 正在创作中...')}
                           </p>
                           <p className="text-xs text-gray-400 mt-2">
                              {modalTab === 'PHOTO' ? '图片越清晰，文字越多，识别时间可能稍长...' : '正在构思精彩的故事...'}
@@ -643,12 +686,13 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                                   <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-purple-500 mb-2 group-hover:scale-110 transition-transform">
                                       <Camera size={24} />
                                   </div>
-                                  <span className="text-gray-400 text-sm font-bold">点击拍摄或选择图片</span>
+                                  <span className="text-gray-400 text-sm font-bold">点击拍摄或选择图片 (支持多选)</span>
                               </div>
                               <input 
                                   type="file" 
                                   ref={fileInputRef} 
                                   accept="image/*" 
+                                  multiple
                                   className="hidden" 
                                   onChange={handleFileChange}
                               />
@@ -738,325 +782,286 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
       </div>
   );
 
-  const renderCharActionModal = () => {
-      // ... (Keep existing implementation)
-      if (!selectedCharPair) return null;
-      const isKnown = isCharacterKnown(selectedCharPair.char);
+  return (
+    <div className="max-w-7xl mx-auto min-h-screen bg-gray-50 flex flex-col pb-24 relative">
+       {/* Sticky Header */}
+       <div className="bg-white px-6 py-4 shadow-sm border-b border-gray-100 flex justify-between items-center z-20 sticky top-0">
+          <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+             <BookOpen className="text-amber-500" /> 趣味阅读
+          </h1>
+          
+          <div className="flex items-center gap-3">
+             <div className="flex items-center gap-1 bg-yellow-50 px-3 py-1 rounded-full text-yellow-700 text-xs font-bold border border-yellow-200">
+                <Coins size={14} /> <span>{coins}</span>
+             </div>
+             <button 
+               onClick={() => {
+                   setModalTab('AI');
+                   setShowInputModal(true);
+               }}
+               className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md flex items-center gap-2 transition-all"
+             >
+                <Plus size={18} /> <span className="hidden sm:inline">新故事</span>
+             </button>
+          </div>
+       </div>
 
-      return (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedCharPair(null)}>
-              <div className="bg-white rounded-[2rem] p-6 shadow-2xl w-full max-w-xs animate-bounce-in relative" onClick={e => e.stopPropagation()}>
-                  <button onClick={() => setSelectedCharPair(null)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={20}/></button>
-                  
-                  <div className="flex flex-col items-center mb-6">
-                      <div className="text-2xl font-bold text-gray-500 mb-2">{selectedCharPair.pinyin || ' '}</div>
-                      <div className="w-24 h-24 bg-gray-50 border-2 border-red-100 rounded-xl flex items-center justify-center text-6xl font-fun text-gray-800 mb-3 relative">
-                          <div className="absolute inset-0 opacity-20 pointer-events-none" style={{backgroundImage: 'linear-gradient(to right, transparent 49%, #f87171 50%, transparent 51%), linear-gradient(to bottom, transparent 49%, #f87171 50%, transparent 51%), linear-gradient(45deg, transparent 49%, #f87171 50%, transparent 51%), linear-gradient(-45deg, transparent 49%, #f87171 50%, transparent 51%)', backgroundSize: '100% 100%'}}></div>
-                          {selectedCharPair.char}
-                      </div>
-                      {isKnown && <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-bold flex items-center gap-1"><CheckCircle size={10}/> 已认识</span>}
+       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+          {/* Sidebar: Story List */}
+          <div className={`w-full md:w-80 bg-white border-r border-gray-100 flex flex-col z-10 ${currentStory ? 'hidden md:flex' : 'flex'}`}>
+              <div className="p-4 border-b border-gray-100 space-y-3">
+                  <div className="relative">
+                      <Search className="absolute left-3 top-3 text-gray-400" size={16} />
+                      <input 
+                         type="text" 
+                         placeholder="搜索故事..." 
+                         className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border-transparent focus:bg-white focus:border-amber-300 rounded-xl text-sm outline-none transition-all"
+                         value={searchQuery}
+                         onChange={e => setSearchQuery(e.target.value)}
+                      />
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                      <button onClick={() => handleCharAction('READ')} className="flex flex-col items-center justify-center p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 gap-1">
-                          <Volume2 size={20}/> <span className="text-xs font-bold">朗读</span>
+                  <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                      <button 
+                         onClick={() => setActiveTagFilter('ALL')}
+                         className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${activeTagFilter === 'ALL' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                      >
+                          全部
                       </button>
-                      <button onClick={() => handleCharAction('STUDY')} className="flex flex-col items-center justify-center p-3 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 gap-1">
-                          <GraduationCap size={20}/> <span className="text-xs font-bold">学习 (AI)</span>
-                      </button>
-                      <button onClick={() => handleCharAction('KNOWN')} className="flex flex-col items-center justify-center p-3 border-2 border-green-100 text-green-600 rounded-xl hover:bg-green-50 gap-1">
-                          <Check size={20}/> <span className="text-xs font-bold">认识</span>
-                      </button>
-                      <button onClick={() => handleCharAction('UNKNOWN')} className="flex flex-col items-center justify-center p-3 border-2 border-orange-100 text-orange-600 rounded-xl hover:bg-orange-50 gap-1">
-                          <BookOpen size={20}/> <span className="text-xs font-bold">生字本</span>
-                      </button>
+                      {AVAILABLE_TAGS.slice(0, 5).map(tag => (
+                          <button 
+                             key={tag}
+                             onClick={() => setActiveTagFilter(tag)}
+                             className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${activeTagFilter === tag ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                          >
+                              {tag}
+                          </button>
+                      ))}
                   </div>
               </div>
+
+              <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                  {activeStories.length === 0 && (
+                      <div className="text-center py-10 text-gray-400 text-sm">
+                          {stories.length === 0 ? "还没有故事，快去创作吧！" : "没有找到匹配的故事"}
+                      </div>
+                  )}
+                  {activeStories.map(story => (
+                      <div 
+                         key={story.id}
+                         onClick={() => openStory(story)}
+                         className={`p-4 rounded-xl border-2 cursor-pointer transition-all hover:shadow-md relative group ${currentStory?.id === story.id ? 'border-amber-400 bg-amber-50' : 'border-gray-100 bg-white hover:border-amber-200'}`}
+                      >
+                          <h3 className="font-bold text-gray-800 mb-1 truncate pr-6">{story.title}</h3>
+                          <p className="text-xs text-gray-500 line-clamp-2 mb-2 leading-relaxed">
+                              {story.content.map(c => c.char).join('').substring(0, 30)}...
+                          </p>
+                          <div className="flex justify-between items-center text-[10px] text-gray-400">
+                              <span className="flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-gray-100">
+                                  {story.source === 'AI' ? <Sparkles size={10} className="text-purple-400"/> : (story.source === 'OCR' ? <Camera size={10} className="text-blue-400"/> : <Edit2 size={10} className="text-green-400"/>)}
+                                  {story.source === 'AI' ? 'AI创作' : (story.source === 'OCR' ? '拍照' : '原创')}
+                              </span>
+                              <span>{new Date(story.createdAt).toLocaleDateString()}</span>
+                          </div>
+                          
+                          {/* Hover Actions */}
+                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-white/90 rounded-lg p-1 shadow-sm">
+                              <button 
+                                onClick={(e) => handleArchive(story, e)}
+                                className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-500" 
+                                title="归档"
+                              >
+                                  <Archive size={14} />
+                              </button>
+                              <button 
+                                onClick={(e) => handleDelete(story.id, e)}
+                                className="p-1.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-500" 
+                                title="删除"
+                              >
+                                  <Trash2 size={14} />
+                              </button>
+                          </div>
+                      </div>
+                  ))}
+                  
+                  {archivedStories.length > 0 && (
+                      <div className="pt-4 border-t border-gray-100">
+                          <p className="text-xs font-bold text-gray-400 mb-3 px-2">已归档 ({archivedStories.length})</p>
+                          {archivedStories.map(story => (
+                              <div key={story.id} onClick={() => openStory(story)} className="px-4 py-3 rounded-xl bg-gray-50 border border-transparent hover:border-gray-200 mb-2 cursor-pointer opacity-70 hover:opacity-100 transition-all">
+                                  <div className="flex justify-between items-center">
+                                      <span className="text-sm font-bold text-gray-600 truncate">{story.title}</span>
+                                      <button onClick={(e) => handleArchive(story, e)} className="text-xs text-blue-500 hover:underline">还原</button>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  )}
+              </div>
           </div>
-      );
-  };
 
-  // ... (Return existing JSX)
-  return (
-    <div className="max-w-7xl mx-auto min-h-screen bg-amber-50 pb-24 flex flex-col relative h-[100dvh] overflow-hidden">
-       
-       {/* --- Top Bar (Search & Filter) --- */}
-       {!currentStory && (
-           <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-md shadow-sm p-4 space-y-3 shrink-0">
-               <div className="flex justify-between items-center gap-4">
-                   <div className="flex items-center gap-2">
-                       <BookOpen className="text-amber-500" size={24}/>
-                       <h1 className="text-2xl font-bold text-gray-800">阅读</h1>
-                   </div>
-                   
-                   <div className="flex items-center gap-2">
-                       {/* Coins Display */}
-                       <div className="flex items-center gap-1 bg-yellow-100 px-3 py-1 rounded-full text-yellow-700 font-bold text-sm border border-yellow-200">
-                           <Coins size={16} fill="currentColor" />
-                           <span>{coins}</span>
-                       </div>
-
-                       <div className="flex-1 max-w-[140px] bg-gray-100 rounded-full flex items-center px-4 py-2 transition-all focus-within:ring-2 focus-within:ring-amber-200">
-                           <Search size={16} className="text-gray-400 mr-2 shrink-0"/>
-                           <input 
-                              type="text" 
-                              placeholder="搜索..." 
-                              className="bg-transparent w-full outline-none text-sm"
-                              value={searchQuery}
-                              onChange={e => setSearchQuery(e.target.value)}
-                           />
-                       </div>
-                   </div>
-               </div>
-               
-               {/* Horizontal Tags Scroll */}
-               <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                   <button 
-                      onClick={() => setActiveTagFilter('ALL')}
-                      className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${activeTagFilter === 'ALL' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}
-                   >
-                       全部
-                   </button>
-                   {AVAILABLE_TAGS.map(tag => (
-                       <button
-                           key={tag}
-                           onClick={() => setActiveTagFilter(tag)}
-                           className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${activeTagFilter === tag ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}
-                       >
-                           {tag}
-                       </button>
-                   ))}
-               </div>
-           </div>
-       )}
-
-       {!currentStory ? (
-         // List View
-         <div className="p-4 space-y-4 animate-fade-in relative flex-1 overflow-y-auto">
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-32">
-                 {activeStories.length === 0 && (
-                     <div className="col-span-full text-center py-20 text-gray-400 flex flex-col items-center">
-                         <BookOpen size={48} className="mb-4 opacity-20"/>
-                         <p>没有找到相关故事</p>
-                         <button onClick={() => setShowInputModal(true)} className="mt-4 text-amber-500 font-bold">创建一个？</button>
-                     </div>
-                 )}
-
-                 {/* Active Stories */}
-                 {activeStories.map(story => (
-                     <div 
-                       key={story.id} 
-                       onClick={() => openStory(story)}
-                       className="bg-white p-4 rounded-2xl border border-amber-100 shadow-sm cursor-pointer hover:border-amber-300 transition-all flex flex-col gap-3 group relative overflow-hidden h-full"
-                     >
-                         <div className="flex justify-between items-start">
-                             <div className="flex items-center gap-3">
-                                 <div className="w-10 h-10 bg-amber-50 rounded-full flex items-center justify-center text-amber-500">
-                                     {story.source === 'MANUAL' ? <PenTool size={18}/> : story.source === 'OCR' ? <Camera size={18}/> : <Sparkles size={18}/>}
-                                 </div>
-                                 <div>
-                                     <h3 className="font-bold text-gray-800 text-lg line-clamp-1">{story.title}</h3>
-                                     <div className="flex items-center gap-2 text-xs text-gray-400">
-                                         <span>{new Date(story.createdAt).toLocaleDateString()}</span>
-                                         <span>· {story.content.length} 字</span>
-                                     </div>
-                                 </div>
-                             </div>
-                             <div className="flex items-center gap-1">
-                                <button 
-                                    onClick={(e) => handleArchive(story, e)}
-                                    className="p-2 text-gray-300 hover:text-blue-500 transition-colors"
-                                    title="归档"
-                                >
-                                    <Archive size={18} />
-                                </button>
-                                <button 
-                                    onClick={(e) => handleDelete(story.id, e)}
-                                    className="p-2 text-gray-300 hover:text-red-500 transition-colors"
-                                    title="删除"
-                                >
-                                    <Trash2 size={18} />
-                                </button>
-                             </div>
-                         </div>
-                         
-                         {/* Tags & Preview */}
-                         <div className="flex items-center gap-2 flex-wrap">
-                             {story.tags?.map(tag => (
-                                 <span key={tag} className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md font-medium">
-                                     {tag}
-                                 </span>
-                             ))}
-                         </div>
-                         <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed bg-gray-50 p-2 rounded-lg mt-auto">
-                             {story.content.map(c => c.char).join('').substring(0, 50)}...
-                         </p>
-                     </div>
-                 ))}
-             </div>
-             
-             {/* Archived Section */}
-             {archivedStories.length > 0 && (
-                 <div className="mt-8 pb-32">
-                     <h3 className="text-gray-400 font-bold text-sm mb-4 flex items-center gap-2">
-                         <Archive size={16}/> 已读完归档
-                     </h3>
-                     <div className="opacity-70 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {archivedStories.map(story => (
-                            <div 
-                            key={story.id} 
-                            onClick={() => openStory(story)}
-                            className="bg-gray-50 p-4 rounded-2xl border border-gray-200 flex justify-between items-center cursor-pointer"
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className="text-gray-400"><Check size={20} /></div>
-                                    <div>
-                                        <h3 className="font-bold text-gray-600 text-sm">{story.title}</h3>
-                                        <p className="text-xs text-gray-400">已读 {story.readCount} 次</p>
-                                    </div>
-                                </div>
-                                <button 
-                                    onClick={(e) => handleArchive(story, e)}
-                                    className="p-2 text-gray-300 hover:text-blue-500 transition-colors"
-                                >
-                                    <RotateCcw size={16} />
-                                </button>
-                            </div>
-                        ))}
-                     </div>
-                 </div>
-             )}
-
-             {/* Floating Action Button for New Story */}
-             <button
-                onClick={() => setShowInputModal(true)}
-                className="fixed bottom-24 right-6 z-40 bg-gradient-to-r from-amber-400 to-orange-500 text-white p-4 rounded-full shadow-lg shadow-orange-200 hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
-             >
-                <Sparkles size={24} fill="white" />
-             </button>
-
-         </div>
-       ) : (
-         // Reader View - Fixed Layer allowing Bottom Nav to show
-         // z-40 sits below z-50 nav bar but above regular content
-         // bottom-[90px] preserves space for the app's bottom navigation
-         // Centered on large screens with max-w-7xl
-         <div className="fixed top-0 bottom-[90px] left-1/2 -translate-x-1/2 w-full max-w-7xl z-40 bg-white flex flex-col animate-fade-in shadow-2xl border-x border-gray-100">
-             {/* Header */}
-             <div className="bg-white p-2 shadow-sm flex items-center justify-between z-10 border-b border-gray-100 shrink-0 h-14">
-                 <button onClick={() => setCurrentStory(null)} className="text-gray-500 font-bold px-2 flex items-center gap-1 hover:text-gray-800">
-                    <RotateCcw size={18}/> 返回
-                 </button>
-                 <div className="flex flex-col items-center flex-1 mx-4 overflow-hidden">
-                     {isEditingTitle ? (
-                         <input 
-                            autoFocus
-                            type="text" 
-                            className="text-lg font-bold text-center border-b-2 border-amber-300 outline-none w-full bg-transparent"
-                            value={editTitleValue}
-                            onChange={e => setEditTitleValue(e.target.value)}
-                            onBlur={saveTitleEdit}
-                            onKeyDown={e => e.key === 'Enter' && saveTitleEdit()}
-                         />
-                     ) : (
-                        <div 
-                           onClick={() => {
-                               setEditTitleValue(currentStory.title);
-                               setIsEditingTitle(true);
-                           }}
-                           className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-3 py-1 rounded-lg group"
-                           title="点击修改标题"
-                        >
-                            <h2 className="font-bold text-lg truncate">{currentStory.title}</h2>
-                            <Edit2 size={14} className="text-gray-300 group-hover:text-amber-500" />
-                        </div>
-                     )}
-                 </div>
-                 
-                 {/* Removed Read Aloud Button as requested */}
-                 <div className="w-8"></div>
-             </div>
-             
-             {/* Reward Notification Overlay */}
-             {hasAwardedCoins && (
-                 <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-yellow-100 border border-yellow-300 text-yellow-800 px-4 py-2 rounded-full font-bold shadow-lg animate-bounce-in flex items-center gap-2">
-                     <Coins size={18} fill="currentColor" />
-                     +{totalPages * 10} 阅读币
-                 </div>
-             )}
-
-             {/* 
-                 READER CONTENT 
-                 Uses strict CSS Grid layout for perfect alignment.
-                 The cell size is responsive.
-                 We calculate gridCols state based on window width.
-                 Added overflow-y-auto to allow scrolling if content overflows vertically on small screens.
-             */}
-             <div className="flex-1 overflow-y-auto bg-white flex flex-col items-center justify-center p-2 relative">
-                 <div className="w-full max-w-7xl flex flex-col items-center my-auto">
-                     <div 
-                         className="border border-red-300 shadow-sm bg-white overflow-hidden p-px box-content grid"
-                         style={{ 
-                             gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`
-                         }}
-                     >
-                         {pageCells.map((item, idx) => (
-                             <WritingGrid 
-                               key={item.id}
-                               char={item.char}
-                               pinyin={item.pinyin}
-                               variant="notebook"
-                               onClick={() => handleCharClick(item)} 
-                             />
-                         ))}
-                     </div>
-                 </div>
-             </div>
-
-             {/* Footer Pagination Bar - Compact & Cleaned */}
-             <div className="bg-white flex items-center justify-center gap-6 px-4 py-2 shrink-0 h-14">
-                  <button 
-                    onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
-                    disabled={currentPage === 0}
-                    className="p-2 rounded-full bg-white shadow-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-amber-100 transition-colors text-amber-700 border border-gray-100"
-                  >
-                      <ChevronLeft size={20} />
-                  </button>
-
-                  <div className="flex flex-col items-center min-w-[80px]">
-                      <span className="text-xs font-bold text-amber-800">
-                          第 {currentPage + 1} / {totalPages} 页
-                      </span>
-                      {/* Archive Button only on last page */}
-                      {currentPage === totalPages - 1 && !currentStory.isArchived && (
-                          <button 
-                             onClick={(e) => {
-                                 handleArchive(currentStory, e);
-                                 setCurrentStory(null);
-                             }}
-                             className="mt-0.5 text-[10px] bg-green-500 text-white px-2 py-0.5 rounded-full font-bold flex items-center gap-1 hover:bg-green-600 transition-colors shadow-sm"
-                          >
-                              <Check size={10} /> 读完归档
-                          </button>
-                      )}
+          {/* Main Reader Area */}
+          <div className={`flex-1 bg-[#fdfbf7] relative flex flex-col h-full ${!currentStory ? 'hidden md:flex' : 'flex'}`}>
+              {!currentStory ? (
+                  <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8">
+                      <div className="w-24 h-24 bg-amber-100 rounded-full flex items-center justify-center mb-6 text-amber-500">
+                          <BookOpen size={48} />
+                      </div>
+                      <p className="text-lg font-bold text-gray-600 mb-2">开始你的阅读之旅</p>
+                      <p className="text-sm max-w-xs text-center">选择左侧故事，或者点击“新故事”让 AI 老师为你创作。</p>
                   </div>
+              ) : (
+                  <>
+                      {/* Reader Header */}
+                      <div className="px-6 py-4 flex justify-between items-center bg-white/50 backdrop-blur-sm sticky top-0 z-10">
+                          <div className="flex items-center gap-3 overflow-hidden">
+                              <button onClick={() => setCurrentStory(null)} className="md:hidden p-2 -ml-2 rounded-full hover:bg-gray-200 text-gray-500">
+                                  <ChevronLeft size={24} />
+                              </button>
+                              
+                              {isEditingTitle ? (
+                                  <input 
+                                      autoFocus
+                                      className="font-bold text-lg text-gray-800 bg-transparent border-b-2 border-amber-400 outline-none w-full max-w-[200px]"
+                                      value={editTitleValue}
+                                      onChange={e => setEditTitleValue(e.target.value)}
+                                      onBlur={saveTitleEdit}
+                                      onKeyDown={e => e.key === 'Enter' && saveTitleEdit()}
+                                  />
+                              ) : (
+                                  <h2 
+                                      onClick={() => { setEditTitleValue(currentStory.title); setIsEditingTitle(true); }}
+                                      className="font-bold text-lg md:text-xl text-gray-800 truncate cursor-pointer hover:text-amber-600 flex items-center gap-2"
+                                      title="点击修改标题"
+                                  >
+                                      {currentStory.title}
+                                      <Edit2 size={14} className="text-gray-300 opacity-0 group-hover:opacity-100"/>
+                                  </h2>
+                              )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                               <button 
+                                  onClick={() => speakText(currentStory.content.map(c => c.char).join(''))}
+                                  className="p-2 bg-white rounded-full text-gray-500 hover:text-amber-600 shadow-sm border border-gray-100"
+                                  title="朗读全文"
+                               >
+                                  <Volume2 size={20} />
+                               </button>
+                               <button 
+                                  onClick={() => {
+                                      setManualTitle(currentStory.title);
+                                      setManualContent(currentStory.content.map(c => c.char).join(''));
+                                      setSelectedTags(currentStory.tags || []);
+                                      setModalTab('MANUAL');
+                                      setShowInputModal(true);
+                                  }}
+                                  className="p-2 bg-white rounded-full text-gray-500 hover:text-blue-600 shadow-sm border border-gray-100"
+                                  title="编辑内容"
+                               >
+                                  <Edit2 size={20} />
+                               </button>
+                          </div>
+                      </div>
 
-                  <button 
-                    onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
-                    disabled={currentPage === totalPages - 1}
-                    className="p-2 rounded-full bg-white shadow-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-amber-100 transition-colors text-amber-700 border border-gray-100"
-                  >
-                      <ChevronRight size={20} />
-                  </button>
-             </div>
-         </div>
+                      {/* Reader Content - Grid */}
+                      <div className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-8 flex flex-col items-center">
+                          <div 
+                              className="grid gap-x-2 gap-y-4 mb-8 content-start"
+                              style={{ 
+                                  gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+                                  width: '100%',
+                                  maxWidth: '900px'
+                              }}
+                          >
+                              {pageCells.map((cell, idx) => {
+                                  if (cell.id.startsWith('pad') || cell.id.startsWith('end-pad') || cell.id.startsWith('indent')) {
+                                      return <div key={cell.id} className="aspect-square"></div>;
+                                  }
+                                  
+                                  const isKnown = isCharacterKnown(cell.char);
+                                  const isUnknown = getUnknownCharacters().some(c => c.char === cell.char);
+
+                                  return (
+                                      <div key={cell.id} className="flex justify-center">
+                                          <WritingGrid 
+                                              char={cell.char} 
+                                              pinyin={cell.pinyin} 
+                                              variant="notebook"
+                                              onClick={() => handleCharClick({char: cell.char, pinyin: cell.pinyin})}
+                                          />
+                                      </div>
+                                  );
+                              })}
+                          </div>
+                      </div>
+
+                      {/* Pagination Footer */}
+                      {totalPages > 1 && (
+                          <div className="p-4 bg-white border-t border-gray-100 flex justify-between items-center shrink-0 safe-area-pb">
+                              <button 
+                                  onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                                  disabled={currentPage === 0}
+                                  className="flex items-center gap-1 px-4 py-2 rounded-xl font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"
+                              >
+                                  <ChevronLeft size={20} /> 上一页
+                              </button>
+                              
+                              <span className="text-sm font-bold text-gray-400">
+                                  {currentPage + 1} / {totalPages}
+                              </span>
+
+                              <button 
+                                  onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                                  disabled={currentPage === totalPages - 1}
+                                  className="flex items-center gap-1 px-4 py-2 rounded-xl font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"
+                              >
+                                  下一页 <ChevronRight size={20} />
+                              </button>
+                          </div>
+                      )}
+                  </>
+              )}
+          </div>
+       </div>
+
+       {/* Character Action Modal */}
+       {selectedCharPair && (
+            <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedCharPair(null)}>
+                <div 
+                    className="bg-white rounded-[2rem] shadow-2xl p-6 w-full max-w-xs relative animate-bounce-in flex flex-col items-center gap-4"
+                    onClick={e => e.stopPropagation()}
+                >
+                    <button onClick={() => setSelectedCharPair(null)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={20}/></button>
+                    
+                    <div className="text-center mt-2">
+                        <div className="text-2xl font-bold text-gray-500 mb-1">{selectedCharPair.pinyin}</div>
+                        <div className="w-32 h-32 mx-auto bg-red-50 rounded-2xl border-2 border-red-100 flex items-center justify-center mb-2">
+                             <span className="font-fun text-7xl text-gray-800">{selectedCharPair.char}</span>
+                        </div>
+                        <div className="flex justify-center gap-2">
+                            {isCharacterKnown(selectedCharPair.char) && <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">已认识</span>}
+                            {getUnknownCharacters().some(c => c.char === selectedCharPair.char) && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-bold">生字本</span>}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 w-full">
+                        <button onClick={() => handleCharAction('READ')} className="flex flex-col items-center justify-center p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 font-bold text-sm gap-1">
+                            <Volume2 size={20}/> 朗读
+                        </button>
+                        <button onClick={() => handleCharAction('STUDY')} className="flex flex-col items-center justify-center p-3 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 font-bold text-sm gap-1">
+                            <GraduationCap size={20}/> 学习
+                        </button>
+                        <button onClick={() => handleCharAction('KNOWN')} className="flex flex-col items-center justify-center p-3 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 font-bold text-sm gap-1">
+                            <CheckCircle size={20}/> 认识
+                        </button>
+                        <button onClick={() => handleCharAction('UNKNOWN')} className="flex flex-col items-center justify-center p-3 bg-orange-50 text-orange-600 rounded-xl hover:bg-orange-100 font-bold text-sm gap-1">
+                            <BookOpen size={20}/> 不认识
+                        </button>
+                    </div>
+                </div>
+            </div>
        )}
 
-       {/* Creation Modal */}
        {showInputModal && renderInputModal()}
-       
-       {/* Character Action Modal */}
-       {renderCharActionModal()}
 
     </div>
   );

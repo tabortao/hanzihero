@@ -1,11 +1,25 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { AIExplanation, AppSettings, Character, Story } from "../types";
 import { getSettings, getCharacterCache, saveCharacterCache } from "./storage";
 import { getOfflineCharacter } from "../data/dictionary";
 
 // Helper for simple ID
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
+
+// Retry Helper
+async function withRetry<T>(fn: () => Promise<T>, retries = 2, delay = 1000): Promise<T> {
+    try {
+        return await fn();
+    } catch (err) {
+        if (retries > 0) {
+            console.warn(`API Call failed, retrying... (${retries} left)`);
+            await new Promise(res => setTimeout(res, delay));
+            return withRetry(fn, retries - 1, delay * 1.5);
+        }
+        throw err;
+    }
+}
 
 /**
  * GENERIC OPENAI-COMPATIBLE FETCH
@@ -16,7 +30,6 @@ async function callOpenAICompatible(
     userPrompt: string,
     schemaDescription: string
 ): Promise<any> {
-    // ... existing OpenAI logic for single call ...
     // Note: This is kept for backward compatibility or non-streaming tasks like explainCharacter
     const finalSystemPrompt = `${systemPrompt}\n\n请务必只返回纯 JSON 格式数据，不要包含 Markdown 标记（如 \`\`\`json）。JSON 结构必须严格遵守以下定义：\n${schemaDescription}`;
 
@@ -182,11 +195,11 @@ export const explainCharacter = async (char: string, forceAI: boolean = false): 
   try {
     let result: AIExplanation;
     if (settings.apiBaseUrl && settings.apiBaseUrl.trim() !== '') {
-        const data = await callOpenAICompatible(settings, systemPrompt, userPrompt, schemaDescription);
+        const data = await withRetry(() => callOpenAICompatible(settings, systemPrompt, userPrompt, schemaDescription));
         result = data as AIExplanation;
     } else {
         const ai = new GoogleGenAI({ apiKey: effectiveKey });
-        const response = await ai.models.generateContent({
+        const response = await withRetry(() => ai.models.generateContent({
             model: settings.model.includes('gemini') ? settings.model : "gemini-2.5-flash",
             contents: userPrompt,
             config: {
@@ -194,7 +207,7 @@ export const explainCharacter = async (char: string, forceAI: boolean = false): 
                 responseMimeType: "application/json",
                 responseSchema: googleSchema
             }
-        });
+        })) as GenerateContentResponse;
         if (response.text) {
              result = JSON.parse(response.text) as AIExplanation;
         } else {
@@ -331,7 +344,7 @@ export const generateStoryStream = async (
         });
 
         for await (const chunk of result) {
-            const text = chunk.text;
+            const text = (chunk as GenerateContentResponse).text;
             if (text) onChunk(text);
         }
     }
@@ -349,13 +362,40 @@ export const recognizeTextFromImage = async (base64Image: string, customInstruct
     const settings = getSettings();
     const envKey = process.env.API_KEY || '';
     
-    // 1. Determine which config to use (Vision specific or Fallback to Main)
-    const visionKey = settings.visionApiKey || settings.apiKey || envKey;
-    const visionHost = settings.visionApiBaseUrl || settings.apiBaseUrl;
-    // Default to gemini-2.5-flash for vision if not specified
-    const visionModel = settings.visionModel || settings.model || "gemini-2.5-flash";
+    // --- Intelligent Model Fallback Logic ---
+    let visionKey = settings.visionApiKey || settings.apiKey || envKey;
+    let visionHost = settings.visionApiBaseUrl || settings.apiBaseUrl;
+    let visionModel = settings.visionModel;
 
-    if (!visionKey) throw new Error("请先在设置中配置 Vision API Key");
+    // If no specific vision model configured, check if main model is likely text-only
+    if (!visionModel) {
+        const mainModel = settings.model || '';
+        const isTextOnly = mainModel.includes('deepseek') || mainModel.includes('glm');
+        
+        if (isTextOnly) {
+             // Fallback to Gemini Flash
+             visionModel = "gemini-2.5-flash";
+             
+             // CRITICAL FIX: If user is using a custom host (like OneAPI/NewAPI) for DeepSeek, 
+             // that host MIGHT also support Gemini or other vision models. 
+             // Don't blindy force Google Direct unless the host is explicitly DeepSeek's official one.
+             if (settings.apiBaseUrl && !settings.apiBaseUrl.includes('deepseek.com')) {
+                 // Keep the custom host/key, just switch model
+                 visionHost = settings.apiBaseUrl;
+                 visionKey = settings.apiKey;
+             } else {
+                 // DeepSeek Official or unknown text-only: Fallback to Google Direct
+                 // Requires valid Google API Key in env or settings
+                 visionKey = envKey; 
+                 visionHost = ''; // Reset host to default Google
+             }
+        } else {
+             // Assume main model might support vision (e.g., gpt-4o, gemini-pro)
+             visionModel = mainModel || "gemini-2.5-flash";
+        }
+    }
+
+    if (!visionKey) throw new Error("缺少视觉模型配置。如果您使用 DeepSeek，请在设置中单独配置 Vision API (如 Google Gemini 或支持视觉的中转服务)。");
 
     // Optimized instruction for robust text extraction
     let userPrompt = customInstruction;
@@ -369,20 +409,20 @@ export const recognizeTextFromImage = async (base64Image: string, customInstruct
          `;
     }
 
-    // Force a specific text format that is easy to parse
+    // Relaxed format requirement
     userPrompt += `
     
-    请严格按照以下格式返回结果：
-    TITLE: [这里写一个简短的标题]
+    请按以下格式返回结果（如果无法区分标题，可只返回内容）：
+    TITLE: [标题]
     CONTENT:
-    [这里写完整的识别内容]
+    [内容]
     `;
 
     try {
         let rawText = '';
 
         if (visionHost && visionHost.trim() !== '' && !visionHost.includes('google')) {
-             const result = await callOpenAIVision(visionHost, visionKey, visionModel, userPrompt, base64Image.split(',')[1]);
+             const result = await withRetry(() => callOpenAIVision(visionHost, visionKey, visionModel, userPrompt, base64Image.split(',')[1]));
              // If OpenAI wrapper returns an object (from JSON parse), use it
              if (typeof result === 'object' && result.content && result.content !== '') {
                  // Check if it's the fallback object or parsed JSON
@@ -401,7 +441,7 @@ export const recognizeTextFromImage = async (base64Image: string, customInstruct
             const ai = new GoogleGenAI({ apiKey: visionKey });
             const base64Data = base64Image.split(',')[1]; 
             
-            const response = await ai.models.generateContent({
+            const response = await withRetry(() => ai.models.generateContent({
                 model: visionModel.includes('gemini') ? visionModel : "gemini-2.5-flash",
                 contents: [
                     {
@@ -412,8 +452,7 @@ export const recognizeTextFromImage = async (base64Image: string, customInstruct
                         ]
                     }
                 ]
-                // Note: Removed responseMimeType: "application/json" to prevent empty responses on failure
-            });
+            })) as GenerateContentResponse;
 
             rawText = response.text || '';
         }
@@ -421,16 +460,19 @@ export const recognizeTextFromImage = async (base64Image: string, customInstruct
         // --- Post-Processing / Parsing Logic ---
         // Clean up common artifact from some vision models
         rawText = rawText.replace(/<lend_of_boxl>/g, '').replace(/<box_2d>/g, '');
+        // Remove markdown block if present
+        let cleanText = rawText.replace(/^```(json|text)?/i, '').replace(/```$/, '').trim();
+
+        if (!cleanText) {
+             throw new Error("AI 未返回任何有效内容，请重试或检查图片清晰度。");
+        }
 
         let title = "扫描内容";
         let content = "";
 
-        // Remove markdown block if present
-        rawText = rawText.replace(/^```\w*\s*/, '').replace(/\s*```$/, '').trim();
-
-        // Regex Parse
-        const titleMatch = rawText.match(/TITLE:\s*(.*)/i);
-        const contentMatch = rawText.match(/CONTENT:\s*([\s\S]*)/i);
+        // Regex Parse for strict format
+        const titleMatch = cleanText.match(/TITLE:\s*(.*)/i);
+        const contentMatch = cleanText.match(/CONTENT:\s*([\s\S]*)/i);
 
         if (titleMatch && titleMatch[1]) {
             title = titleMatch[1].trim();
@@ -438,22 +480,36 @@ export const recognizeTextFromImage = async (base64Image: string, customInstruct
         
         if (contentMatch && contentMatch[1]) {
             content = contentMatch[1].trim();
-        } else {
-             // Fallback: Treat whole text as content if markers missing
-             // Attempt to split first line as title if short
-             const lines = rawText.split('\n');
-             if (lines.length > 0 && lines[0].length < 20 && lines.length > 1) {
-                 title = lines[0].trim();
-                 content = lines.slice(1).join('\n').trim();
+        }
+
+        // Fallback: If strict parsing failed to get content
+        if (!content) {
+             // Try to remove the markers to get raw content
+             let tempText = cleanText.replace(/TITLE:\s*.*(\n|$)/i, '').replace(/CONTENT:\s*/i, '').trim();
+             
+             // If replacing resulted in empty string (e.g. only had title line), revert to full text
+             if (!tempText) tempText = cleanText;
+
+             const lines = tempText.split('\n').map(l => l.trim()).filter(l => l);
+             
+             // Heuristic: If first line is short and followed by more text, treat as title
+             if (lines.length > 1 && lines[0].length < 20) {
+                 if (title === "扫描内容") title = lines[0]; // Update title only if default
+                 content = lines.slice(1).join('\n');
              } else {
-                 content = rawText;
+                 content = tempText;
              }
         }
         
-        // Sanity Check
-        if (!content || content.length === 0) {
-             // If AI returned strictly nothing
-             throw new Error("未识别到有效文字");
+        // Final Safety
+        if (!content && title !== "扫描内容") {
+            // If we captured a title but no content body, the text might be short enough to be just content
+            content = title; 
+        }
+        
+        if (!content) {
+             // Use everything we have
+             content = cleanText;
         }
         
         return { title, content };
@@ -525,11 +581,11 @@ export const generateMatchGameData = async (chars: Character[]): Promise<{
     try {
         let result: any;
         if (settings.apiBaseUrl && settings.apiBaseUrl.trim() !== '') {
-             const data = await callOpenAICompatible(settings, systemPrompt, userPrompt, schemaDescription);
+             const data = await withRetry(() => callOpenAICompatible(settings, systemPrompt, userPrompt, schemaDescription));
              result = data;
         } else {
             const ai = new GoogleGenAI({ apiKey: effectiveKey });
-            const response = await ai.models.generateContent({
+            const response = await withRetry(() => ai.models.generateContent({
                 model: settings.model.includes('gemini') ? settings.model : "gemini-2.5-flash",
                 contents: userPrompt,
                 config: {
@@ -537,7 +593,7 @@ export const generateMatchGameData = async (chars: Character[]): Promise<{
                     responseMimeType: "application/json",
                     responseSchema: googleSchema
                 }
-            });
+            })) as GenerateContentResponse;
             if (response.text) result = JSON.parse(response.text);
             else throw new Error("No data");
         }
@@ -556,11 +612,11 @@ export const testConnection = async (settings: AppSettings): Promise<boolean> =>
     try {
         if (settings.apiBaseUrl && settings.apiBaseUrl.trim() !== '') {
              // Simple test call
-             await callOpenAICompatible(settings, "You are a helper.", "Say hi", "{}");
+             await withRetry(() => callOpenAICompatible(settings, "You are a helper.", "Say hi", "{}"), 1);
              return true;
         } else {
             const ai = new GoogleGenAI({ apiKey: effectiveKey });
-            await ai.models.generateContent({ model: settings.model || "gemini-2.5-flash", contents: "Hi" });
+            await withRetry(() => ai.models.generateContent({ model: settings.model || "gemini-2.5-flash", contents: "Hi" }), 1);
             return true;
         }
     } catch (e) { 
@@ -583,11 +639,11 @@ export const testVisionConnection = async (settings: AppSettings): Promise<boole
 
     try {
          if (host && host.trim() !== '' && !host.includes('google')) {
-             await callOpenAIVision(host, key, model, "What color is this?", testImage);
+             await withRetry(() => callOpenAIVision(host, key, model, "What color is this?", testImage), 1);
              return true;
          } else {
              const ai = new GoogleGenAI({ apiKey: key });
-             await ai.models.generateContent({
+             await withRetry(() => ai.models.generateContent({
                  model: model,
                  contents: [
                      {
@@ -598,7 +654,7 @@ export const testVisionConnection = async (settings: AppSettings): Promise<boole
                          ]
                      }
                  ]
-             });
+             }), 1);
              return true;
          }
     } catch (e) {
