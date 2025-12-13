@@ -1,11 +1,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Settings, Database, Download, Upload, Info, Bot, ArrowLeft, HelpCircle, BookOpen, ChevronRight, Heart, ExternalLink, MessageCircle, Check, X, Server, FileJson, Activity, WifiOff, Sliders } from 'lucide-react';
+import { User, Settings, Database, Download, Upload, Info, Bot, ArrowLeft, HelpCircle, BookOpen, ChevronRight, Heart, ExternalLink, MessageCircle, Check, X, Server, FileJson, Activity, WifiOff, Sliders, Book } from 'lucide-react';
 import { AppSettings, ViewState } from '../types';
 import { getSettings, saveSettings, exportUserData, importUserData } from '../services/storage';
 import { AIConfigurationView } from './AIConfigurationView';
 import { UserManualView } from './UserManualView';
 import { HabitsAndVoiceView } from './HabitsAndVoiceView';
+import { GuideView } from './GuideView';
 
 // Stub for provider constants
 const PROVIDERS = {
@@ -21,7 +22,7 @@ interface ProfileViewProps {
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
-  const [view, setView] = useState<'MAIN' | 'AI_CONFIG' | 'ABOUT' | 'HELP' | 'MANUAL' | 'HABITS'>('MAIN');
+  const [view, setView] = useState<'MAIN' | 'AI_CONFIG' | 'ABOUT' | 'HELP' | 'MANUAL' | 'HABITS' | 'GUIDE'>('MAIN');
   const [config, setConfig] = useState<AppSettings>(getSettings());
   const [activeProvider, setActiveProvider] = useState<string>('GOOGLE');
   
@@ -106,6 +107,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
   if (view === 'MANUAL') {
       return <UserManualView onBack={() => setView('ABOUT')} />
   }
+  
+  if (view === 'GUIDE') {
+      return <GuideView onBack={() => setView('ABOUT')} />
+  }
 
   if (view === 'AI_CONFIG') {
       return <AIConfigurationView onBack={() => setView('MAIN')} />
@@ -131,7 +136,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                           🐼
                       </div>
                       <h2 className="text-2xl font-fun font-bold text-gray-800 mb-1">汉字小英雄</h2>
-                      <p className="text-gray-400 text-sm font-mono">Version 1.2.0</p>
+                      <p className="text-gray-400 text-sm font-mono">Version 1.3.0</p>
                       <p className="text-gray-500 text-sm mt-2 font-bold">Author: Tabor</p>
                   </div>
 
@@ -146,6 +151,19 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                                  <HelpCircle size={20} />
                              </div>
                              <span className="font-bold text-gray-700">设计理念</span>
+                         </div>
+                         <ChevronRight size={18} className="text-gray-400" />
+                      </button>
+
+                      <button 
+                         onClick={() => setView('GUIDE')}
+                         className="w-full bg-white p-4 rounded-xl border border-gray-200 flex items-center justify-between hover:bg-gray-50 transition-colors shadow-sm group"
+                      >
+                         <div className="flex items-center gap-3">
+                             <div className="p-2 bg-purple-50 text-purple-600 rounded-lg group-hover:bg-purple-100 transition-colors">
+                                 <Book size={20} />
+                             </div>
+                             <span className="font-bold text-gray-700">使用帮助</span>
                          </div>
                          <ChevronRight size={18} className="text-gray-400" />
                       </button>
