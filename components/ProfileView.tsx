@@ -136,7 +136,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                           🐼
                       </div>
                       <h2 className="text-2xl font-fun font-bold text-gray-800 mb-1">汉字小英雄</h2>
-                      <p className="text-gray-400 text-sm font-mono">Version 1.3.0</p>
+                      <p className="text-gray-400 text-sm font-mono">Version 1.3.5</p>
                       <p className="text-gray-500 text-sm mt-2 font-bold">Author: Tabor</p>
                   </div>
 

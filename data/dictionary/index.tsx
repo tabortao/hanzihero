@@ -1,5 +1,6 @@
+
 import { AIExplanation } from "../../types";
-import { APP_DATA } from "../../data";
+import { APP_DATA } from "../../appData";
 import { DICT_CHUNK_01 } from "./chunk01";
 import { DICT_CHUNK_02 } from "./chunk02";
 import { DICT_CHUNK_03 } from "./chunk03";

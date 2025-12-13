@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Book, Grid, Star, PlayCircle, Trophy, CheckCircle, List, X, Library, BookOpen, Sparkles, Plus, Save, ChevronDown, Edit3, ArrowRightLeft, Camera, Loader2, Image as ImageIcon, FileText, Wand2, Edit2, Gamepad2 } from 'lucide-react';
 import { GameConfig, Character, Unit, Curriculum } from '../types';
-import { APP_DATA, GRADE_PRESETS } from '../data';
+import { APP_DATA, GRADE_PRESETS } from '../appData';
 import { getSettings, getUnknownCharacters, getKnownCharacters, getCustomCurricula, saveCustomUnit, updateCustomUnit, saveSettings, getDailyPlan } from '../services/storage';
 import { findCharacterPinyin } from '../data/dictionary';
 import { recognizeTextFromImage } from '../services/geminiService';

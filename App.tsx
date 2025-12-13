@@ -5,7 +5,7 @@ import { SelectionView } from './components/SelectionView';
 import { BottomNav } from './components/SharedComponents';
 import { getStars, getKnownCharacters, getUnknownCharacters, getSettings } from './services/storage';
 import { findCharacterPinyin, getAllDictionaryChars } from './data/dictionary';
-import { getOrderedCurriculumChars } from './data';
+import { getOrderedCurriculumChars } from './appData';
 
 // Lazy Load Heavy Components to speed up initial rendering
 const GameView = React.lazy(() => import('./components/GameView').then(module => ({ default: module.GameView })));

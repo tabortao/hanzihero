@@ -1,6 +1,6 @@
 
 import { AppSettings, Character, Unit, Curriculum, LearningRecord, Story, VisionPrompt, LearningStats } from '../types';
-import { APP_DATA } from '../data';
+import { APP_DATA } from '../appData';
 
 // --- Constants ---
 export const STORAGE_KEY_SETTINGS = 'hanzi_hero_settings';

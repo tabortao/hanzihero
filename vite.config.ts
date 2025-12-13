@@ -1,26 +1,40 @@
 
-import { defineConfig } from 'vite';
+import path from 'path';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig({
-  plugins: [react()],
-  build: {
-    // Increase the chunk size limit to avoid warnings for the large dictionary
-    chunkSizeWarningLimit: 2000,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'vendor': ['react', 'react-dom', 'lucide-react', 'uuid', 'canvas-confetti'],
-          'genai': ['@google/genai'],
-          // Split the large dictionary data into a separate chunk
-          'dictionary': [
-            './data/dictionary/chunk01.ts',
-            './data/dictionary/chunk02.ts',
-            './data/dictionary/chunk03.ts',
-            './data/dictionary/index.tsx'
-          ]
+export default defineConfig(({ mode }) => {
+    // Load env file based on `mode` in the current working directory.
+    // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
+    const env = loadEnv(mode, '.', '');
+    
+    return {
+      server: {
+        port: 3000,
+        host: '0.0.0.0',
+      },
+      plugins: [react()],
+      define: {
+        // Essential for injecting the API key into the client-side code
+        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.API_KEY),
+        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+      },
+      resolve: {
+        alias: {
+          '@': path.resolve(__dirname, '.'),
+        }
+      },
+      build: {
+        // Increase the chunk size limit to avoid warnings for the large dictionary
+        chunkSizeWarningLimit: 2000,
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              'vendor': ['react', 'react-dom', 'lucide-react', 'uuid', 'canvas-confetti'],
+              'genai': ['@google/genai']
+            }
+          }
         }
       }
-    }
-  }
+    };
 });
