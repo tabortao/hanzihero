@@ -59,7 +59,6 @@ export const findCharacterPinyin = (char: string): string => {
       }
 
       // Fallback: Try to extract from 'words'
-      // Example: char='棍', word='木棍', pinyin='mù gùn'. Index is 1.
       if (dictEntry.words && dictEntry.words.length > 0) {
           for (const w of dictEntry.words) {
               const charIndex = w.word.indexOf(char);
@@ -71,6 +70,8 @@ export const findCharacterPinyin = (char: string): string => {
               }
           }
       }
+      
+      if (dictEntry.pinyin) return dictEntry.pinyin;
   }
 
   return '';

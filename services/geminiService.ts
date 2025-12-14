@@ -201,7 +201,12 @@ export const explainCharacter = async (char: string, forceAI: boolean = false): 
         const ai = new GoogleGenAI({ apiKey: effectiveKey });
         const response = await withRetry(() => ai.models.generateContent({
             model: settings.model.includes('gemini') ? settings.model : "gemini-2.5-flash",
-            contents: userPrompt,
+            contents: [
+                {
+                    role: 'user',
+                    parts: [{ text: userPrompt }]
+                }
+            ],
             config: {
                 systemInstruction: systemPrompt,
                 responseMimeType: "application/json",
@@ -335,12 +340,21 @@ export const generateStoryStream = async (
     } else {
         // Google GenAI Streaming
         const ai = new GoogleGenAI({ apiKey: effectiveKey });
-        const result = await ai.models.generateContentStream({
-            model: settings.model.includes('gemini') ? settings.model : "gemini-2.5-flash",
-            contents: userPrompt,
-            config: {
-                systemInstruction: systemPrompt,
-            }
+        
+        // Wrap initial call in retry for robustness against transient network issues
+        const result = await withRetry(async () => {
+             return await ai.models.generateContentStream({
+                model: settings.model.includes('gemini') ? settings.model : "gemini-2.5-flash",
+                contents: [
+                    {
+                        role: 'user',
+                        parts: [{ text: userPrompt }]
+                    }
+                ],
+                config: {
+                    systemInstruction: systemPrompt,
+                }
+            });
         });
 
         for await (const chunk of result) {
@@ -348,9 +362,25 @@ export const generateStoryStream = async (
             if (text) onChunk(text);
         }
     }
-  } catch (error) {
-    console.error("Generate Story Error:", error);
-    throw error;
+  } catch (error: any) {
+    console.error("Generate Story Error:", JSON.stringify(error));
+    
+    // Extract meaningful message from Google SDK error if possible
+    let message = error.message || "Unknown error";
+    if (error.error && error.error.message) {
+        message = error.error.message;
+    }
+    
+    // Friendly error mapping
+    if (message.includes("http status code: 0")) {
+        message = "网络连接失败 (Status 0)。请检查您的网络连接或代理设置。";
+    } else if (message.includes("403") || message.includes("401")) {
+        message = "API 密钥无效或被拒绝 (401/403)。请检查设置中的 Key。";
+    } else if (message.includes("500")) {
+        message = "AI 服务端错误 (500)。请稍后再试。";
+    }
+
+    throw new Error(message);
   }
 };
 
@@ -587,7 +617,12 @@ export const generateMatchGameData = async (chars: Character[]): Promise<{
             const ai = new GoogleGenAI({ apiKey: effectiveKey });
             const response = await withRetry(() => ai.models.generateContent({
                 model: settings.model.includes('gemini') ? settings.model : "gemini-2.5-flash",
-                contents: userPrompt,
+                contents: [
+                    {
+                        role: 'user',
+                        parts: [{ text: userPrompt }]
+                    }
+                ],
                 config: {
                     systemInstruction: systemPrompt,
                     responseMimeType: "application/json",
@@ -616,7 +651,15 @@ export const testConnection = async (settings: AppSettings): Promise<boolean> =>
              return true;
         } else {
             const ai = new GoogleGenAI({ apiKey: effectiveKey });
-            await withRetry(() => ai.models.generateContent({ model: settings.model || "gemini-2.5-flash", contents: "Hi" }), 1);
+            await withRetry(() => ai.models.generateContent({ 
+                model: settings.model || "gemini-2.5-flash", 
+                contents: [
+                    {
+                        role: 'user',
+                        parts: [{ text: "Hi" }]
+                    }
+                ]
+            }), 1);
             return true;
         }
     } catch (e) { 

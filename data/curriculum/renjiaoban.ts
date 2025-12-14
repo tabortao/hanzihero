@@ -533,17 +533,329 @@ export const RENJIAOBAN: Curriculum = {
         name: "一年级下册",
         units: [
           {
-            id: "u1-spring",
-            name: "识字1 春夏秋冬",
+            id: "u2-1",
+            name: "识字1 《春夏秋冬》",
             characters: [
-              { char: "春", pinyin: "chūn" },
-              { char: "夏", pinyin: "xià" },
-              { char: "秋", pinyin: "qiū" },
-              { char: "冬", pinyin: "dōng" },
-              { char: "风", pinyin: "fēng" },
-              { char: "雪", pinyin: "xuě" },
-              { char: "花", pinyin: "huā" },
-              { char: "飞", pinyin: "fēi" }
+              { char: "霜", pinyin: "shuāng" }, { char: "吹", pinyin: "chuī" }, { char: "落", pinyin: "luò" }, { char: "降", pinyin: "jiàng" },
+              { char: "飘", pinyin: "piāo" }, { char: "游", pinyin: "yóu" }, { char: "池", pinyin: "chí" }, { char: "入", pinyin: "rù" }
+            ]
+          },
+          {
+            id: "u2-2",
+            name: "识字2 《姓氏歌》",
+            characters: [
+              { char: "姓", pinyin: "xìng" }, { char: "氏", pinyin: "shì" }, { char: "李", pinyin: "lǐ" }, { char: "张", pinyin: "zhāng" },
+              { char: "古", pinyin: "gǔ" }, { char: "吴", pinyin: "wú" }, { char: "赵", pinyin: "zhào" }, { char: "钱", pinyin: "qián" },
+              { char: "孙", pinyin: "sūn" }, { char: "周", pinyin: "zhōu" }, { char: "王", pinyin: "wáng" }, { char: "官", pinyin: "guān" }
+            ]
+          },
+          {
+            id: "u2-3",
+            name: "识字3 《小青蛙》",
+            characters: [
+              { char: "青", pinyin: "qīng" }, { char: "清", pinyin: "qīng" }, { char: "气", pinyin: "qì" }, { char: "晴", pinyin: "qíng" },
+              { char: "情", pinyin: "qíng" }, { char: "请", pinyin: "qǐng" }, { char: "生", pinyin: "shēng" }
+            ]
+          },
+          {
+            id: "u2-4",
+            name: "识字4 《猜字谜》",
+            characters: [
+              { char: "相", pinyin: "xiāng" }, { char: "遇", pinyin: "yù" }, { char: "喜", pinyin: "xǐ" }, { char: "欢", pinyin: "huān" },
+              { char: "怕", pinyin: "pà" }, { char: "言", pinyin: "yán" }, { char: "互", pinyin: "hù" }, { char: "令", pinyin: "lìng" },
+              { char: "动", pinyin: "dòng" }, { char: "万", pinyin: "wàn" }, { char: "纯", pinyin: "chún" }, { char: "净", pinyin: "jìng" }
+            ]
+          },
+          {
+            id: "u2-garden1",
+            name: "语文园地一",
+            characters: [
+              { char: "阴", pinyin: "yīn" }, { char: "雷", pinyin: "léi" }, { char: "电", pinyin: "diàn" }, { char: "阵", pinyin: "zhèn" },
+              { char: "冰", pinyin: "bīng" }, { char: "冻", pinyin: "dòng" }, { char: "夹", pinyin: "jiā" }
+            ]
+          },
+          {
+            id: "u2-txt-1",
+            name: "课文1 《吃水不忘挖井人》",
+            characters: [
+              { char: "吃", pinyin: "chī" }, { char: "忘", pinyin: "wàng" }, { char: "井", pinyin: "jǐng" }, { char: "村", pinyin: "cūn" },
+              { char: "叫", pinyin: "jiào" }, { char: "毛", pinyin: "máo" }, { char: "主", pinyin: "zhǔ" }, { char: "席", pinyin: "xí" },
+              { char: "乡", pinyin: "xiāng" }, { char: "亲", pinyin: "qīn" }, { char: "战", pinyin: "zhàn" }, { char: "士", pinyin: "shì" },
+              { char: "面", pinyin: "miàn" }
+            ]
+          },
+          {
+            id: "u2-txt-2",
+            name: "课文2 《我多想去看看》",
+            characters: [
+              { char: "想", pinyin: "xiǎng" }, { char: "告", pinyin: "gào" }, { char: "诉", pinyin: "sù" }, { char: "就", pinyin: "jiù" },
+              { char: "京", pinyin: "jīng" }, { char: "安", pinyin: "ān" }, { char: "广", pinyin: "guǎng" }, { char: "非", pinyin: "fēi" },
+              { char: "常", pinyin: "cháng" }, { char: "壮", pinyin: "zhuàng" }, { char: "观", pinyin: "guān" }
+            ]
+          },
+          {
+            id: "u2-txt-3",
+            name: "课文3 《一个接一个》",
+            characters: [
+              { char: "接", pinyin: "jiē" }, { char: "觉", pinyin: "jiào" }, { char: "再", pinyin: "zài" }, { char: "做", pinyin: "zuò" },
+              { char: "各", pinyin: "gè" }, { char: "种", pinyin: "zhǒng" }, { char: "样", pinyin: "yàng" }, { char: "伙", pinyin: "huǒ" },
+              { char: "伴", pinyin: "bàn" }, { char: "却", pinyin: "què" }, { char: "也", pinyin: "yě" }, { char: "趣", pinyin: "qù" },
+              { char: "这", pinyin: "zhè" }
+            ]
+          },
+          {
+            id: "u2-txt-4",
+            name: "课文4 《四个太阳》",
+            characters: [
+              { char: "太", pinyin: "tài" }, { char: "阳", pinyin: "yáng" }, { char: "道", pinyin: "dào" }, { char: "送", pinyin: "sòng" },
+              { char: "忙", pinyin: "máng" }, { char: "尝", pinyin: "cháng" }, { char: "香", pinyin: "xiāng" }, { char: "甜", pinyin: "tián" },
+              { char: "温", pinyin: "wēn" }, { char: "暖", pinyin: "nuǎn" }, { char: "该", pinyin: "gāi" }, { char: "颜", pinyin: "yán" },
+              { char: "因", pinyin: "yīn" }
+            ]
+          },
+          {
+            id: "u2-garden2",
+            name: "语文园地二",
+            characters: [
+              { char: "辆", pinyin: "liàng" }, { char: "匹", pinyin: "pǐ" }, { char: "册", pinyin: "cè" }, { char: "支", pinyin: "zhī" },
+              { char: "铅", pinyin: "qiān" }, { char: "棵", pinyin: "kē" }, { char: "架", pinyin: "jià" }
+            ]
+          },
+          {
+            id: "u2-txt-5",
+            name: "课文5 《小公鸡和小鸭子》",
+            characters: [
+              { char: "块", pinyin: "kuài" }, { char: "捉", pinyin: "zhuō" }, { char: "急", pinyin: "jí" }, { char: "直", pinyin: "zhí" },
+              { char: "河", pinyin: "hé" }, { char: "行", pinyin: "xíng" }, { char: "死", pinyin: "sǐ" }, { char: "信", pinyin: "xìn" },
+              { char: "跟", pinyin: "gēn" }, { char: "忽", pinyin: "hū" }, { char: "喊", pinyin: "hǎn" }, { char: "身", pinyin: "shēn" }
+            ]
+          },
+          {
+            id: "u2-txt-6",
+            name: "课文6 《树和喜鹊》",
+            characters: [
+              { char: "只", pinyin: "zhī" }, { char: "窝", pinyin: "wō" }, { char: "孤", pinyin: "gū" }, { char: "单", pinyin: "dān" },
+              { char: "种", pinyin: "zhòng" }, { char: "都", pinyin: "dōu" }, { char: "邻", pinyin: "lín" }, { char: "居", pinyin: "jū" },
+              { char: "招", pinyin: "zhāo" }, { char: "呼", pinyin: "hū" }, { char: "静", pinyin: "jìng" }, { char: "乐", pinyin: "lè" }
+            ]
+          },
+          {
+            id: "u2-txt-7",
+            name: "课文7 《怎么都快乐》",
+            characters: [
+              { char: "怎", pinyin: "zěn" }, { char: "独", pinyin: "dú" }, { char: "跳", pinyin: "tiào" }, { char: "绳", pinyin: "shéng" },
+              { char: "讲", pinyin: "jiǎng" }, { char: "得", pinyin: "de" }, { char: "羽", pinyin: "yǔ" }, { char: "球", pinyin: "qiú" },
+              { char: "戏", pinyin: "xì" }, { char: "排", pinyin: "pái" }, { char: "篮", pinyin: "lán" }, { char: "连", pinyin: "lián" },
+              { char: "运", pinyin: "yùn" }
+            ]
+          },
+          {
+            id: "u2-txt-8",
+            name: "课文8 《静夜思》",
+            characters: [
+              { char: "夜", pinyin: "yè" }, { char: "思", pinyin: "sī" }, { char: "床", pinyin: "chuáng" }, { char: "光", pinyin: "guāng" },
+              { char: "疑", pinyin: "yí" }, { char: "举", pinyin: "jǔ" }, { char: "望", pinyin: "wàng" }, { char: "低", pinyin: "dī" },
+              { char: "故", pinyin: "gù" }, { char: "乡", pinyin: "xiāng" }
+            ]
+          },
+          {
+            id: "u2-txt-9",
+            name: "课文9 《夜色》",
+            characters: [
+              { char: "胆", pinyin: "dǎn" }, { char: "敢", pinyin: "gǎn" }, { char: "往", pinyin: "wǎng" }, { char: "外", pinyin: "wài" },
+              { char: "勇", pinyin: "yǒng" }, { char: "窗", pinyin: "chuāng" }, { char: "乱", pinyin: "luàn" }, { char: "偏", pinyin: "piān" },
+              { char: "散", pinyin: "sàn" }, { char: "原", pinyin: "yuán" }, { char: "像", pinyin: "xiàng" }, { char: "微", pinyin: "wēi" }
+            ]
+          },
+          {
+            id: "u2-txt-10",
+            name: "课文10 《端午粽》",
+            characters: [
+              { char: "端", pinyin: "duān" }, { char: "粽", pinyin: "zòng" }, { char: "节", pinyin: "jié" }, { char: "总", pinyin: "zǒng" },
+              { char: "米", pinyin: "mǐ" }, { char: "间", pinyin: "jiān" }, { char: "分", pinyin: "fēn" }, { char: "豆", pinyin: "dòu" },
+              { char: "肉", pinyin: "ròu" }, { char: "带", pinyin: "dài" }, { char: "知", pinyin: "zhī" }, { char: "据", pinyin: "jù" },
+              { char: "念", pinyin: "niàn" }
+            ]
+          },
+          {
+            id: "u2-txt-11",
+            name: "课文11 《彩虹》",
+            characters: [
+              { char: "虹", pinyin: "hóng" }, { char: "座", pinyin: "zuò" }, { char: "浇", pinyin: "jiāo" }, { char: "提", pinyin: "tí" },
+              { char: "洒", pinyin: "sǎ" }, { char: "挑", pinyin: "tiāo" }, { char: "兴", pinyin: "xìng" }, { char: "镜", pinyin: "jìng" },
+              { char: "拿", pinyin: "ná" }, { char: "照", pinyin: "zhào" }, { char: "千", pinyin: "qiān" }, { char: "裙", pinyin: "qún" }
+            ]
+          },
+          {
+            id: "u2-garden4",
+            name: "语文园地四",
+            characters: [
+              { char: "眉", pinyin: "méi" }, { char: "鼻", pinyin: "bí" }, { char: "嘴", pinyin: "zuǐ" }, { char: "脖", pinyin: "bó" },
+              { char: "臂", pinyin: "bì" }, { char: "肚", pinyin: "dù" }, { char: "腿", pinyin: "tuǐ" }, { char: "脚", pinyin: "jiǎo" }
+            ]
+          },
+          {
+            id: "u2-char-5",
+            name: "识字5 《动物儿歌》",
+            characters: [
+              { char: "蜻", pinyin: "qīng" }, { char: "蜓", pinyin: "tíng" }, { char: "迷", pinyin: "mí" }, { char: "藏", pinyin: "cáng" },
+              { char: "造", pinyin: "zào" }, { char: "蚂", pinyin: "mǎ" }, { char: "蚁", pinyin: "yǐ" }, { char: "食", pinyin: "shí" },
+              { char: "粮", pinyin: "liáng" }, { char: "蜘", pinyin: "zhī" }, { char: "蛛", pinyin: "zhū" }, { char: "网", pinyin: "wǎng" }
+            ]
+          },
+          {
+            id: "u2-char-6",
+            name: "识字6 《古对今》",
+            characters: [
+              { char: "圆", pinyin: "yuán" }, { char: "严", pinyin: "yán" }, { char: "寒", pinyin: "hán" }, { char: "酷", pinyin: "kù" },
+              { char: "暑", pinyin: "shǔ" }, { char: "凉", pinyin: "liáng" }, { char: "晨", pinyin: "chén" }, { char: "细", pinyin: "xì" },
+              { char: "朝", pinyin: "zhāo" }, { char: "霞", pinyin: "xiá" }, { char: "夕", pinyin: "xī" }, { char: "杨", pinyin: "yáng" }
+            ]
+          },
+          {
+            id: "u2-char-7",
+            name: "识字7 《操场上》",
+            characters: [
+              { char: "操", pinyin: "cāo" }, { char: "场", pinyin: "chǎng" }, { char: "拔", pinyin: "bá" }, { char: "拍", pinyin: "pāi" },
+              { char: "跑", pinyin: "pǎo" }, { char: "踢", pinyin: "tī" }, { char: "铃", pinyin: "líng" }, { char: "热", pinyin: "rè" },
+              { char: "闹", pinyin: "nào" }, { char: "锻", pinyin: "duàn" }, { char: "炼", pinyin: "liàn" }, { char: "体", pinyin: "tǐ" }
+            ]
+          },
+          {
+            id: "u2-char-8",
+            name: "识字8 《人之初》",
+            characters: [
+              { char: "之", pinyin: "zhī" }, { char: "初", pinyin: "chū" }, { char: "性", pinyin: "xìng" }, { char: "善", pinyin: "shàn" },
+              { char: "习", pinyin: "xí" }, { char: "教", pinyin: "jiào" }, { char: "迁", pinyin: "qiān" }, { char: "贵", pinyin: "guì" },
+              { char: "专", pinyin: "zhuān" }, { char: "幼", pinyin: "yòu" }, { char: "玉", pinyin: "yù" }, { char: "器", pinyin: "qì" },
+              { char: "义", pinyin: "yì" }
+            ]
+          },
+          {
+            id: "u2-garden5",
+            name: "语文园地五",
+            characters: [
+              { char: "饭", pinyin: "fàn" }, { char: "能", pinyin: "néng" }, { char: "饱", pinyin: "bǎo" }, { char: "茶", pinyin: "chá" },
+              { char: "泡", pinyin: "pào" }, { char: "轻", pinyin: "qīng" }, { char: "鞭", pinyin: "biān" }, { char: "炮", pinyin: "pào" }
+            ]
+          },
+          {
+            id: "u2-txt-12",
+            name: "课文12 《古诗二首》",
+            characters: [
+              { char: "首", pinyin: "shǒu" }, { char: "踪", pinyin: "zōng" }, { char: "迹", pinyin: "jì" }, { char: "浮", pinyin: "fú" },
+              { char: "萍", pinyin: "píng" }, { char: "泉", pinyin: "quán" }, { char: "流", pinyin: "liú" }, { char: "爱", pinyin: "ài" },
+              { char: "柔", pinyin: "róu" }, { char: "荷", pinyin: "hé" }, { char: "露", pinyin: "lù" }, { char: "角", pinyin: "jiǎo" }
+            ]
+          },
+          {
+            id: "u2-txt-13",
+            name: "课文13 《荷叶圆圆》",
+            characters: [
+              { char: "珠", pinyin: "zhū" }, { char: "摇", pinyin: "yáo" }, { char: "躺", pinyin: "tǎng" }, { char: "晶", pinyin: "jīng" },
+              { char: "停", pinyin: "tíng" }, { char: "机", pinyin: "jī" }, { char: "展", pinyin: "zhǎn" }, { char: "透", pinyin: "tòu" },
+              { char: "翅", pinyin: "chì" }, { char: "膀", pinyin: "bǎng" }, { char: "唱", pinyin: "chàng" }, { char: "朵", pinyin: "duǒ" }
+            ]
+          },
+          {
+            id: "u2-txt-14",
+            name: "课文14 《要下雨了》",
+            characters: [
+              { char: "腰", pinyin: "yāo" }, { char: "坡", pinyin: "pō" }, { char: "沉", pinyin: "chén" }, { char: "伸", pinyin: "shēn" },
+              { char: "潮", pinyin: "cháo" }, { char: "湿", pinyin: "shī" }, { char: "呢", pinyin: "ne" }, { char: "空", pinyin: "kōng" },
+              { char: "闷", pinyin: "mēn" }, { char: "消", pinyin: "xiāo" }, { char: "息", pinyin: "xī" }, { char: "搬", pinyin: "bān" },
+              { char: "响", pinyin: "xiǎng" }
+            ]
+          },
+          {
+            id: "u2-garden6",
+            name: "语文园地六",
+            characters: [
+              { char: "棍", pinyin: "gùn" }, { char: "汤", pinyin: "tāng" }, { char: "扇", pinyin: "shàn" }, { char: "椅", pinyin: "yǐ" },
+              { char: "萤", pinyin: "yíng" }, { char: "牵", pinyin: "qiān" }, { char: "织", pinyin: "zhī" }, { char: "斗", pinyin: "dǒu" }
+            ]
+          },
+          {
+            id: "u2-txt-15",
+            name: "课文15 《文具的家》",
+            characters: [
+              { char: "具", pinyin: "jù" }, { char: "次", pinyin: "cì" }, { char: "丢", pinyin: "diū" }, { char: "哪", pinyin: "nǎ" },
+              { char: "新", pinyin: "xīn" }, { char: "每", pinyin: "měi" }, { char: "平", pinyin: "píng" }, { char: "她", pinyin: "tā" },
+              { char: "些", pinyin: "xiē" }, { char: "仔", pinyin: "zǐ" }, { char: "检", pinyin: "jiǎn" }, { char: "查", pinyin: "chá" },
+              { char: "所", pinyin: "suǒ" }
+            ]
+          },
+          {
+            id: "u2-txt-16",
+            name: "课文16 《一分钟》",
+            characters: [
+              { char: "钟", pinyin: "zhōng" }, { char: "丁", pinyin: "dīng" }, { char: "元", pinyin: "yuán" }, { char: "迟", pinyin: "chí" },
+              { char: "洗", pinyin: "xǐ" }, { char: "背", pinyin: "bēi" }, { char: "刚", pinyin: "gāng" }, { char: "共", pinyin: "gòng" },
+              { char: "汽", pinyin: "qì" }, { char: "决", pinyin: "jué" }, { char: "定", pinyin: "dìng" }, { char: "已", pinyin: "yǐ" },
+              { char: "经", pinyin: "jīng" }
+            ]
+          },
+          {
+            id: "u2-txt-17",
+            name: "课文17 《动物王国开大会》",
+            characters: [
+              { char: "物", pinyin: "wù" }, { char: "虎", pinyin: "hǔ" }, { char: "熊", pinyin: "xióng" }, { char: "通", pinyin: "tōng" },
+              { char: "注", pinyin: "zhù" }, { char: "意", pinyin: "yì" }, { char: "遍", pinyin: "biàn" }, { char: "百", pinyin: "bǎi" },
+              { char: "舌", pinyin: "shé" }, { char: "鬼", pinyin: "guǐ" }, { char: "脸", pinyin: "liǎn" }, { char: "准", pinyin: "zhǔn" },
+              { char: "第", pinyin: "dì" }
+            ]
+          },
+          {
+            id: "u2-txt-18",
+            name: "课文18 《小猴子下山》",
+            characters: [
+              { char: "猴", pinyin: "hóu" }, { char: "结", pinyin: "jiē" }, { char: "掰", pinyin: "bāi" }, { char: "扛", pinyin: "káng" },
+              { char: "满", pinyin: "mǎn" }, { char: "扔", pinyin: "rēng" }, { char: "摘", pinyin: "zhāi" }, { char: "捧", pinyin: "pěng" },
+              { char: "瓜", pinyin: "guā" }, { char: "抱", pinyin: "bào" }, { char: "蹦", pinyin: "bèng" }, { char: "追", pinyin: "zhuī" }
+            ]
+          },
+          {
+            id: "u2-garden7",
+            name: "语文园地七",
+            characters: [
+              { char: "吵", pinyin: "chǎo" }, { char: "胖", pinyin: "pàng" }, { char: "岁", pinyin: "suì" }, { char: "现", pinyin: "xiàn" },
+              { char: "票", pinyin: "piào" }, { char: "交", pinyin: "jiāo" }, { char: "弓", pinyin: "gōng" }, { char: "甘", pinyin: "gān" }
+            ]
+          },
+          {
+            id: "u2-txt-19",
+            name: "课文19 《棉花姑娘》",
+            characters: [
+              { char: "棉", pinyin: "mián" }, { char: "娘", pinyin: "niáng" }, { char: "治", pinyin: "zhì" }, { char: "燕", pinyin: "yàn" },
+              { char: "别", pinyin: "bié" }, { char: "干", pinyin: "gàn" }, { char: "然", pinyin: "rán" }, { char: "奇", pinyin: "qí" },
+              { char: "颗", pinyin: "kē" }, { char: "瓢", pinyin: "piáo" }, { char: "碧", pinyin: "bì" }, { char: "吐", pinyin: "tǔ" },
+              { char: "啦", pinyin: "la" }
+            ]
+          },
+          {
+            id: "u2-txt-20",
+            name: "课文20 《咕咚》",
+            characters: [
+              { char: "咕", pinyin: "gū" }, { char: "咚", pinyin: "dōng" }, { char: "熟", pinyin: "shú" }, { char: "掉", pinyin: "diào" },
+              { char: "吓", pinyin: "xià" }, { char: "鹿", pinyin: "lù" }, { char: "逃", pinyin: "táo" }, { char: "命", pinyin: "mìng" },
+              { char: "象", pinyin: "xiàng" }, { char: "野", pinyin: "yě" }, { char: "拦", pinyin: "lán" }, { char: "领", pinyin: "lǐng" }
+            ]
+          },
+          {
+            id: "u2-txt-21",
+            name: "课文21 《小壁虎借尾巴》",
+            characters: [
+              { char: "壁", pinyin: "bì" }, { char: "墙", pinyin: "qiáng" }, { char: "蚊", pinyin: "wén" }, { char: "咬", pinyin: "yǎo" },
+              { char: "断", pinyin: "duàn" }, { char: "您", pinyin: "nín" }, { char: "拨", pinyin: "bō" }, { char: "甩", pinyin: "shuǎi" },
+              { char: "赶", pinyin: "gǎn" }, { char: "房", pinyin: "fáng" }, { char: "傻", pinyin: "shǎ" }, { char: "转", pinyin: "zhuǎn" }
+            ]
+          },
+          {
+            id: "u2-garden8",
+            name: "语文园地八",
+            characters: [
+              { char: "卫", pinyin: "wèi" }, { char: "刷", pinyin: "shuā" }, { char: "梳", pinyin: "shū" }, { char: "巾", pinyin: "jīn" },
+              { char: "擦", pinyin: "cā" }, { char: "皂", pinyin: "zào" }, { char: "澡", pinyin: "zǎo" }, { char: "盆", pinyin: "pén" }
             ]
           }
         ]

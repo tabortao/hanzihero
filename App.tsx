@@ -8,6 +8,7 @@ import { findCharacterPinyin, getAllDictionaryChars } from './data/dictionary';
 import { getOrderedCurriculumChars } from './appData';
 
 // Lazy Load Heavy Components to speed up initial rendering
+// Using .then(module => ({ default: module.ComponentName })) pattern for named exports
 const GameView = React.lazy(() => import('./components/GameView').then(module => ({ default: module.GameView })));
 const ReviewView = React.lazy(() => import('./components/ReviewView').then(module => ({ default: module.ReviewView })));
 const CharacterBankView = React.lazy(() => import('./components/CharacterBankView').then(module => ({ default: module.CharacterBankView })));
@@ -18,8 +19,7 @@ const DailyChallengeMenu = React.lazy(() => import('./components/DailyChallengeM
 const ListenIdentifyGame = React.lazy(() => import('./components/ListenIdentifyGame').then(module => ({ default: module.ListenIdentifyGame })));
 const LookIdentifyGame = React.lazy(() => import('./components/LookIdentifyGame').then(module => ({ default: module.LookIdentifyGame })));
 const CrushGame = React.lazy(() => import('./components/CrushGame').then(module => ({ default: module.CrushGame })));
-// Updated: Use standard lazy import for default export
-const FlashCardGame = React.lazy(() => import('./components/FlashCardGame'));
+const FlashCardGame = React.lazy(() => import('./components/FlashCardGame').then(module => ({ default: module.FlashCardGame })));
 
 // Simple Loading Spinner for Suspense Fallback
 const LoadingScreen = () => (

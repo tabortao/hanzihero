@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Book, CheckCircle, Star, Plus, Trophy, BarChart } from 'lucide-react';
+import { ArrowLeft, Book, CheckCircle, Star, Plus, Trophy } from 'lucide-react';
 import { Character } from '../types';
 import { getLevelData, saveLevelData, getUnknownCharacters, getKnownCharacters, getGameStats, saveGameStats } from '../services/storage';
 import { GameView } from './GameView';
@@ -13,7 +13,7 @@ interface FlashCardGameProps {
   isTestMode?: boolean;
 }
 
-const FlashCardGame: React.FC<FlashCardGameProps> = ({ characters, onExit, isTestMode = false }) => {
+export const FlashCardGame: React.FC<FlashCardGameProps> = ({ characters, onExit, isTestMode = false }) => {
     const [view, setView] = useState<'MENU' | 'PLAYING' | 'COMPLETE' | 'COMPLETE_DAILY'>('MENU');
     const [currentLevel, setCurrentLevel] = useState(1);
     const [maxLevel, setMaxLevel] = useState(1);
@@ -26,7 +26,6 @@ const FlashCardGame: React.FC<FlashCardGameProps> = ({ characters, onExit, isTes
         setMaxLevel(stats.maxLevel);
         setTotalScore(stats.totalScore);
         
-        // If Test Mode, jump straight to playing with all characters
         if (isTestMode) {
              setLevelChars(characters);
              setView('PLAYING');
@@ -55,7 +54,6 @@ const FlashCardGame: React.FC<FlashCardGameProps> = ({ characters, onExit, isTes
             pool = [...pool, ...padding];
         }
 
-        // Deduplicate and sanitize
         pool = Array.from(new Map(pool.map(c => [c.char, c])).values());
         
         if (pool.length === 0) return [];
@@ -89,8 +87,6 @@ const FlashCardGame: React.FC<FlashCardGameProps> = ({ characters, onExit, isTes
 
     const handleLevelComplete = (starsEarned: number) => {
         if (isTestMode) {
-            // In Test Mode, just show completion, don't save level stats
-            // We do not add test score to total game score
             setLevelScore(starsEarned);
             setView('COMPLETE');
             return;
@@ -107,12 +103,11 @@ const FlashCardGame: React.FC<FlashCardGameProps> = ({ characters, onExit, isTes
         setView('COMPLETE');
     };
 
-    // New: Handle Abort (Clicking back without finishing)
     const handleAbort = () => {
         if (isTestMode) {
-            onExit(); // Direct exit for test mode
+            onExit();
         } else {
-            setView('MENU'); // Return to menu for normal mode
+            setView('MENU');
         }
     };
 
@@ -146,7 +141,6 @@ const FlashCardGame: React.FC<FlashCardGameProps> = ({ characters, onExit, isTes
                             <span className="text-xs font-bold">挑战新关卡</span>
                         </button>
 
-                        {/* Only show COMPLETED or previously unlocked levels (excluding current new level) */}
                         {Array.from({ length: maxLevel - 1 }).map((_, i) => {
                             const lvl = (maxLevel - 1) - i;
                             return (
@@ -236,11 +230,6 @@ const FlashCardGame: React.FC<FlashCardGameProps> = ({ characters, onExit, isTes
                 characters: levelChars
             }}
             onExit={(newStars, sessionScore) => {
-                // If isTestMode is true, GameView returns existing stars (no update),
-                // but we need the session score for display.
-                // If sessionScore is provided by GameView (it should be), use it.
-                // Otherwise fallback to delta calculation (only works if stars updated).
-                
                 let points = 0;
                 if (sessionScore !== undefined) {
                     points = sessionScore;
@@ -258,5 +247,3 @@ const FlashCardGame: React.FC<FlashCardGameProps> = ({ characters, onExit, isTes
         />
     );
 };
-
-export default FlashCardGame;

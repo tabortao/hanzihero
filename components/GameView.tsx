@@ -10,11 +10,11 @@ import confetti from 'canvas-confetti';
 interface GameViewProps {
   config: GameConfig;
   onExit: (newStars: number, sessionScore?: number) => void;
-  ignoreUnknown?: boolean; // If true, "Don't Know" won't add to Unknown list (for Testing)
-  onBack?: () => void; // Optional: Override back button behavior (e.g. for aborting without saving)
-  showScore?: boolean; // Optional: Toggle score display
-  skipLearning?: boolean; // Optional: If true, "Don't Know" skips explanation and goes to next char
-  disableRewards?: boolean; // If true, do not save stars/points to storage
+  ignoreUnknown?: boolean;
+  onBack?: () => void;
+  showScore?: boolean;
+  skipLearning?: boolean;
+  disableRewards?: boolean;
 }
 
 export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknown = false, onBack, showScore = true, skipLearning = false, disableRewards = false }) => {
@@ -24,24 +24,17 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
   const [aiLoading, setAiLoading] = useState(false);
   const [aiExplanation, setAiExplanation] = useState<AIExplanation | null>(null);
   
-  // Modal State for clicking sub-characters
   const [modalChar, setModalChar] = useState<Character | null>(null);
   
-  // Track characters learned in this session to record stats at end
-  const [sessionLearned, setSessionLearned] = useState<Set<string>>(new Set());
-
   const currentCharacter = config.characters[currentIndex];
 
   useEffect(() => {
-    // Reset state for new character
     setViewState('INITIAL');
     setAiExplanation(null);
   }, [currentIndex]);
 
-  // Auto-Speak Memory Tip when Loaded
   useEffect(() => {
     if (viewState === 'LEARNING' && aiExplanation && aiExplanation.memoryTip) {
-       // Small delay to ensure UI renders first and previous speech clears
        const timer = setTimeout(() => {
          speakText(aiExplanation.memoryTip);
        }, 500);
@@ -49,34 +42,18 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
     }
   }, [aiExplanation, viewState]);
 
-  const markLearned = () => {
-    setSessionLearned(prev => new Set(prev).add(currentCharacter.char));
-  }
-
-  // User clicked "I Know It"
   const handleKnown = () => {
-    // New AI Agent Logic: Record success
     updateCharacterProgress(currentCharacter, true);
-    
-    markLearned();
-    setScore(prev => prev + 1); // 1 point per character
-    
-    // 1. Speak the character only
+    setScore(prev => prev + 1);
     speakText(currentCharacter.char);
-    
     nextChar();
   };
 
-  // User clicked "I Don't Know"
   const handleUnknown = async () => {
-    // Only update progress (add to unknown) if NOT ignoring unknown
     if (!ignoreUnknown) {
         updateCharacterProgress(currentCharacter, false);
     }
 
-    markLearned();
-
-    // If skipLearning is true (e.g. Test Mode), go directly to next char
     if (skipLearning) {
         speakText(currentCharacter.char);
         nextChar();
@@ -84,9 +61,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
     }
 
     setViewState('LEARNING');
-    speakText(currentCharacter.char); // Speak char immediately
-    
-    // Auto-load AI content (will default to local if available)
+    speakText(currentCharacter.char);
     loadExplanation(false);
   };
 
@@ -96,14 +71,8 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
     try {
         const data = await explainCharacter(currentCharacter.char, forceAI);
         setAiExplanation(data);
-        
-        // --- Critical Update: Save Pinyin if it was missing ---
         if (!currentCharacter.pinyin && data.pinyin) {
-            // Update current character in config (local state) so UI updates
             currentCharacter.pinyin = data.pinyin;
-            // Also update storage with new pinyin
-            // Note: If ignoreUnknown is true, we might skip this sync to avoid side effects in Test Mode, 
-            // but saving pinyin is generally safe/good.
              if (!ignoreUnknown) {
                  updateCharacterProgress({ ...currentCharacter, pinyin: data.pinyin }, false);
              }
@@ -124,20 +93,8 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
     const end = Date.now() + duration;
 
     (function frame() {
-      confetti({
-        particleCount: 5,
-        angle: 60,
-        spread: 55,
-        origin: { x: 0 },
-        colors: ['#ff0000', '#00ff00', '#0000ff', '#ffff00']
-      });
-      confetti({
-        particleCount: 5,
-        angle: 120,
-        spread: 55,
-        origin: { x: 1 },
-        colors: ['#ff0000', '#00ff00', '#0000ff', '#ffff00']
-      });
+      confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#ff0000', '#00ff00', '#0000ff', '#ffff00'] });
+      confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#ff0000', '#00ff00', '#0000ff', '#ffff00'] });
 
       if (Date.now() < end) {
         requestAnimationFrame(frame);
@@ -147,22 +104,17 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
 
   const handleFinish = () => {
     if (!skipLearning) {
-        // Trigger celebration only if it's not a dry test
         triggerCelebration();
     }
-
-    // Save points ONLY if not disabled
     let totalStars;
     if (disableRewards) {
-        totalStars = getStars(); // Get current without adding
+        totalStars = getStars(); 
     } else {
         totalStars = addStars(score);
     }
-
-    // Delay exit slightly to show celebration
     setTimeout(() => {
         onExit(totalStars, score);
-    }, skipLearning ? 100 : 2000); // Faster exit for test mode
+    }, skipLearning ? 100 : 2000); 
   };
 
   const nextChar = () => {
@@ -173,7 +125,6 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
     }
   };
 
-  // --- Modal Logic ---
   const handleCharClick = (char: string, pinyin: string) => {
       setModalChar({ char, pinyin });
   };
@@ -186,20 +137,15 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
         speakText(modalChar.char);
         break;
       case 'STUDY':
-        // In Game context, we can't easily jump to study another char without losing state.
-        // We will just speak it and maybe provide a tip.
         speakText(`学习: ${modalChar.char}`);
         break;
       case 'KNOWN':
-        // Update progress manually via modal
         updateCharacterProgress(modalChar, true);
         speakText('认识');
         setModalChar(null);
         break;
       case 'UNKNOWN':
-        if (!ignoreUnknown) {
-             updateCharacterProgress(modalChar, false);
-        }
+        if (!ignoreUnknown) updateCharacterProgress(modalChar, false);
         speakText('不认识');
         setModalChar(null);
         break;
@@ -213,15 +159,10 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
       return 'NONE';
   };
 
-
-  const progress = ((currentIndex + 1) / config.characters.length) * 100;
-
-  // Use pinyin from char or from AI if loaded
   const displayPinyin = currentCharacter.pinyin || aiExplanation?.pinyin || '';
 
   return (
     <div className="max-w-7xl mx-auto min-h-screen flex flex-col bg-[#ecfdf5] pb-24">
-      {/* Header - Matches LookIdentifyGame/CrushGame style */}
       <div className="flex items-center justify-between p-4 mb-2">
         <div className="flex items-center gap-2">
             <button 
@@ -229,7 +170,6 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
                   if (onBack) {
                       onBack();
                   } else {
-                      // Legacy/Default behavior
                       const currentStars = disableRewards ? getStars() : addStars(score);
                       onExit(currentStars, score);
                   }
@@ -252,10 +192,8 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
         </div>
       </div>
 
-      {/* Main Area */}
       <div className="flex-1 flex flex-col items-center w-full max-w-2xl mx-auto px-4">
         
-        {/* Character Card */}
         <div className="bg-white rounded-[2.5rem] shadow-xl w-full p-6 sm:p-8 text-center border-4 border-green-100 relative mb-6">
           
           {viewState === 'LEARNING' && (
@@ -265,7 +203,6 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
                   <button onClick={() => speakText(currentCharacter.char)} className="p-1 bg-gray-100 rounded-full text-gray-500 hover:text-blue-500">
                     <Volume2 size={20} />
                   </button>
-                  {/* Regenerate AI Button */}
                   <button 
                     onClick={handleForceRefresh} 
                     className={`p-2 bg-indigo-50 rounded-full text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 transition-colors ml-2 ${aiLoading ? 'animate-spin' : ''}`}
@@ -277,7 +214,6 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
               </div>
           )}
 
-          {/* Composition Decomposition (New) */}
           {viewState === 'LEARNING' && aiExplanation?.compositionParts && aiExplanation.compositionParts.length > 0 && (
              <div className="flex flex-col items-center justify-center mb-6 bg-blue-50 p-3 rounded-2xl border border-blue-100 border-dashed">
                 <div className="text-xs text-blue-500 font-bold mb-2 flex items-center gap-1">
@@ -286,7 +222,6 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
                 <div className="flex items-center gap-4">
                     {aiExplanation.compositionParts.map((part, idx) => (
                         <React.Fragment key={idx}>
-                             {/* Plus sign between parts */}
                              {idx > 0 && <span className="text-blue-300 font-bold text-xl">+</span>}
                              <WritingGrid char={part.char} pinyin={part.pinyin} onClick={() => handleCharClick(part.char, part.pinyin)} />
                         </React.Fragment>
@@ -296,7 +231,6 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
           )}
 
           <div className="flex justify-center mb-4">
-             {/* If learning, show stroke order, else show static for initial guess */}
              {viewState === 'LEARNING' ? (
                 <StrokeOrderDisplay key={currentCharacter.char} char={currentCharacter.char} />
              ) : (
@@ -304,7 +238,6 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
                   className="w-40 h-40 sm:w-56 sm:h-56 bg-red-50 rounded-3xl flex items-center justify-center border-2 border-red-100 cursor-pointer hover:border-red-200 transition-colors relative"
                   onClick={() => speakText(currentCharacter.char)}
                 >
-                  {/* Grid lines */}
                   <div className="absolute inset-0 border-dashed border-red-200 pointer-events-none" style={{
                     backgroundImage: 'linear-gradient(to right, transparent 49%, #fca5a5 50%, transparent 51%), linear-gradient(to bottom, transparent 49%, #fca5a5 50%, transparent 51%)',
                     backgroundSize: '100% 100%'
@@ -321,7 +254,6 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
              )}
           </div>
 
-          {/* INITIAL STATE: ASK USER */}
           {viewState === 'INITIAL' && (
             <div className="py-8 animate-fade-in">
               <p className="text-xl text-gray-600 font-bold mb-8">这个字你认识吗？</p>
@@ -344,11 +276,9 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
             </div>
           )}
 
-          {/* LEARNING STATE: SHOW DETAILS */}
           {viewState === 'LEARNING' && (
             <div className="animate-fade-in text-left space-y-6">
               
-              {/* AI Content */}
               {aiLoading ? (
                 <div className="flex flex-col items-center py-8 space-y-3 text-indigo-400">
                   <RefreshCw className="animate-spin" size={32} />
@@ -356,13 +286,11 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
                 </div>
               ) : aiExplanation ? (
                 <div className="space-y-4">
-                  {/* Structure & Mnemonic */}
                   <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
                     <div className="flex items-center gap-2 mb-2">
                        <Layers size={18} className="text-indigo-600" />
                        <span className="font-bold text-indigo-800">字形结构: {aiExplanation.structure}</span>
                     </div>
-                    {/* Fallback composition text if visual parts aren't there */}
                     {(!aiExplanation.compositionParts || aiExplanation.compositionParts.length === 0) && (
                         <div className="flex flex-wrap gap-2 mb-3">
                             <span className="bg-white px-3 py-1 rounded-lg text-indigo-700 font-medium shadow-sm border border-indigo-100">
@@ -381,7 +309,6 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
                     </div>
                   </div>
 
-                  {/* Vocabulary */}
                   <div className="space-y-3">
                     <h3 className="font-bold text-gray-700 flex items-center gap-2">
                       <BookOpen size={18} className="text-green-600" /> 组词
@@ -399,7 +326,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
                                   key={idx} 
                                   char={c} 
                                   pinyin={pinyins[idx] || ''} 
-                                  isTarget={c === currentCharacter.char} // Highlight if match
+                                  isTarget={c === currentCharacter.char} 
                                   onClick={() => handleCharClick(c, pinyins[idx] || '')}
                                 />
                               ))}
@@ -409,7 +336,6 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
                     </div>
                   </div>
 
-                  {/* Sentence */}
                   <div className="space-y-3">
                      <h3 className="font-bold text-gray-700 flex items-center gap-2">
                         <Sparkles size={18} className="text-purple-600" /> 造句
@@ -422,7 +348,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
                               key={idx} 
                               char={item.char} 
                               pinyin={item.pinyin} 
-                              isTarget={item.char === currentCharacter.char} // Highlight if match
+                              isTarget={item.char === currentCharacter.char}
                               onClick={() => handleCharClick(item.char, item.pinyin)}
                            />
                         ))}
@@ -455,7 +381,6 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
         </div>
       </div>
 
-      {/* --- Action Modal --- */}
       {modalChar && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setModalChar(null)}>
               <div 
@@ -486,41 +411,10 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
-                      <button 
-                        onClick={() => handleModalAction('READ')}
-                        className="flex flex-col items-center justify-center p-4 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-colors gap-2"
-                      >
-                          <Volume2 size={24} />
-                          <span className="font-bold text-sm">朗读</span>
-                      </button>
-                      
-                      <button 
-                        onClick={() => handleModalAction('STUDY')}
-                        className="flex flex-col items-center justify-center p-4 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-100 transition-colors gap-2"
-                      >
-                          <GraduationCap size={24} />
-                          <span className="font-bold text-sm">学习</span>
-                      </button>
-
-                      <button 
-                        onClick={() => handleModalAction('KNOWN')}
-                        className={`flex flex-col items-center justify-center p-4 rounded-2xl transition-colors gap-2 border-2 ${
-                            getCharStatus(modalChar.char) === 'KNOWN' ? 'bg-green-100 border-green-300 text-green-700' : 'bg-white border-green-100 text-green-600 hover:bg-green-50'
-                        }`}
-                      >
-                          <Check size={24} />
-                          <span className="font-bold text-sm">认识</span>
-                      </button>
-
-                      <button 
-                        onClick={() => handleModalAction('UNKNOWN')}
-                        className={`flex flex-col items-center justify-center p-4 rounded-2xl transition-colors gap-2 border-2 ${
-                            getCharStatus(modalChar.char) === 'UNKNOWN' ? 'bg-orange-100 border-orange-300 text-orange-700' : 'bg-white border-orange-100 text-orange-600 hover:bg-orange-50'
-                        }`}
-                      >
-                          <X size={24} />
-                          <span className="font-bold text-sm">不认识</span>
-                      </button>
+                      <button onClick={() => handleModalAction('READ')} className="flex flex-col items-center justify-center p-4 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-colors gap-2"><Volume2 size={24} /><span className="font-bold text-sm">朗读</span></button>
+                      <button onClick={() => handleModalAction('STUDY')} className="flex flex-col items-center justify-center p-4 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-100 transition-colors gap-2"><GraduationCap size={24} /><span className="font-bold text-sm">学习</span></button>
+                      <button onClick={() => handleModalAction('KNOWN')} className={`flex flex-col items-center justify-center p-4 rounded-2xl transition-colors gap-2 border-2 ${getCharStatus(modalChar.char) === 'KNOWN' ? 'bg-green-100 border-green-300 text-green-700' : 'bg-white border-green-100 text-green-600 hover:bg-green-50'}`}><Check size={24} /><span className="font-bold text-sm">认识</span></button>
+                      <button onClick={() => handleModalAction('UNKNOWN')} className={`flex flex-col items-center justify-center p-4 rounded-2xl transition-colors gap-2 border-2 ${getCharStatus(modalChar.char) === 'UNKNOWN' ? 'bg-orange-100 border-orange-300 text-orange-700' : 'bg-white border-orange-100 text-orange-600 hover:bg-orange-50'}`}><X size={24} /><span className="font-bold text-sm">不认识</span></button>
                   </div>
               </div>
           </div>

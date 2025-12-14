@@ -190,8 +190,9 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
         await generateStoryStream(available, keywords, (chunk) => {
             setStreamText(prev => prev + chunk);
         });
-    } catch (e) {
-        alert("生成失败，请检查网络或 AI 设置");
+    } catch (e: any) {
+        // Show detailed error message
+        alert(e.message || "生成失败，请检查网络或 AI 设置");
         setLoading(false);
         return;
     }
