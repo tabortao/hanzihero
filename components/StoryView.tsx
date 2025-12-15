@@ -139,7 +139,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
 
       // Default prompts for modes
       if (recognitionMode === 'OCR') {
-          setPhotoPrompt("任务：提取文字。\n请将图片中所有的汉字、标点符号完整的提取出来，不提取拼音、页眉和页脚。保持原文的换行和格式。");
+          setPhotoPrompt("任务：提取文字。\n请将图片中所有的汉字、标点符号完整的提取出来，不提取拼音、页眉和页脚。如原文每行字数较少换行较多，请自动优化段落排版；如原文每段字数较多，保持原文的格式。");
       } else if (recognitionMode === 'STORY') {
           setPhotoPrompt("任务：看图写话。\n请仔细观察这张图片，发挥想象力，用生动有趣、适合小学生阅读的语言（一年级水平），根据画面内容编写一个小故事。");
       } 
@@ -333,7 +333,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
           setSelectedPromptId('');
           // Revert to default text for current mode
           if (recognitionMode === 'OCR') {
-              setPhotoPrompt("任务：提取文字。\n请将图片中所有的汉字、标点符号完整的提取出来，不提取拼音、页眉和页脚。保持原文的换行和格式。");
+              setPhotoPrompt("任务：提取文字。\n请将图片中所有的汉字、标点符号完整的提取出来，不提取拼音、页眉和页脚。如原文每行字数较少换行较多，请自动优化段落排版；如原文每段字数较多，保持原文的格式。");
           } else if (recognitionMode === 'STORY') {
               setPhotoPrompt("任务：看图写话。\n请仔细观察这张图片，发挥想象力，用生动有趣、适合小学生阅读的语言（一年级水平），根据画面内容编写一个小故事。");
           } else {
