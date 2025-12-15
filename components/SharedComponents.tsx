@@ -168,10 +168,12 @@ interface WritingGridProps {
   pinyin: string;
   isTarget?: boolean;
   onClick?: () => void;
-  variant?: 'card' | 'notebook'; // New prop to switch styles
+  variant?: 'card' | 'notebook'; 
+  className?: string; // Add className prop for external sizing
+  noGapBorder?: boolean; // New prop for gapless grid mode (like StoryView)
 }
 
-export const WritingGrid: React.FC<WritingGridProps> = ({ char, pinyin, isTarget = false, onClick, variant = 'card' }) => {
+export const WritingGrid: React.FC<WritingGridProps> = ({ char, pinyin, isTarget = false, onClick, variant = 'card', className = '', noGapBorder = false }) => {
   // Use local click handler if provided, otherwise default to speaking the char
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -189,7 +191,7 @@ export const WritingGrid: React.FC<WritingGridProps> = ({ char, pinyin, isTarget
   // --- CARD STYLE (Rounded, Shadow, Spaced) ---
   if (variant === 'card') {
     return (
-      <div className="flex flex-col items-center cursor-pointer group" onClick={handleClick}>
+      <div className={`flex flex-col items-center cursor-pointer group ${className}`} onClick={handleClick}>
         {/* Pinyin Grid (4 lines) */}
         <div className={`relative w-10 h-8 sm:w-14 sm:h-10 mb-0.5 flex items-center justify-center ${isPunctuation ? 'opacity-0' : 'opacity-100'}`}>
            <div className="absolute inset-x-0 top-[20%] border-t border-red-300/40"></div>
@@ -219,28 +221,40 @@ export const WritingGrid: React.FC<WritingGridProps> = ({ char, pinyin, isTarget
     );
   }
 
-  // --- NOTEBOOK STYLE (Square, Continuous Border, No Gaps) ---
+  // --- NOTEBOOK STYLE (Square, Continuous Border or Gapless) ---
+  // In noGapBorder mode, we use border-right and border-bottom on cells,
+  // and expect the parent container to provide border-top and border-left.
+  
+  const outerBorderClass = noGapBorder 
+    ? "border-r border-b border-red-300" 
+    : "border border-red-300 -ml-[1px] -mt-[1px]";
+
+  const pinyinBorderClass = noGapBorder 
+    ? "border-b border-red-300"
+    : "border-b border-red-300";
+
   return (
     <div 
-      className={`flex flex-col items-center group relative -ml-[1px] -mt-[1px] border border-red-300 box-border ${isEmpty ? '' : 'cursor-pointer hover:bg-red-50/30'}`} 
+      className={`flex flex-col items-center group relative box-border ${isEmpty ? '' : 'cursor-pointer hover:bg-red-50/30'} ${outerBorderClass} ${className}`} 
       onClick={!isEmpty ? handleClick : undefined}
     >
         {/* Pinyin Area (4 lines) */}
-        <div className="relative w-14 h-8 sm:w-20 sm:h-10 border-b border-red-300 box-border w-full">
+        {/* Responsive height: maintain aspect ratio suitable for 4 lines. If cell is very narrow (mobile 9 cols), height is small. */}
+        <div className={`relative w-full aspect-[2.5/1] sm:aspect-[3/1] box-border ${pinyinBorderClass}`}>
            {/* Inner lines - Solid/Dashed mix for 4-line grid */}
            <div className="absolute inset-x-0 top-[25%] border-t border-red-300/50 border-dashed"></div>
            <div className="absolute inset-x-0 top-[50%] border-t border-red-300/80"></div> {/* Middle line slightly darker */}
            <div className="absolute inset-x-0 top-[75%] border-t border-red-300/50 border-dashed"></div>
            
            {!isEmpty && !isPunctuation && (
-             <span className={`absolute inset-0 flex items-center justify-center text-sm sm:text-lg font-medium font-sans pt-1 text-gray-700`}>
+             <span className={`absolute inset-0 flex items-center justify-center font-medium font-sans pt-[2px] text-gray-700 leading-none text-[10px] sm:text-sm md:text-base`}>
                 {pinyin}
              </span>
            )}
         </div>
 
         {/* Hanzi Area (Mi Zi Ge - Dashed) */}
-        <div className="relative w-14 h-14 sm:w-20 sm:h-20 box-border bg-white w-full">
+        <div className="relative w-full aspect-square box-border bg-white">
            {/* SVG Lines for "Mi" character (Dashed) */}
            <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
                {/* Diagonals - Dashed */}
@@ -252,7 +266,7 @@ export const WritingGrid: React.FC<WritingGridProps> = ({ char, pinyin, isTarget
            </svg>
           
           {!isEmpty && (
-             <span className={`relative z-10 flex items-center justify-center w-full h-full font-fun text-3xl sm:text-4xl leading-none text-gray-800`}>
+             <span className={`relative z-10 flex items-center justify-center w-full h-full font-fun leading-none text-gray-800 text-lg sm:text-2xl md:text-4xl`}>
                {char}
              </span>
           )}

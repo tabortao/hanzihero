@@ -13,9 +13,6 @@ const generateId = () => Date.now().toString(36) + Math.random().toString(36).su
 
 const AVAILABLE_TAGS = ["一年级", "二年级", "三年级", "寓言", "童话", "古诗", "日常", "动物", "植物", "单元复习"];
 
-// Reduced to 6 to ensure it fits above the bottom nav on mobile screens
-const ROWS_PER_PAGE = 6; 
-
 interface StoryViewProps {
     initialContext?: { chars: Character[], topic: string } | null;
     onClearContext?: () => void;
@@ -73,7 +70,8 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
   const [selectedCharPair, setSelectedCharPair] = useState<CharPair | null>(null);
 
   // Grid Layout State
-  const [gridCols, setGridCols] = useState(6);
+  const [gridCols, setGridCols] = useState(9);
+  const [rowsPerPage, setRowsPerPage] = useState(8);
 
   useEffect(() => {
     setStories(getStories());
@@ -91,24 +89,31 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
 
   // Update Grid Cols based on width
   useEffect(() => {
-    const updateCols = () => {
+    const updateLayout = () => {
         const w = window.innerWidth;
-        let cols = 6;
-        if (w >= 1280) cols = 12;      // XL
-        else if (w >= 1024) cols = 10; // LG
-        else if (w >= 768) cols = 9;   // MD
-        else if (w >= 640) cols = 8;   // SM
-        else cols = 6;                 // Mobile (min)
-
-        // Adjust for very small screens
-        if (w < 360) cols = 5;
-
-        setGridCols(cols);
+        if (w < 768) { 
+            // Mobile: Fixed 9 columns, 8 rows (72 chars/page)
+            setGridCols(9);
+            setRowsPerPage(8);
+        } else {
+            // Tablet & Desktop: Auto arrange based on size
+            // We'll increase columns for wider screens
+            if (w >= 1280) {
+                 setGridCols(14);
+                 setRowsPerPage(8);
+            } else if (w >= 1024) {
+                 setGridCols(12);
+                 setRowsPerPage(8);
+            } else {
+                 setGridCols(10); // Medium tablets
+                 setRowsPerPage(8);
+            }
+        }
     };
 
-    updateCols();
-    window.addEventListener('resize', updateCols);
-    return () => window.removeEventListener('resize', updateCols);
+    updateLayout();
+    window.addEventListener('resize', updateLayout);
+    return () => window.removeEventListener('resize', updateLayout);
   }, []);
 
   // Handle Initial Context (e.g., coming from Unit selection)
@@ -520,7 +525,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
       fillRow();
 
       // Pagination Calculation
-      const itemsPerPage = gridCols * ROWS_PER_PAGE;
+      const itemsPerPage = gridCols * rowsPerPage;
       const total = Math.ceil(allCells.length / itemsPerPage);
       
       // Get current page slice
@@ -533,7 +538,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
 
       return { pageCells: slice, totalPages: total };
 
-  }, [currentStory, gridCols, currentPage]);
+  }, [currentStory, gridCols, rowsPerPage, currentPage]);
 
 
   // Check for Coin Award (If user reached last page)
@@ -1005,7 +1010,6 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                                >
                                   <Edit2 size={20} />
                                </button>
-                               {/* Added Delete Button directly in Reader Header for easier access */}
                                <button 
                                   onClick={(e) => handleDelete(currentStory.id, e)}
                                   className="p-2 bg-white rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 shadow-sm border border-gray-100 transition-colors"
@@ -1019,32 +1023,25 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                       {/* Reader Content - Grid */}
                       <div className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-8 flex flex-col items-center">
                           <div 
-                              className="grid gap-x-2 gap-y-4 mb-8 content-start"
+                              className="grid gap-0 mb-8 content-start border-t border-l border-red-300"
                               style={{ 
                                   gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
                                   width: '100%',
                                   maxWidth: '900px'
                               }}
                           >
-                              {pageCells.map((cell, idx) => {
-                                  if (cell.id.startsWith('pad') || cell.id.startsWith('end-pad') || cell.id.startsWith('indent')) {
-                                      return <div key={cell.id} className="aspect-square"></div>;
-                                  }
-                                  
-                                  const isKnown = isCharacterKnown(cell.char);
-                                  const isUnknown = getUnknownCharacters().some(c => c.char === cell.char);
-
-                                  return (
-                                      <div key={cell.id} className="flex justify-center">
-                                          <WritingGrid 
-                                              char={cell.char} 
-                                              pinyin={cell.pinyin} 
-                                              variant="notebook"
-                                              onClick={() => handleCharClick({char: cell.char, pinyin: cell.pinyin})}
-                                          />
-                                      </div>
-                                  );
-                              })}
+                              {pageCells.map((cell, idx) => (
+                                  <div key={cell.id} className="flex justify-center w-full">
+                                      <WritingGrid 
+                                          char={cell.char} 
+                                          pinyin={cell.pinyin} 
+                                          variant="notebook"
+                                          noGapBorder={true}
+                                          className="w-full"
+                                          onClick={() => handleCharClick({char: cell.char, pinyin: cell.pinyin})}
+                                      />
+                                  </div>
+                              ))}
                           </div>
                       </div>
 
