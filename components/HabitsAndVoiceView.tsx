@@ -212,16 +212,18 @@ export const HabitsAndVoiceView: React.FC<HabitsAndVoiceViewProps> = ({ onBack }
     };
 
     return (
-        <div className="max-w-7xl mx-auto min-h-screen bg-gray-50 pb-24 animate-slide-up">
-            <div className="bg-white px-6 py-4 shadow-sm border-b border-gray-100 sticky top-0 z-10 flex items-center gap-3">
+        <div className="max-w-7xl mx-auto min-h-screen bg-gray-50 pb-24 animate-fade-in relative z-20 transition-all">
+            {/* 头部：与 SelectionView 保持一致 */}
+            <div className="bg-white px-4 py-3 md:px-6 md:py-6 rounded-b-[2rem] shadow-sm flex items-center gap-3 z-10 sticky top-0 transition-all shrink-0">
                 <button onClick={onBack} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600">
                     <ArrowLeft size={24} />
                 </button>
-                <h1 className="text-xl font-bold text-gray-800">习惯与语音</h1>
+                <h1 className="text-xl md:text-2xl font-bold text-gray-800">习惯与语音</h1>
             </div>
 
-            <div className="p-4 md:p-8 space-y-8 max-w-3xl mx-auto">
-                <section className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+            {/* 内容区域：与 SelectionView 主体对齐 */}
+            <div className="px-4 md:px-8 mt-6 space-y-6 md:space-y-8 max-w-3xl mx-auto">
+                <section className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-gray-100">
                      <h3 className="font-bold text-lg text-gray-800 mb-6 flex items-center gap-2">
                         <div className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Sliders size={20}/></div>
                         学习习惯
@@ -233,7 +235,7 @@ export const HabitsAndVoiceView: React.FC<HabitsAndVoiceViewProps> = ({ onBack }
                                 <span className="text-sm font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{config.dailyNewLimit} 字</span>
                             </div>
                             <input type="range" min="3" max="20" className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" value={config.dailyNewLimit} onChange={e => handleDailyLimitChange(parseInt(e.target.value))} />
-                            <p className="text-xs text-gray-400 mt-2">复习数量由 AI 根据遗忘曲线自动安排。</p>
+                            <p className="text-[10px] md:text-xs text-gray-400 mt-2">复习数量由 AI 根据遗忘曲线自动安排。</p>
                         </div>
                         <div>
                             <div className="flex justify-between mb-2">
@@ -244,19 +246,21 @@ export const HabitsAndVoiceView: React.FC<HabitsAndVoiceViewProps> = ({ onBack }
                         </div>
                      </div>
                 </section>
-                <section className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+
+                <section className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-gray-100">
                      <h3 className="font-bold text-lg text-gray-800 mb-6 flex items-center gap-2">
                         <div className="p-2 bg-purple-50 text-purple-600 rounded-xl"><Volume2 size={20}/></div>
                         语音设置 (TTS)
                      </h3>
                      <div className="bg-gray-100 p-1 rounded-xl flex mb-6">
-                         <button onClick={() => handleTTSModeChange('SYSTEM')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${ttsTab === 'SYSTEM' ? 'bg-white shadow text-gray-800' : 'text-gray-500'}`}>系统默认</button>
-                         <button onClick={() => handleTTSModeChange('CUSTOM')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${ttsTab === 'CUSTOM' ? 'bg-white shadow text-purple-600' : 'text-gray-500'}`}>自定义接口</button>
+                         <button onClick={() => handleTTSModeChange('SYSTEM')} className={`flex-1 py-2 text-xs md:text-sm font-bold rounded-lg transition-all ${ttsTab === 'SYSTEM' ? 'bg-white shadow text-gray-800' : 'text-gray-500'}`}>系统默认</button>
+                         <button onClick={() => handleTTSModeChange('CUSTOM')} className={`flex-1 py-2 text-xs md:text-sm font-bold rounded-lg transition-all ${ttsTab === 'CUSTOM' ? 'bg-white shadow text-purple-600' : 'text-gray-500'}`}>自定义接口</button>
                      </div>
+                     
                      {ttsTab === 'SYSTEM' ? (
                          <div className="space-y-4 animate-fade-in">
                              <div>
-                                <label className="block text-xs font-bold text-gray-500 mb-2">系统声音</label>
+                                <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">系统声音</label>
                                 <select className="w-full p-3 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:border-blue-500 outline-none" value={config.ttsVoice} onChange={handleSystemVoiceChange}>
                                     <option value="">默认声音 (自动)</option>
                                     {availableSystemVoices.map((v) => <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>)}
@@ -264,7 +268,7 @@ export const HabitsAndVoiceView: React.FC<HabitsAndVoiceViewProps> = ({ onBack }
                              </div>
                              <div>
                                 <div className="flex justify-between mb-2">
-                                    <label className="text-xs font-bold text-gray-500">语速</label>
+                                    <label className="text-xs font-bold text-gray-500 uppercase">语速</label>
                                     <span className="text-xs font-bold text-gray-700">{config.ttsRate}x</span>
                                 </div>
                                 <input type="range" min="0.5" max="1.5" step="0.1" className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" value={config.ttsRate} onChange={handleRateChange} />
@@ -275,21 +279,21 @@ export const HabitsAndVoiceView: React.FC<HabitsAndVoiceViewProps> = ({ onBack }
                          </div>
                      ) : (
                          <div className="space-y-4 animate-fade-in">
-                             <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 text-xs text-purple-700 mb-4 leading-relaxed">
+                             <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 text-[10px] md:text-xs text-purple-700 mb-4 leading-relaxed">
                                  <p className="font-bold mb-1">📢 支持 zuoban/tts 等开源项目</p>
                                  <p>推荐使用 Vercel 或 Cloudflare 部署的 Edge-TTS 接口。</p>
                              </div>
                              {config.customTTSProfiles && config.customTTSProfiles.length > 0 ? (
-                                 <div className="space-y-2">
+                                 <div className="space-y-3">
                                      {config.customTTSProfiles.map(profile => (
-                                         <div key={profile.id} onClick={() => handleSelectCustomProfile(profile.id)} className={`p-3 rounded-xl border-2 flex items-center justify-between cursor-pointer transition-all ${config.activeTTSProfileId === profile.id ? 'border-purple-500 bg-purple-50 shadow-sm' : 'border-gray-100 hover:border-purple-200 bg-white'}`}>
-                                             <div className="flex items-center gap-3 overflow-hidden">
+                                         <div key={profile.id} onClick={() => handleSelectCustomProfile(profile.id)} className={`p-3 md:p-4 rounded-xl border-2 flex items-center justify-between cursor-pointer transition-all ${config.activeTTSProfileId === profile.id ? 'border-purple-500 bg-purple-50 shadow-sm' : 'border-gray-100 hover:border-purple-200 bg-white'}`}>
+                                             <div className="flex items-center gap-3 overflow-hidden flex-1">
                                                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${config.activeTTSProfileId === profile.id ? 'border-purple-600' : 'border-gray-300'}`}>
                                                      {config.activeTTSProfileId === profile.id && <div className="w-2.5 h-2.5 bg-purple-600 rounded-full"/>}
                                                  </div>
                                                  <div className="min-w-0 flex-1">
                                                      <div className="font-bold text-sm text-gray-800 truncate flex items-center gap-2">{profile.name}</div>
-                                                     <div className="text-[10px] text-gray-400 truncate font-mono">{profile.apiUrl}</div>
+                                                     <div className="text-[10px] text-gray-400 truncate font-mono mt-0.5 break-all whitespace-normal line-clamp-1">{profile.apiUrl}</div>
                                                  </div>
                                              </div>
                                              <div className="flex gap-1 shrink-0 ml-2">
@@ -301,28 +305,28 @@ export const HabitsAndVoiceView: React.FC<HabitsAndVoiceViewProps> = ({ onBack }
                                      ))}
                                  </div>
                              ) : (
-                                 <div className="text-center py-8 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+                                 <div className="text-center py-10 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
                                      <div className="text-gray-400 text-sm mb-2">暂无自定义配置</div>
                                      <div className="text-xs text-gray-300">点击下方按钮添加</div>
                                  </div>
                              )}
-                             <button onClick={openAddModal} className="w-full py-3 border-2 border-dashed border-purple-300 text-purple-600 bg-purple-50/50 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-purple-100 transition-colors"><Plus size={18}/> 添加新配置</button>
+                             <button onClick={openAddModal} className="w-full py-4 border-2 border-dashed border-purple-300 text-purple-600 bg-purple-50/50 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-purple-100 transition-colors"><Plus size={18}/> 添加新配置</button>
                          </div>
                      )}
                 </section>
             </div>
             
             {showModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 animate-bounce-in max-h-[90vh] overflow-y-auto">
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+                    <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 animate-bounce-in max-h-[85vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="font-bold text-lg text-gray-800">{editingProfile.id ? '编辑配置' : '新增 TTS 配置'}</h3>
                             <button onClick={() => setShowModal(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200"><X size={20}/></button>
                         </div>
                         <div className="space-y-4">
-                            <div><label className="block text-xs font-bold text-gray-500 mb-1">配置名称</label><input className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-purple-500 outline-none transition-all" placeholder="例如：微软晓晓" value={editingProfile.name || ''} onChange={e => setEditingProfile({...editingProfile, name: e.target.value})}/></div>
-                            <div><label className="block text-xs font-bold text-gray-500 mb-1 flex items-center gap-1"><Globe size={12}/> 接口地址 (API URL)</label><input className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-purple-500 outline-none transition-all font-mono text-xs text-gray-600" placeholder="https://your-app.vercel.app/api/tts" value={editingProfile.apiUrl || ''} onChange={e => setEditingProfile({...editingProfile, apiUrl: e.target.value})}/></div>
-                            <div><label className="block text-xs font-bold text-gray-500 mb-1">音色标识 (Voice ID)</label><input className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-purple-500 outline-none transition-all" placeholder="例如：zh-CN-XiaoxiaoNeural" value={editingProfile.voiceId || ''} onChange={e => setEditingProfile({...editingProfile, voiceId: e.target.value})}/></div>
+                            <div><label className="block text-xs font-bold text-gray-500 mb-1 uppercase">配置名称</label><input className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-purple-500 outline-none transition-all" placeholder="例如：微软晓晓" value={editingProfile.name || ''} onChange={e => setEditingProfile({...editingProfile, name: e.target.value})}/></div>
+                            <div><label className="block text-xs font-bold text-gray-500 mb-1 flex items-center gap-1 uppercase"><Globe size={12}/> 接口地址 (API URL)</label><input className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-purple-500 outline-none transition-all font-mono text-xs text-gray-600" placeholder="https://your-app.vercel.app/api/tts" value={editingProfile.apiUrl || ''} onChange={e => setEditingProfile({...editingProfile, apiUrl: e.target.value})}/></div>
+                            <div><label className="block text-xs font-bold text-gray-500 mb-1 uppercase">音色标识 (Voice ID)</label><input className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-purple-500 outline-none transition-all" placeholder="例如：zh-CN-XiaoxiaoNeural" value={editingProfile.voiceId || ''} onChange={e => setEditingProfile({...editingProfile, voiceId: e.target.value})}/></div>
                             <div className="pt-4 flex gap-3">
                                 <button onClick={handleTestTTS} disabled={isTesting} className="flex-1 py-3 border border-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-50 flex items-center justify-center gap-2 disabled:opacity-50">{isTesting ? <div className="loader w-4 h-4 border-2 border-gray-400"/> : <Play size={16}/>} 试听</button>
                                 <button onClick={handleSaveProfile} className="flex-[2] py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 shadow-md flex items-center justify-center gap-2"><Save size={18}/> 保存配置</button>

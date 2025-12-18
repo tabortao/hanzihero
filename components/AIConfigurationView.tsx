@@ -177,20 +177,22 @@ export const AIConfigurationView: React.FC<AIConfigurationViewProps> = ({ onBack
   };
 
   return (
-    <div className="fixed inset-0 z-[60] bg-gray-50 flex flex-col animate-slide-up">
-      <div className="bg-white px-6 py-4 shadow-sm border-b border-gray-100 flex justify-between items-center shrink-0">
+    <div className="max-w-7xl mx-auto min-h-screen bg-gray-50 flex flex-col pb-24 animate-fade-in relative z-20 transition-all">
+      {/* 头部：与 SelectionView 保持一致的 padding、圆角和阴影 */}
+      <div className="bg-white px-4 py-3 md:px-6 md:py-6 rounded-b-[2rem] shadow-sm flex justify-between items-center z-10 sticky top-0 transition-all shrink-0">
           <div className="flex items-center gap-3">
               <button onClick={onBack} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600">
                   <ArrowLeft size={24} />
               </button>
-              <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+              <h1 className="text-xl md:text-2xl font-bold text-gray-800 flex items-center gap-2">
                   <Bot className="text-indigo-600" /> AI 模型配置
               </h1>
           </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8">
-          <div className="max-w-3xl mx-auto space-y-8 pb-24">
+      {/* 内容区域：与 SelectionView 主体对齐 */}
+      <div className="px-4 md:px-8 mt-6 flex-1">
+          <div className="max-w-3xl mx-auto space-y-6 md:space-y-8">
               <div className="space-y-3">
                  <label className="text-sm font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
                      <Server size={16}/> 选择服务商
@@ -200,58 +202,58 @@ export const AIConfigurationView: React.FC<AIConfigurationViewProps> = ({ onBack
                         <button
                             key={key}
                             onClick={() => handleProviderChange(key)}
-                            className={`px-2 py-4 rounded-xl text-xs font-bold border-2 transition-all flex flex-col items-center justify-center gap-2 ${activeProvider === key ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg transform scale-105' : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300 hover:bg-indigo-50'}`}
+                            className={`px-2 py-4 rounded-xl text-[10px] md:text-xs font-bold border-2 transition-all flex flex-col items-center justify-center gap-2 ${activeProvider === key ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg transform scale-105' : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300 hover:bg-indigo-50'}`}
                         >
-                            <span className="text-2xl">{key === 'GOOGLE' ? '🌍' : key === 'ZHIPU' ? '🧠' : key === 'DEEPSEEK' ? '🐳' : key === 'SILICON' ? '🚀' : '⚙️'}</span>
-                            <span className="text-center">{provider.name}</span>
+                            <span className="text-xl md:text-2xl">{key === 'GOOGLE' ? '🌍' : key === 'ZHIPU' ? '🧠' : key === 'DEEPSEEK' ? '🐳' : key === 'SILICON' ? '🚀' : '⚙️'}</span>
+                            <span className="text-center truncate w-full px-1">{provider.name}</span>
                         </button>
                     ))}
                  </div>
               </div>
 
-              <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-6">
-                <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+              <div className="bg-white p-5 md:p-6 rounded-3xl border border-gray-100 shadow-sm space-y-6">
+                <div className="flex items-center justify-between border-b border-gray-50 pb-4">
                     <div>
                         <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                             <Bot size={20} className="text-indigo-500"/> 对话模型 (Chat)
                         </h3>
-                        <p className="text-xs text-gray-400 mt-1">用于文字生成、故事创作和汉字讲解。</p>
+                        <p className="text-[10px] md:text-xs text-gray-400 mt-1">用于文字生成、故事创作和汉字讲解。</p>
                     </div>
-                    {testStatus === 'SUCCESS' && <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"><Check size={14}/> 已连接</span>}
+                    {testStatus === 'SUCCESS' && <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1"><Check size={14}/> 已连接</span>}
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     <div className="col-span-1 md:col-span-2">
-                      <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">API Host (代理地址)</label>
+                      <label className="block text-[10px] md:text-xs font-bold text-gray-500 mb-2 uppercase">API Host (代理地址)</label>
                       <input
                         type="text"
                         placeholder={activeProvider === 'GOOGLE' ? '默认无需填写' : 'https://api.example.com/v1'}
-                        className="w-full p-4 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-indigo-500 outline-none text-sm font-mono transition-all"
+                        className="w-full p-3 md:p-4 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-indigo-500 outline-none text-sm font-mono transition-all"
                         value={config.apiBaseUrl}
                         onChange={e => setConfig({ ...config, apiBaseUrl: e.target.value })}
                       />
                     </div>
                     <div className="col-span-1 md:col-span-2">
-                      <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">API Key (密钥)</label>
+                      <label className="block text-[10px] md:text-xs font-bold text-gray-500 mb-2 uppercase">API Key (密钥)</label>
                       <div className="relative group">
                           <input
                             type={showKey ? "text" : "password"}
                             placeholder="sk-..."
-                            className="w-full p-4 pr-12 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-indigo-500 outline-none text-sm font-mono transition-all"
+                            className="w-full p-3 md:p-4 pr-12 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-indigo-500 outline-none text-sm font-mono transition-all"
                             value={config.apiKey}
                             onChange={e => setConfig({ ...config, apiKey: e.target.value })}
                           />
-                          <button onClick={() => setShowKey(!showKey)} className="absolute right-4 top-4 text-gray-400 hover:text-indigo-600 transition-colors">
+                          <button onClick={() => setShowKey(!showKey)} className="absolute right-4 top-3 md:top-4 text-gray-400 hover:text-indigo-600 transition-colors">
                               {showKey ? <EyeOff size={20} /> : <Eye size={20} />}
                           </button>
                       </div>
                     </div>
                     <div className="col-span-1 md:col-span-2">
-                      <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Model Name (模型)</label>
+                      <label className="block text-[10px] md:text-xs font-bold text-gray-500 mb-2 uppercase">Model Name (模型)</label>
                       <input
                         type="text"
                         placeholder="如: gemini-2.5-flash"
-                        className="w-full p-4 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-indigo-500 outline-none text-sm font-mono transition-all"
+                        className="w-full p-3 md:p-4 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-indigo-500 outline-none text-sm font-mono transition-all"
                         value={config.model}
                         onChange={e => setConfig({ ...config, model: e.target.value })}
                       />
@@ -261,40 +263,40 @@ export const AIConfigurationView: React.FC<AIConfigurationViewProps> = ({ onBack
                 <button
                     onClick={handleTestConnection}
                     disabled={testStatus === 'TESTING' || !config.apiKey}
-                    className={`w-full py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all border-2 ${testStatus === 'SUCCESS' ? 'bg-green-50 border-green-200 text-green-600' : testStatus === 'FAIL' ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white border-indigo-100 text-indigo-600 hover:bg-indigo-50'} disabled:opacity-50`}
+                    className={`w-full py-3 md:py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all border-2 ${testStatus === 'SUCCESS' ? 'bg-green-50 border-green-200 text-green-600' : testStatus === 'FAIL' ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white border-indigo-100 text-indigo-600 hover:bg-indigo-50'} disabled:opacity-50`}
                 >
                     {testStatus === 'TESTING' ? <><Activity className="animate-spin" size={18} /> 连接测试中...</> : testStatus === 'SUCCESS' ? <><Wifi size={18} /> 连接成功</> : testStatus === 'FAIL' ? <><WifiOff size={18} /> 连接失败</> : <><Activity size={18} /> 测试对话连接</>}
                 </button>
               </div>
 
-              <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-6">
-                  <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+              <div className="bg-white p-5 md:p-6 rounded-3xl border border-gray-100 shadow-sm space-y-6">
+                  <div className="flex items-center justify-between border-b border-gray-50 pb-4">
                       <div>
                           <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2"><ImageIcon size={20} className="text-purple-500"/> 视觉模型 (Vision)</h3>
-                          <p className="text-xs text-gray-400 mt-1">用于拍照识字和看图写话。</p>
+                          <p className="text-[10px] md:text-xs text-gray-400 mt-1">用于拍照识字和看图写话。</p>
                       </div>
-                      {visionTestStatus === 'SUCCESS' && <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"><Check size={14}/> 已连接</span>}
+                      {visionTestStatus === 'SUCCESS' && <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1"><Check size={14}/> 已连接</span>}
                   </div>
                   <div className="grid grid-cols-1 gap-4">
                       <div>
-                          <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Vision API Host</label>
-                          <input type="text" placeholder="同上 (默认)" className="w-full p-4 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-purple-500 outline-none text-sm font-mono" value={config.visionApiBaseUrl || ''} onChange={e => setConfig({ ...config, visionApiBaseUrl: e.target.value })} />
+                          <label className="block text-[10px] md:text-xs font-bold text-gray-500 mb-2 uppercase">Vision API Host</label>
+                          <input type="text" placeholder="同上 (默认)" className="w-full p-3 md:p-4 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-purple-500 outline-none text-sm font-mono" value={config.visionApiBaseUrl || ''} onChange={e => setConfig({ ...config, visionApiBaseUrl: e.target.value })} />
                       </div>
                       <div>
-                          <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Vision API Key</label>
+                          <label className="block text-[10px] md:text-xs font-bold text-gray-500 mb-2 uppercase">Vision API Key</label>
                           <div className="relative group">
-                              <input type={showVisionKey ? "text" : "password"} placeholder="同上 (默认)" className="w-full p-4 pr-12 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-purple-500 outline-none text-sm font-mono" value={config.visionApiKey || ''} onChange={e => setConfig({ ...config, visionApiKey: e.target.value })} />
-                               <button onClick={() => setShowVisionKey(!showVisionKey)} className="absolute right-4 top-4 text-gray-400 hover:text-purple-600 transition-colors">
+                              <input type={showVisionKey ? "text" : "password"} placeholder="同上 (默认)" className="w-full p-3 md:p-4 pr-12 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-purple-500 outline-none text-sm font-mono" value={config.visionApiKey || ''} onChange={e => setConfig({ ...config, visionApiKey: e.target.value })} />
+                               <button onClick={() => setShowVisionKey(!showVisionKey)} className="absolute right-4 top-3 md:top-4 text-gray-400 hover:text-purple-600 transition-colors">
                                   {showVisionKey ? <EyeOff size={20} /> : <Eye size={20} />}
                               </button>
                           </div>
                       </div>
                       <div>
-                          <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Vision Model Name</label>
-                          <input type="text" placeholder="默认: gemini-2.5-flash" className="w-full p-4 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-purple-500 outline-none text-sm font-mono" value={config.visionModel || ''} onChange={e => setConfig({ ...config, visionModel: e.target.value })} />
+                          <label className="block text-[10px] md:text-xs font-bold text-gray-500 mb-2 uppercase">Vision Model Name</label>
+                          <input type="text" placeholder="默认: gemini-2.5-flash" className="w-full p-3 md:p-4 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-purple-500 outline-none text-sm font-mono" value={config.visionModel || ''} onChange={e => setConfig({ ...config, visionModel: e.target.value })} />
                       </div>
                   </div>
-                  <button onClick={handleTestVisionConnection} disabled={visionTestStatus === 'TESTING' || (!config.apiKey && !config.visionApiKey)} className={`w-full py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all border-2 ${visionTestStatus === 'SUCCESS' ? 'bg-green-50 border-green-200 text-green-600' : visionTestStatus === 'FAIL' ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white border-purple-100 text-purple-600 hover:bg-purple-50'} disabled:opacity-50`}>
+                  <button onClick={handleTestVisionConnection} disabled={visionTestStatus === 'TESTING' || (!config.apiKey && !config.visionApiKey)} className={`w-full py-3 md:py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all border-2 ${visionTestStatus === 'SUCCESS' ? 'bg-green-50 border-green-200 text-green-600' : visionTestStatus === 'FAIL' ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white border-purple-100 text-purple-600 hover:bg-purple-50'} disabled:opacity-50`}>
                         {visionTestStatus === 'TESTING' ? <><Activity className="animate-spin" size={18} /> 测试中...</> : visionTestStatus === 'SUCCESS' ? <><Wifi size={18} /> 视觉连接成功</> : visionTestStatus === 'FAIL' ? <><WifiOff size={18} /> 视觉连接失败</> : <><ImageIcon size={18} /> 测试视觉连接</>}
                   </button>
               </div>
