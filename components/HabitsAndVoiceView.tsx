@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Volume2, Plus, Trash2, Edit2, Check, Sliders, Globe, AlertCircle, Eye, EyeOff, Gauge, Play, Save, X } from 'lucide-react';
+import { ArrowLeft, Volume2, Plus, Trash2, Edit2, Check, Sliders, Globe, AlertCircle, Eye, EyeOff, Gauge, Play, Save, X, Key, Zap, Music } from 'lucide-react';
 import { AppSettings, CustomTTSProfile } from '../types';
 import { getSettings, saveSettings } from '../services/storage';
 import { speakText } from './SharedComponents';
@@ -144,16 +144,25 @@ export const HabitsAndVoiceView: React.FC<HabitsAndVoiceViewProps> = ({ onBack }
         if (!editingProfile.apiUrl) return;
         setIsTesting(true);
         setTestResult(null);
-        const testText = "你好";
+        const testText = "你好，我是汉字小英雄。";
         
         let rawUrl = editingProfile.apiUrl.trim();
         if (!rawUrl.startsWith('http')) rawUrl = 'https://' + rawUrl;
         
+        // Intelligent URL guessing if basic URL provided
         const candidates: { url: string, method: 'GET' | 'POST' }[] = [];
-        if (rawUrl.endsWith('/v1/audio/speech') || rawUrl.endsWith('/speech')) candidates.push({ url: rawUrl, method: 'POST' });
+        
+        // 1. Exact URL as entered (try POST first if it looks like an API endpoint, else both)
+        if (rawUrl.endsWith('/v1/audio/speech') || rawUrl.endsWith('/speech')) {
+             candidates.push({ url: rawUrl, method: 'POST' });
+        }
         candidates.push({ url: rawUrl, method: 'GET' });
-        let baseUrl = rawUrl.replace(/\/v1\/audio\/speech\/?$/, '').replace(/\/api\/tts\/?$/, '').replace(/\/+$/, '');
+        
+        // 2. OpenAI Standard Path guessing
+        let baseUrl = rawUrl.replace(/\/v1\/audio\/speech\/?$/, '').replace(/\/api\/tts\/?$/, '').replace(/\/tts\/?$/, '').replace(/\/+$/, '');
         candidates.push({ url: `${baseUrl}/v1/audio/speech`, method: 'POST' });
+        
+        // 3. Edge-TTS Standard Path guessing
         candidates.push({ url: `${baseUrl}/api/tts`, method: 'GET' });
         candidates.push({ url: `${baseUrl}/tts`, method: 'GET' });
         
@@ -164,43 +173,61 @@ export const HabitsAndVoiceView: React.FC<HabitsAndVoiceViewProps> = ({ onBack }
             try {
                 const headers: HeadersInit = {};
                 if (editingProfile.apiKey) headers['Authorization'] = `Bearer ${editingProfile.apiKey}`;
+                
                 let res;
                 if (candidate.method === 'POST') {
                     headers['Content-Type'] = 'application/json';
+                    const body = JSON.stringify({
+                        model: 'tts-1', 
+                        input: testText, 
+                        voice: editingProfile.voiceId || 'zh-CN-XiaoxiaoNeural',
+                        speed: editingProfile.speed || 1.0, 
+                        // Note: Standard OpenAI API doesn't support 'pitch', but custom proxies might.
+                        // We include it if it's not 1.0 to try.
+                        pitch: editingProfile.pitch || 1.0, 
+                        response_format: 'mp3'
+                    });
+                    
                     res = await fetch(candidate.url, {
                         method: 'POST',
                         headers,
-                        body: JSON.stringify({
-                            model: 'tts-1', input: testText, voice: editingProfile.voiceId || 'zh-CN-XiaoxiaoNeural',
-                            speed: editingProfile.speed || 1.0, pitch: editingProfile.pitch || 1.0, response_format: 'mp3'
-                        })
+                        body
                     });
                 } else {
+                    // GET Method
                     const urlObj = new URL(candidate.url);
                     urlObj.searchParams.set('text', testText);
                     if (editingProfile.voiceId) urlObj.searchParams.set('voice', editingProfile.voiceId);
+                    
+                    // Rate mapping for Edge-TTS
                     const ratePercent = Math.round(((editingProfile.speed || 1.0) - 1) * 100);
                     urlObj.searchParams.set('rate', (ratePercent >= 0 ? '+' : '') + ratePercent + '%');
+                    
+                    // Pitch mapping for Edge-TTS
                     const pitchDiff = Math.round(((editingProfile.pitch || 1.0) - 1) * 20);
                     urlObj.searchParams.set('pitch', (pitchDiff >= 0 ? '+' : '') + pitchDiff + 'Hz');
+                    
                     res = await fetch(urlObj.toString(), { headers });
                 }
 
-                const type = res.headers.get('content-type');
-                if (res.ok && type && (type.includes('audio') || type.includes('mpeg') || type.includes('wav') || type.includes('octet-stream'))) {
-                    const blob = await res.blob();
-                    if (blob.size > 0) {
-                        const audio = new Audio(URL.createObjectURL(blob));
-                        await audio.play();
-                        successfulUrl = candidate.url;
-                        successfulMethod = candidate.method;
-                        found = true;
-                        break; 
+                if (res.ok) {
+                    const type = res.headers.get('content-type');
+                    // Looser check for audio content types
+                    if (type && (type.includes('audio') || type.includes('mpeg') || type.includes('wav') || type.includes('octet-stream'))) {
+                        const blob = await res.blob();
+                        if (blob.size > 0) {
+                            const audio = new Audio(URL.createObjectURL(blob));
+                            await audio.play();
+                            successfulUrl = candidate.url;
+                            successfulMethod = candidate.method;
+                            found = true;
+                            break; 
+                        }
                     }
                 } else {
-                     if (!res.ok) {
-                         const txt = await res.text().catch(() => '');
-                         if (res.status !== 404 && res.status !== 405) errorDetails = `[${candidate.method} ${res.status}] ${txt.slice(0, 100)}`;
+                     const txt = await res.text().catch(() => '');
+                     if (res.status !== 404 && res.status !== 405) {
+                         errorDetails = `[${candidate.method} ${res.status}] ${txt.slice(0, 100)}`;
                      }
                 }
             } catch (e: any) {
@@ -211,19 +238,21 @@ export const HabitsAndVoiceView: React.FC<HabitsAndVoiceViewProps> = ({ onBack }
         setIsTesting(false);
         if (found && successfulUrl) {
             setTestResult({ success: true, msg: "测试成功！声音正常播放。" });
+            // If the successful URL is different from input (e.g. auto-discovered path), update it
             if (successfulUrl !== rawUrl || successfulMethod !== editingProfile.method) {
-                if (confirm(`测试成功！\n\n检测到有效的接口配置：\n地址: ${successfulUrl}\n方式: ${successfulMethod}\n\n是否为您自动更新？`)) {
+                // Only update if it's a derived path, don't overwrite if user typed specific path
+                if (confirm(`测试成功！\n\n检测到有效的接口配置：\n地址: ${successfulUrl}\n方式: ${successfulMethod}\n\n是否为您自动保存这个有效地址？`)) {
                     setEditingProfile(prev => ({ ...prev, apiUrl: successfulUrl, method: successfulMethod }));
                 }
             }
         } else {
-            setTestResult({ success: false, msg: `测试失败。\n错误: ${errorDetails}` });
+            setTestResult({ success: false, msg: `测试失败。\n错误: ${errorDetails || '无法连接或返回格式错误'}` });
         }
     };
 
     return (
         <div className="max-w-7xl mx-auto min-h-screen bg-gray-50 pb-24 animate-fade-in relative z-20 transition-all">
-            {/* 头部：与 SelectionView 保持一致 */}
+            {/* 头部 */}
             <div className="bg-white px-4 py-3 md:px-6 md:py-6 rounded-b-[2rem] shadow-sm flex items-center gap-3 z-10 sticky top-0 transition-all shrink-0">
                 <button onClick={onBack} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600">
                     <ArrowLeft size={24} />
@@ -231,7 +260,7 @@ export const HabitsAndVoiceView: React.FC<HabitsAndVoiceViewProps> = ({ onBack }
                 <h1 className="text-xl md:text-2xl font-bold text-gray-800">习惯与语音</h1>
             </div>
 
-            {/* 内容区域：与 SelectionView 主体对齐 */}
+            {/* 内容区域 */}
             <div className="px-4 md:px-8 mt-6 space-y-6 md:space-y-8 max-w-3xl mx-auto">
                 <section className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-gray-100">
                      <h3 className="font-bold text-lg text-gray-800 mb-6 flex items-center gap-2">
@@ -290,8 +319,8 @@ export const HabitsAndVoiceView: React.FC<HabitsAndVoiceViewProps> = ({ onBack }
                      ) : (
                          <div className="space-y-4 animate-fade-in">
                              <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 text-[10px] md:text-xs text-purple-700 mb-4 leading-relaxed">
-                                 <p className="font-bold mb-1">📢 支持 zuoban/tts 等开源项目</p>
-                                 <p>推荐使用 Vercel 或 Cloudflare 部署的 Edge-TTS 接口。</p>
+                                 <p className="font-bold mb-1">📢 高级功能</p>
+                                 <p>支持连接 Azure、OpenAI 或 Vercel 部署的 Edge-TTS 接口，获得更高质量的语音。</p>
                              </div>
                              {config.customTTSProfiles && config.customTTSProfiles.length > 0 ? (
                                  <div className="space-y-3">
@@ -328,15 +357,66 @@ export const HabitsAndVoiceView: React.FC<HabitsAndVoiceViewProps> = ({ onBack }
             
             {showModal && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
-                    <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 animate-bounce-in max-h-[85vh] overflow-y-auto">
+                    <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 animate-bounce-in max-h-[90vh] overflow-y-auto custom-scrollbar">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="font-bold text-lg text-gray-800">{editingProfile.id ? '编辑配置' : '新增 TTS 配置'}</h3>
                             <button onClick={() => setShowModal(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200"><X size={20}/></button>
                         </div>
                         <div className="space-y-4">
-                            <div><label className="block text-xs font-bold text-gray-500 mb-1 uppercase">配置名称</label><input className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-purple-500 outline-none transition-all" placeholder="例如：微软晓晓" value={editingProfile.name || ''} onChange={e => setEditingProfile({...editingProfile, name: e.target.value})}/></div>
-                            <div><label className="block text-xs font-bold text-gray-500 mb-1 flex items-center gap-1 uppercase"><Globe size={12}/> 接口地址 (API URL)</label><input className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-purple-500 outline-none transition-all font-mono text-xs text-gray-600" placeholder="https://your-app.vercel.app/api/tts" value={editingProfile.apiUrl || ''} onChange={e => setEditingProfile({...editingProfile, apiUrl: e.target.value})}/></div>
-                            <div><label className="block text-xs font-bold text-gray-500 mb-1 uppercase">音色标识 (Voice ID)</label><input className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-purple-500 outline-none transition-all" placeholder="例如：zh-CN-XiaoxiaoNeural" value={editingProfile.voiceId || ''} onChange={e => setEditingProfile({...editingProfile, voiceId: e.target.value})}/></div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">配置名称</label>
+                                <input className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-purple-500 outline-none transition-all" placeholder="例如：微软晓晓" value={editingProfile.name || ''} onChange={e => setEditingProfile({...editingProfile, name: e.target.value})}/>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1 flex items-center gap-1 uppercase"><Globe size={12}/> 接口地址 (API URL)</label>
+                                <input className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-purple-500 outline-none transition-all font-mono text-xs text-gray-600" placeholder="https://api.example.com/v1/audio/speech" value={editingProfile.apiUrl || ''} onChange={e => setEditingProfile({...editingProfile, apiUrl: e.target.value})}/>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">API Key (可选)</label>
+                                <div className="relative group">
+                                    <input 
+                                        type={showKey ? "text" : "password"}
+                                        className="w-full p-3 pr-10 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-purple-500 outline-none transition-all font-mono text-xs" 
+                                        placeholder="Bearer Token" 
+                                        value={editingProfile.apiKey || ''} 
+                                        onChange={e => setEditingProfile({...editingProfile, apiKey: e.target.value})}
+                                    />
+                                    <button onClick={() => setShowKey(!showKey)} className="absolute right-3 top-3 text-gray-400 hover:text-purple-600 transition-colors" tabIndex={-1}>
+                                        {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">音色 ID (Voice)</label>
+                                <input className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-purple-500 outline-none transition-all" placeholder="例如：zh-CN-XiaoxiaoNeural" value={editingProfile.voiceId || ''} onChange={e => setEditingProfile({...editingProfile, voiceId: e.target.value})}/>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <div className="flex justify-between mb-1">
+                                        <label className="text-xs font-bold text-gray-500 uppercase flex items-center gap-1"><Zap size={12}/> 语速</label>
+                                        <span className="text-xs font-bold text-purple-600">{editingProfile.speed || 1.0}x</span>
+                                    </div>
+                                    <input type="range" min="0.5" max="2.0" step="0.1" className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600" value={editingProfile.speed || 1.0} onChange={e => setEditingProfile({...editingProfile, speed: parseFloat(e.target.value)})} />
+                                </div>
+                                <div>
+                                    <div className="flex justify-between mb-1">
+                                        <label className="text-xs font-bold text-gray-500 uppercase flex items-center gap-1"><Music size={12}/> 语调</label>
+                                        <span className="text-xs font-bold text-purple-600">{editingProfile.pitch || 1.0}</span>
+                                    </div>
+                                    <input type="range" min="0.5" max="1.5" step="0.1" className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600" value={editingProfile.pitch || 1.0} onChange={e => setEditingProfile({...editingProfile, pitch: parseFloat(e.target.value)})} />
+                                </div>
+                            </div>
+
+                            {testResult && (
+                                <div className={`p-3 rounded-xl text-xs font-bold ${testResult.success ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                                    {testResult.msg}
+                                </div>
+                            )}
+
                             <div className="pt-4 flex gap-3">
                                 <button onClick={handleTestTTS} disabled={isTesting} className="flex-1 py-3 border border-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-50 flex items-center justify-center gap-2 disabled:opacity-50">{isTesting ? <div className="loader w-4 h-4 border-2 border-gray-400"/> : <Play size={16}/>} 试听</button>
                                 <button onClick={handleSaveProfile} className="flex-[2] py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 shadow-md flex items-center justify-center gap-2"><Save size={18}/> 保存配置</button>

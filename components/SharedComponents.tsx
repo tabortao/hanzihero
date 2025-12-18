@@ -16,8 +16,10 @@ export const speakText = async (text: string, onEnd?: () => void, lang: string =
       currentAudio.pause();
       currentAudio = null;
   }
-  // Cancel browser synthesis
-  window.speechSynthesis.cancel();
+  // Cancel browser synthesis if supported
+  if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+  }
 
   // 2. Check for Custom TTS
   if (settings.activeTTSProfileId && settings.activeTTSProfileId !== 'SYSTEM' && settings.customTTSProfiles) {
@@ -50,7 +52,11 @@ export const speakText = async (text: string, onEnd?: () => void, lang: string =
                    // If URL is full path, use it. Otherwise append standard path.
                    let finalUrl = baseUrl;
                    if (!finalUrl.endsWith('/speech')) {
-                       finalUrl = finalUrl.replace(/\/+$/, '') + '/v1/audio/speech';
+                       // Try to guess if it needs a suffix. If it ends in /v1/audio, append /speech.
+                       if (finalUrl.endsWith('/v1/audio')) finalUrl += '/speech';
+                       // If it's just a base domain, maybe try the standard OpenAI path?
+                       // But usually user enters full URL. Let's assume user entered full URL if they chose POST during test.
+                       // Or fallback to standard if looks like base.
                    }
 
                    headers['Content-Type'] = 'application/json';
@@ -94,17 +100,11 @@ export const speakText = async (text: string, onEnd?: () => void, lang: string =
               }
               
               // Calculate Rate parameter for Edge-TTS style APIs
-              // Browser rate 1.0 = 0%, 1.5 = +50%, 0.8 = -20%
-              // Here we use finalSpeed which combines global and profile settings
               const ratePercent = Math.round((finalSpeed - 1) * 100);
               const rateStr = (ratePercent >= 0 ? '+' : '') + ratePercent + '%';
               urlObj.searchParams.set('rate', rateStr);
 
               // Calculate Pitch parameter
-              // Simple mapping: 1.0 = +0Hz. 1.2 = +10Hz approx? Or allow backend to handle %.
-              // Let's assume the backend supports standard edge-tts pitch format which is often Hz or %.
-              // We'll send Hz as a safer guess for some, or just assume linear.
-              // Logic: (pitch - 1) * 20 Hz. e.g. 1.5 -> +10Hz. 0.5 -> -10Hz.
               const pitchDiff = Math.round((profilePitch - 1) * 20);
               const pitchStr = (pitchDiff >= 0 ? '+' : '') + pitchDiff + 'Hz';
               urlObj.searchParams.set('pitch', pitchStr);
@@ -115,9 +115,6 @@ export const speakText = async (text: string, onEnd?: () => void, lang: string =
               const blob = await res.blob();
               const audioUrl = URL.createObjectURL(blob);
               const audio = new Audio(audioUrl);
-              
-              // Also set playbackRate on audio element as backup (though source audio should already be adjusted)
-              // audio.playbackRate = finalSpeed; 
               
               currentAudio = audio;
               
@@ -143,23 +140,31 @@ export const speakText = async (text: string, onEnd?: () => void, lang: string =
   }
 
   // 3. System Fallback
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = lang;
-  utterance.rate = settings.ttsRate || 1.0;
-  
-  if (lang === 'zh-CN' && settings.ttsVoice && settings.activeTTSProfileId === 'SYSTEM') {
-    const voices = window.speechSynthesis.getVoices();
-    const selectedVoice = voices.find(v => v.voiceURI === settings.ttsVoice);
-    if (selectedVoice) {
-      utterance.voice = selectedVoice;
-    }
+  if (typeof window !== 'undefined' && window.speechSynthesis) {
+      try {
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = lang;
+          utterance.rate = settings.ttsRate || 1.0;
+          
+          if (lang === 'zh-CN' && settings.ttsVoice && settings.activeTTSProfileId === 'SYSTEM') {
+            const voices = window.speechSynthesis.getVoices();
+            const selectedVoice = voices.find(v => v.voiceURI === settings.ttsVoice);
+            if (selectedVoice) {
+              utterance.voice = selectedVoice;
+            }
+          }
+    
+          if (onEnd) {
+              utterance.onend = onEnd;
+          }
+          
+          window.speechSynthesis.speak(utterance);
+      } catch(e) {
+          console.error("System TTS failed:", e);
+      }
+  } else {
+      console.warn("Speech Synthesis not supported in this browser.");
   }
-
-  if (onEnd) {
-      utterance.onend = onEnd;
-  }
-  
-  window.speechSynthesis.speak(utterance);
 };
 
 // --- Writing Grid (Pinyin 4-lines + Hanzi Tianzi Ge) ---
