@@ -6,6 +6,8 @@ import { ViewState } from '../types';
 
 // Global variable to keep track of current audio to stop overlap
 let currentAudio: HTMLAudioElement | null = null;
+// Global variable to hold the active utterance to prevent Garbage Collection on Android/Chrome
+let activeUtterance: SpeechSynthesisUtterance | null = null;
 
 // Helper to speak individual characters
 export const speakText = async (text: string, onEnd?: () => void, lang: string = 'zh-CN') => {
@@ -15,10 +17,6 @@ export const speakText = async (text: string, onEnd?: () => void, lang: string =
   if (currentAudio) {
       currentAudio.pause();
       currentAudio = null;
-  }
-  // Cancel browser synthesis if supported
-  if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
   }
 
   // 2. Check for Custom TTS
@@ -54,9 +52,6 @@ export const speakText = async (text: string, onEnd?: () => void, lang: string =
                    if (!finalUrl.endsWith('/speech')) {
                        // Try to guess if it needs a suffix. If it ends in /v1/audio, append /speech.
                        if (finalUrl.endsWith('/v1/audio')) finalUrl += '/speech';
-                       // If it's just a base domain, maybe try the standard OpenAI path?
-                       // But usually user enters full URL. Let's assume user entered full URL if they chose POST during test.
-                       // Or fallback to standard if looks like base.
                    }
 
                    headers['Content-Type'] = 'application/json';
@@ -142,6 +137,9 @@ export const speakText = async (text: string, onEnd?: () => void, lang: string =
   // 3. System Fallback
   if (typeof window !== 'undefined' && window.speechSynthesis) {
       try {
+          // Cancel any ongoing speech
+          window.speechSynthesis.cancel();
+
           const utterance = new SpeechSynthesisUtterance(text);
           utterance.lang = lang;
           utterance.rate = settings.ttsRate || 1.0;
@@ -154,16 +152,32 @@ export const speakText = async (text: string, onEnd?: () => void, lang: string =
             }
           }
     
-          if (onEnd) {
-              utterance.onend = onEnd;
-          }
+          utterance.onend = () => {
+              activeUtterance = null; // Release global reference
+              if (onEnd) onEnd();
+          };
           
-          window.speechSynthesis.speak(utterance);
+          utterance.onerror = (e) => {
+              console.warn("TTS Error:", e);
+              activeUtterance = null;
+              if (onEnd) onEnd();
+          };
+
+          // CRITICAL FIX: Assign to global variable to prevent Garbage Collection on Android/Chrome
+          activeUtterance = utterance;
+          
+          // Small timeout to ensure 'cancel' has fully processed on slower devices
+          setTimeout(() => {
+              window.speechSynthesis.speak(utterance);
+          }, 10);
+
       } catch(e) {
           console.error("System TTS failed:", e);
+          if (onEnd) onEnd();
       }
   } else {
       console.warn("Speech Synthesis not supported in this browser.");
+      if (onEnd) onEnd();
   }
 };
 
