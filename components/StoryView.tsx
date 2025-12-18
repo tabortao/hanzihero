@@ -606,7 +606,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                   {modalTab === 'AI' && (
                       <div className="space-y-4">
                           {streamText ? (
-                              <div className="bg-amber-50 p-4 rounded-xl text-sm leading-relaxed whitespace-pre-wrap min-h-[200px] border border-amber-200 animate-fade-in">
+                              <div className="bg-amber-50 p-4 rounded-xl text-lg font-kaiti leading-relaxed whitespace-pre-wrap min-h-[200px] border border-amber-200 animate-fade-in">
                                   {streamText}
                                   {loading && <span className="inline-block w-2 h-4 bg-amber-500 ml-1 animate-pulse"/>}
                               </div>
@@ -1086,7 +1086,7 @@ export const StoryView: React.FC<StoryViewProps> = ({ initialContext, onClearCon
                     <div className="text-center mt-2">
                         <div className="text-2xl font-bold text-gray-500 mb-1">{selectedCharPair.pinyin}</div>
                         <div className="w-32 h-32 mx-auto bg-red-50 rounded-2xl border-2 border-red-100 flex items-center justify-center mb-2">
-                             <span className="font-fun text-7xl text-gray-800">{selectedCharPair.char}</span>
+                             <span className="font-kaiti text-7xl text-gray-800">{selectedCharPair.char}</span>
                         </div>
                         <div className="flex justify-center gap-2">
                             {isCharacterKnown(selectedCharPair.char) && <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">已认识</span>}

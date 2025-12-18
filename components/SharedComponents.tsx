@@ -215,7 +215,7 @@ export const WritingGrid: React.FC<WritingGridProps> = ({ char, pinyin, isTarget
               backgroundSize: '100% 100%' 
             }}
           ></div>
-          <span className={`relative z-10 font-fun text-xl sm:text-2xl leading-none ${isTarget ? 'text-blue-600' : 'text-gray-800'}`}>{char}</span>
+          <span className={`relative z-10 font-kaiti text-xl sm:text-2xl leading-none ${isTarget ? 'text-blue-600' : 'text-gray-800'}`}>{char}</span>
         </div>
       </div>
     );
@@ -266,7 +266,7 @@ export const WritingGrid: React.FC<WritingGridProps> = ({ char, pinyin, isTarget
            </svg>
           
           {!isEmpty && (
-             <span className={`relative z-10 flex items-center justify-center w-full h-full font-fun leading-none text-gray-800 text-lg sm:text-2xl md:text-4xl`}>
+             <span className={`relative z-10 flex items-center justify-center w-full h-full font-kaiti leading-none text-gray-800 text-lg sm:text-2xl md:text-4xl`}>
                {char}
              </span>
           )}
@@ -347,7 +347,7 @@ export const StrokeOrderDisplay: React.FC<{ char: string }> = ({ char }) => {
       {/* Fallback Static Character (Visible if Writer fails or is loading) */}
       {!isLoaded && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-             <span className="font-fun text-8xl sm:text-9xl text-gray-300 opacity-50">{char}</span>
+             <span className="font-kaiti text-8xl sm:text-9xl text-gray-300 opacity-50">{char}</span>
           </div>
       )}
 

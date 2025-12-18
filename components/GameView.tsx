@@ -244,7 +244,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
                   }}></div>
                   <div className="absolute inset-0 border-2 border-red-200 m-2 pointer-events-none"></div>
                   
-                  <span className="font-fun text-8xl sm:text-9xl text-gray-800 relative z-10">
+                  <span className="font-kaiti text-8xl sm:text-9xl text-gray-800 relative z-10">
                     {currentCharacter.char}
                   </span>
                   <button className="absolute bottom-2 right-2 p-2 bg-white/80 rounded-full text-gray-600 hover:text-green-600 shadow-sm">
@@ -401,7 +401,7 @@ export const GameView: React.FC<GameViewProps> = ({ config, onExit, ignoreUnknow
                               backgroundImage: `linear-gradient(to right, transparent 49%, #f87171 50%, transparent 51%), linear-gradient(to bottom, transparent 49%, #f87171 50%, transparent 51%), linear-gradient(45deg, transparent 49%, #f87171 50%, transparent 51%), linear-gradient(-45deg, transparent 49%, #f87171 50%, transparent 51%)`,
                               backgroundSize: '100% 100%'
                           }}></div>
-                          <span className="font-fun text-7xl text-gray-800 relative z-10">{modalChar.char}</span>
+                          <span className="font-kaiti text-7xl text-gray-800 relative z-10">{modalChar.char}</span>
                       </div>
                       
                       <div className="flex gap-2">

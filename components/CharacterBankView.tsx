@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Book, CheckCircle, XCircle, Search, GraduationCap, Volume2, Check, X, Library, User } from 'lucide-react';
 import { Character } from '../types';
@@ -255,7 +256,7 @@ export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack, on
                           ${cardStyle}
                       `}
                     >
-                      <span className="font-fun text-2xl text-gray-800">{char.char}</span>
+                      <span className="font-kaiti text-2xl text-gray-800">{char.char}</span>
                       <span className="text-[10px] text-gray-400 mt-1">{char.pinyin || ' '}</span>
                       
                       {/* Learn Count Badge (Only show if significant) */}
@@ -322,7 +323,7 @@ export const CharacterBankView: React.FC<CharacterBankViewProps> = ({ onBack, on
                               backgroundImage: `linear-gradient(to right, transparent 49%, #f87171 50%, transparent 51%), linear-gradient(to bottom, transparent 49%, #f87171 50%, transparent 51%), linear-gradient(45deg, transparent 49%, #f87171 50%, transparent 51%), linear-gradient(-45deg, transparent 49%, #f87171 50%, transparent 51%)`,
                               backgroundSize: '100% 100%'
                           }}></div>
-                          <span className="font-fun text-7xl text-gray-800 relative z-10">{selectedChar.char}</span>
+                          <span className="font-kaiti text-7xl text-gray-800 relative z-10">{selectedChar.char}</span>
                       </div>
                       
                       {/* Status Badges */}
