@@ -1,3 +1,4 @@
+
 {
   "name": "hanzi-hero---kids-literacy-game",
   "private": true,
@@ -13,7 +14,6 @@
     "lucide-react": "^0.555.0",
     "react-dom": "^19.2.1",
     "@google/genai": "^1.31.0",
-    "uuid": "^13.0.0",
     "canvas-confetti": "1.9.2",
     "vite": "^7.2.7",
     "@vitejs/plugin-react": "^5.1.2",

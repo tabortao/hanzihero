@@ -30,7 +30,7 @@ export default defineConfig(({ mode }) => {
         rollupOptions: {
           output: {
             manualChunks: {
-              'vendor': ['react', 'react-dom', 'lucide-react', 'uuid', 'canvas-confetti'],
+              'vendor': ['react', 'react-dom', 'lucide-react', 'canvas-confetti'],
               'genai': ['@google/genai']
             }
           }

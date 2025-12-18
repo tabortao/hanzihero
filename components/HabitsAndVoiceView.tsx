@@ -4,7 +4,9 @@ import { ArrowLeft, Volume2, Plus, Trash2, Edit2, Check, Sliders, Globe, AlertCi
 import { AppSettings, CustomTTSProfile } from '../types';
 import { getSettings, saveSettings } from '../services/storage';
 import { speakText } from './SharedComponents';
-import { v4 as uuidv4 } from 'uuid';
+
+// Simple ID generator to replace uuid for better compatibility on older devices
+const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
 
 interface HabitsAndVoiceViewProps {
     onBack: () => void;
@@ -28,13 +30,21 @@ export const HabitsAndVoiceView: React.FC<HabitsAndVoiceViewProps> = ({ onBack }
         } else {
             setTtsTab('SYSTEM');
         }
+
+        // Safe check for SpeechSynthesis API
         const loadVoices = () => {
-            const voices = window.speechSynthesis.getVoices();
-            setAvailableSystemVoices(voices.filter(v => v.lang.startsWith('zh') || v.lang.includes('CN')));
+            if (typeof window !== 'undefined' && window.speechSynthesis) {
+                const voices = window.speechSynthesis.getVoices();
+                setAvailableSystemVoices(voices.filter(v => v.lang.startsWith('zh') || v.lang.includes('CN')));
+            }
         };
+        
         loadVoices();
-        window.speechSynthesis.onvoiceschanged = loadVoices;
-        return () => { window.speechSynthesis.onvoiceschanged = null; }
+        
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+            window.speechSynthesis.onvoiceschanged = loadVoices;
+            return () => { window.speechSynthesis.onvoiceschanged = null; }
+        }
     }, []);
 
     const handleSaveSettings = (newConfig: AppSettings) => {
@@ -109,7 +119,7 @@ export const HabitsAndVoiceView: React.FC<HabitsAndVoiceViewProps> = ({ onBack }
         if (!cleanUrl.startsWith('http')) cleanUrl = 'https://' + cleanUrl;
         
         const newProfile: CustomTTSProfile = {
-            id: editingProfile.id || uuidv4(),
+            id: editingProfile.id || generateId(),
             name: editingProfile.name,
             apiUrl: cleanUrl,
             voiceId: editingProfile.voiceId || '',
