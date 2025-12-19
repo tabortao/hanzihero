@@ -47,7 +47,24 @@ export const GuideView: React.FC<GuideViewProps> = ({ onBack }) => {
                 <Rocket className="text-green-500" /> 快速上手指南
              </h3>
              <div className="space-y-6">
-                <StepItem step="1" title="初始化设置" content="首次进入，建议在“我的”页面配置教材版本和年级，并设置 AI API Key。" />
+                <StepItem 
+                    step="1" 
+                    title="初始化设置" 
+                    content={
+                        <span>
+                            首次进入，建议在“我的”页面设置 AI API Key，详具体方法可查看
+                            <a 
+                                href="https://blog.sdgarden.top/post/kanji-little-hero-ai-key-application-guide-1fvfpm" 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 hover:underline font-bold mx-1"
+                            >
+                                【AI Key申请指南】
+                            </a>
+                            。
+                        </span>
+                    } 
+                />
                 <StepItem step="2" title="开始学习" content="在首页选择一个单元，点击“开始学习”。遇到不认识的字，AI 老师会进行详细讲解。" />
                 <StepItem step="3" title="每日挑战" content="每天点击首页左侧的“每日挑战”！系统会自动筛选需要复习的旧字和新单元的生字。" />
              </div>
@@ -79,7 +96,7 @@ const StepItem = ({step, title, content}: any) => (
         </div>
         <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex-1 mb-2 hover:border-green-200 transition-colors">
             <h4 className="font-bold text-gray-800 text-lg mb-2 flex items-center gap-2">{title}</h4>
-            <p className="text-gray-600 text-sm leading-relaxed">{content}</p>
+            <div className="text-gray-600 text-sm leading-relaxed">{content}</div>
         </div>
     </div>
 )

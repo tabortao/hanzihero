@@ -8,7 +8,6 @@ import { findCharacterPinyin, getAllDictionaryChars } from './data/dictionary';
 import { getOrderedCurriculumChars } from './appData';
 
 // Lazy Load Heavy Components to speed up initial rendering
-// Using .then(module => ({ default: module.ComponentName })) pattern for named exports
 const GameView = React.lazy(() => import('./components/GameView').then(module => ({ default: module.GameView })));
 const ReviewView = React.lazy(() => import('./components/ReviewView').then(module => ({ default: module.ReviewView })));
 const CharacterBankView = React.lazy(() => import('./components/CharacterBankView').then(module => ({ default: module.CharacterBankView })));
@@ -37,12 +36,12 @@ const App: React.FC = () => {
   // New: State to pass specific unit data to StoryView
   const [storyGenContext, setStoryGenContext] = useState<{chars: Character[], topic: string} | null>(null);
   
-  // New: State for Daily Challenge Characters
-  const [dailyChars, setDailyChars] = useState<Character[]>([]);
+  // State for "Active Game Characters" (Used for Daily Challenge OR Unit Games)
+  const [activeGameChars, setActiveGameChars] = useState<Character[]>([]);
   const [menuTitle, setMenuTitle] = useState("每日挑战");
 
-  // Track if current game session was started from Daily Menu
-  const [isDailySession, setIsDailySession] = useState(false);
+  // Track if current game session was started from Daily Menu or Unit
+  const [gameSource, setGameSource] = useState<'DAILY' | 'UNIT'>('DAILY');
   
   // New: State for Card Game Mode
   const [isCardLevelMode, setIsCardLevelMode] = useState(false);
@@ -57,7 +56,7 @@ const App: React.FC = () => {
 
   const handleStartGame = (config: GameConfig) => {
     setGameConfig(config);
-    setIsDailySession(false); // Reset unless specified otherwise
+    setGameSource('DAILY'); // Default reset, though usually overridden if coming from unit
     setIsCardLevelMode(false);
     setIsTestMode(false);
     setView('GAME');
@@ -66,16 +65,22 @@ const App: React.FC = () => {
   const handleExitGame = (newTotalStars: number) => {
     setStars(newTotalStars);
     setGameConfig(null);
-    if (isDailySession) {
+    if (gameSource === 'DAILY' && view === 'DAILY_MENU') {
+        // Already at menu
+    } else if (gameSource === 'DAILY') {
         setView('DAILY_MENU');
     } else {
         setView('TAB_HOME');
     }
   };
 
-  const handleBackFromDailyGame = () => {
+  const handleBackFromGame = () => {
       setStars(getStars()); // Refresh stars just in case
-      setView('DAILY_MENU');
+      if (gameSource === 'DAILY') {
+          setView('DAILY_MENU');
+      } else {
+          setView('TAB_HOME');
+      }
   }
 
   const handleStudySingleChar = (char: Character) => {
@@ -84,7 +89,7 @@ const App: React.FC = () => {
         title: `学习生字：${char.char}`,
         characters: [char]
     });
-    setIsDailySession(false);
+    setGameSource('UNIT'); // Treat as unit/single so it returns to home/bank
     setIsCardLevelMode(false);
     setIsTestMode(false);
     setView('GAME');
@@ -99,6 +104,27 @@ const App: React.FC = () => {
       setView('TAB_STORY');
   };
 
+  // Start various activities from a Unit
+  const handleStartUnitActivity = (mode: 'LEARN' | 'LISTEN' | 'LOOK' | 'CRUSH' | 'STORY', unit: Unit) => {
+      if (mode === 'LEARN') {
+          handleStartGame({
+            mode: 'UNIT',
+            title: unit.name,
+            characters: unit.characters
+          });
+          setGameSource('UNIT');
+      } else if (mode === 'STORY') {
+          handleGenerateUnitStory(unit);
+      } else {
+          // Games
+          setActiveGameChars(unit.characters);
+          setGameSource('UNIT');
+          if (mode === 'LISTEN') setView('GAME_LISTEN');
+          if (mode === 'LOOK') setView('GAME_LOOK');
+          if (mode === 'CRUSH') setView('GAME_CRUSH');
+      }
+  };
+
   // When inside a tab, switch sub-views
   const handleReview = () => setView('REVIEW');
   const handleOpenBank = () => setView('BANK');
@@ -109,14 +135,14 @@ const App: React.FC = () => {
 
   // Open Daily Challenge Menu
   const handleOpenDailyMenu = (chars: Character[], title: string = "每日挑战") => {
-      setDailyChars(chars);
+      setActiveGameChars(chars);
       setMenuTitle(title);
       setView('DAILY_MENU');
   };
 
-  // Select Mode from Menu
+  // Select Mode from Daily Menu
   const handleSelectDailyMode = (mode: 'CARD' | 'LISTEN' | 'LOOK' | 'CRUSH' | 'TEST') => {
-      setIsDailySession(true); // Mark as daily session so back button returns to menu
+      setGameSource('DAILY');
       setIsTestMode(false);
       
       if (mode === 'CARD') {
@@ -130,27 +156,20 @@ const App: React.FC = () => {
       } else if (mode === 'CRUSH') {
           setView('GAME_CRUSH');
       } else if (mode === 'TEST') {
-          // Literacy Volume Test Logic: 
-          // Use ordered curriculum characters to test difficulty progression (Grade 1 -> 6)
-          // Default to 'renjiaoban' (RJB) as standard reference
           const settings = getSettings();
           const currId = settings.selectedCurriculumId || 'renjiaoban';
           
           const orderedChars = getOrderedCurriculumChars(currId);
           const knownSet = new Set(getKnownCharacters().map(c => c.char));
           
-          // Filter out characters the user already knows
-          // The remaining list starts with the easiest unknown words
           const unknownOrdered = orderedChars.filter(c => !knownSet.has(c.char));
           
-          // Fallback: If user knows all RJB chars, grab randoms from dictionary
           let testSet: Character[] = [];
           if (unknownOrdered.length < 5) {
               const allDict = getAllDictionaryChars();
               const remaining = allDict.filter(c => !knownSet.has(c));
               testSet = remaining.slice(0, 20).map(c => ({ char: c, pinyin: findCharacterPinyin(c) }));
           } else {
-              // Take the first 20 unknown characters from the curriculum order
               testSet = unknownOrdered.slice(0, 20);
           }
           
@@ -159,7 +178,7 @@ const App: React.FC = () => {
               return;
           }
 
-          setDailyChars(testSet);
+          setActiveGameChars(testSet);
           setIsCardLevelMode(true);
           setIsTestMode(true);
           setView('GAME');
@@ -178,6 +197,7 @@ const App: React.FC = () => {
             onReview={handleReview}
             onOpenBank={handleOpenBank}
             onGenerateUnitStory={handleGenerateUnitStory}
+            onStartUnitActivity={handleStartUnitActivity}
             onOpenDailyMenu={handleOpenDailyMenu}
             stars={stars}
           />
@@ -200,8 +220,8 @@ const App: React.FC = () => {
           {view === 'GAME' && (
              isCardLevelMode ? (
                  <FlashCardGame 
-                    characters={dailyChars}
-                    onExit={handleBackFromDailyGame}
+                    characters={activeGameChars}
+                    onExit={handleBackFromGame}
                     isTestMode={isTestMode}
                  />
              ) : (
@@ -209,6 +229,7 @@ const App: React.FC = () => {
                     <GameView 
                       config={gameConfig} 
                       onExit={handleExitGame} 
+                      onBack={handleBackFromGame}
                     />
                 )
              )
@@ -231,27 +252,27 @@ const App: React.FC = () => {
              <DailyChallengeMenu 
                 onBack={handleBackToHome}
                 onSelectMode={handleSelectDailyMode}
-                characterCount={dailyChars.length}
-                characters={dailyChars}
+                characterCount={activeGameChars.length}
+                characters={activeGameChars}
                 title={menuTitle}
              />
           )}
           {view === 'GAME_LISTEN' && (
               <ListenIdentifyGame 
-                 characters={dailyChars}
-                 onExit={handleBackFromDailyGame}
+                 characters={activeGameChars}
+                 onExit={handleBackFromGame}
               />
           )}
           {view === 'GAME_LOOK' && (
               <LookIdentifyGame
-                 characters={dailyChars}
-                 onExit={handleBackFromDailyGame}
+                 characters={activeGameChars}
+                 onExit={handleBackFromGame}
               />
           )}
           {view === 'GAME_CRUSH' && (
               <CrushGame 
-                 characters={dailyChars}
-                 onExit={handleBackFromDailyGame}
+                 characters={activeGameChars}
+                 onExit={handleBackFromGame}
               />
           )}
         </Suspense>
