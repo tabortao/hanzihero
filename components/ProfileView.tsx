@@ -30,10 +30,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
   const [importStatus, setImportStatus] = useState<'IDLE' | 'READING' | 'SUCCESS' | 'ERROR'>('IDLE');
   const [importErrorMsg, setImportErrorMsg] = useState('');
 
-  // WeChat Modal State
-  const [showWeChatModal, setShowWeChatModal] = useState(false);
-  const [copySuccess, setCopySuccess] = useState(false);
-
   // Ref to track mount status for auto-save logic
   const isMounted = useRef(false);
 
@@ -54,21 +50,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
     return () => { isMounted.current = false; };
   }, [view]); // Reload when view changes back to main
 
-  const handleCopyWeChat = async () => {
-      try {
-          await navigator.clipboard.writeText('tabor2024');
-          setCopySuccess(true);
-          setTimeout(() => {
-              if (isMounted.current) {
-                setCopySuccess(false);
-                setShowWeChatModal(false);
-              }
-          }, 1500);
-      } catch (err) {
-          alert('复制失败，请手动复制：tabor2024');
-      }
-  };
-  
   const handleExport = () => {
     const data = exportUserData();
     const blob = new Blob([data], { type: 'application/json' });
@@ -182,7 +163,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                       </button>
 
                       <button 
-                         onClick={() => setShowWeChatModal(true)}
+                         onClick={() => window.open('https://img.sdgarden.top/blog/wechat/zuoyejianeice.jpg', '_blank')}
                          className="w-full bg-white p-4 rounded-xl border border-gray-200 flex items-center justify-between hover:bg-gray-50 transition-colors shadow-sm group"
                       >
                          <div className="flex items-center gap-3">
@@ -191,7 +172,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                              </div>
                              <span className="font-bold text-gray-700">微信反馈</span>
                          </div>
-                         <ChevronRight size={18} className="text-gray-400" />
+                         <ExternalLink size={18} className="text-gray-400" />
                       </button>
                   </div>
                   
@@ -200,39 +181,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                       感谢您的使用与支持！
                   </div>
               </div>
-              
-              {/* WeChat Modal */}
-              {showWeChatModal && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowWeChatModal(false)}>
-                      <div 
-                          className="bg-white rounded-3xl p-8 shadow-2xl w-full max-w-sm animate-bounce-in text-center relative"
-                          onClick={e => e.stopPropagation()}
-                      >
-                          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 text-green-600">
-                              <MessageCircle size={32} />
-                          </div>
-                          <h3 className="text-xl font-bold text-gray-800 mb-2">微信反馈</h3>
-                          <p className="text-gray-500 text-sm mb-6">
-                              添加作者微信，交流反馈或建议。<br/>
-                              微信号：<span className="font-mono font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded">tabor2024</span>
-                          </p>
-                          
-                          <button 
-                              onClick={handleCopyWeChat}
-                              className={`w-full py-3 rounded-xl font-bold text-white transition-all flex items-center justify-center gap-2 ${copySuccess ? 'bg-green-500' : 'bg-gray-900 hover:bg-gray-800'}`}
-                          >
-                              {copySuccess ? <Check size={20} /> : <span className="flex items-center gap-2">复制微信号</span>}
-                              {copySuccess ? '复制成功' : ''}
-                          </button>
-                          
-                          <p className="text-[10px] text-gray-400 mt-4">备注：汉字小英雄</p>
-                          
-                          <button onClick={() => setShowWeChatModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-                              <X size={20} />
-                          </button>
-                      </div>
-                  </div>
-              )}
           </div>
       );
   }
