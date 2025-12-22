@@ -1,12 +1,12 @@
 
 import { Curriculum, Character } from './types';
-import { RENJIAOBAN } from './data/curriculum/renjiaoban';
-import { SUBAN } from './data/curriculum/suban';
+import { RENJIAOBAN_2012 } from './data/curriculum/renjiaoban_2012';
+import { RENJIAOBAN_2024 } from './data/curriculum/renjiaoban_2024';
 
 // Central export of all curriculum data
 export const APP_DATA: Curriculum[] = [
-    RENJIAOBAN,
-    SUBAN
+    RENJIAOBAN_2012,
+    RENJIAOBAN_2024
 ];
 
 export const GRADE_PRESETS = [
@@ -20,8 +20,8 @@ export const GRADE_PRESETS = [
 
 // Helper to get all characters from a curriculum in order (Grade 1 -> 6)
 // Defaults to Renjiaoban if ID not found
-export const getOrderedCurriculumChars = (curriculumId: string = 'renjiaoban'): Character[] => {
-    const curriculum = APP_DATA.find(c => c.id === curriculumId) || RENJIAOBAN;
+export const getOrderedCurriculumChars = (curriculumId: string = 'renjiaoban_2024'): Character[] => {
+    const curriculum = APP_DATA.find(c => c.id === curriculumId) || RENJIAOBAN_2024;
     const allChars: Character[] = [];
     const seen = new Set<string>();
 

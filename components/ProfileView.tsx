@@ -22,7 +22,7 @@ interface ProfileViewProps {
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
-  const [view, setView] = useState<'MAIN' | 'AI_CONFIG' | 'ABOUT' | 'HELP' | 'MANUAL' | 'HABITS' | 'GUIDE'>('MAIN');
+  const [view, setView] = useState<'MAIN' | 'AI_CONFIG' | 'ABOUT' | 'HELP' | 'MANUAL' | 'HABITS' | 'GUIDE' | 'REQUIREMENTS' | 'DONATION'>('MAIN');
   const [config, setConfig] = useState<AppSettings>(getSettings());
   const [activeProvider, setActiveProvider] = useState<string>('GOOGLE');
   
@@ -91,6 +91,208 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
   
   if (view === 'GUIDE') {
       return <GuideView onBack={() => setView('ABOUT')} />
+  }
+
+  if (view === 'REQUIREMENTS') {
+      return (
+          <div className="max-w-7xl mx-auto min-h-screen bg-gray-50 pb-24 animate-fade-in">
+              <div className="bg-white px-6 py-4 shadow-sm border-b border-gray-100 sticky top-0 z-10 flex items-center gap-2">
+                  <button onClick={() => setView('ABOUT')} className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600">
+                      <ArrowLeft size={24} />
+                  </button>
+                  <h1 className="text-xl font-bold text-gray-800">需求与鸣谢</h1>
+              </div>
+
+              <div className="p-8">
+                  {/* Requirements Section */}
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+                      <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                          <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
+                              <Heart size={20} />
+                          </div>
+                          需求
+                      </h2>
+                      <div className="text-gray-700 leading-relaxed">
+                          <p className="mb-4">
+                              因教材改版，暂未收集齐全语文2024版人教版的课本对应生字，需要热心网友提供下小学二年级下~六年级下的课本目录、生字表。
+                          </p>
+                          <p className="text-sm text-gray-500">
+                              如果您有相关资料，欢迎通过以下方式联系我们：
+                          </p>
+                          <div className="mt-3 space-y-2">
+                              <button 
+                                  onClick={() => window.open('https://img.sdgarden.top/blog/wechat/zuoyejianeice.jpg', '_blank')}
+                                  className="w-full text-left p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
+                              >
+                                  <span className="font-medium text-gray-700">微信反馈</span>
+                                  <span className="text-xs text-gray-500 ml-2">扫码添加微信提供资料</span>
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* Acknowledgments Section */}
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                      <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                          <div className="p-2 bg-green-50 text-green-600 rounded-lg">
+                              <Heart size={20} />
+                          </div>
+                          鸣谢名单
+                      </h2>
+                      <div className="text-gray-700 leading-relaxed">
+                          <p className="mb-4 text-sm text-gray-600">
+                              感谢以下朋友的支持与贡献：
+                          </p>
+                          <div className="space-y-3">
+                              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-sm">
+                                      V
+                                  </div>
+                                  <div>
+                                      <span className="font-medium text-gray-800">Vos.</span>
+                                      <span className="text-xs text-gray-500 ml-2">提供新课标语文识字表</span>
+                                  </div>
+                              </div>
+                              
+                              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                  <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold text-sm">
+                                      夜
+                                  </div>
+                                  <div>
+                                      <span className="font-medium text-gray-800">夜雨晴空</span>
+                                      <span className="text-xs text-gray-500 ml-2">提供用户反馈与功能建议</span>
+                                  </div>
+                              </div>
+                              
+                              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-bold text-sm">
+                                      A
+                                  </div>
+                                  <div>
+                                      <span className="font-medium text-gray-800">Anne and Andy</span>
+                                      <span className="text-xs text-gray-500 ml-2">提供测试反馈与改进建议</span>
+                                  </div>
+                              </div>
+                          </div>
+                          
+                          <div className="mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                              <p className="text-sm text-yellow-800 font-medium mb-2">持续更新中...</p>
+                              <p className="text-xs text-yellow-700">
+                                  更多贡献者名单将会陆续添加，感谢每一位支持汉字小英雄的朋友！
+                              </p>
+                          </div>
+                      </div>
+                  </div>
+                  
+                  <div className="mt-8 text-center text-xs text-gray-400 max-w-xs leading-relaxed mx-auto">
+                      感谢所有支持与关注汉字小英雄的朋友们！<br/>
+                      您的每一份贡献都让这个项目变得更好。
+                  </div>
+              </div>
+          </div>
+      );
+  }
+
+  if (view === 'DONATION') {
+      return (
+          <div className="max-w-7xl mx-auto min-h-screen bg-gray-50 pb-24 animate-fade-in">
+              <div className="bg-white px-6 py-4 shadow-sm border-b border-gray-100 sticky top-0 z-10 flex items-center gap-2">
+                  <button onClick={() => setView('ABOUT')} className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600">
+                      <ArrowLeft size={24} />
+                  </button>
+                  <h1 className="text-xl font-bold text-gray-800">打赏支持</h1>
+              </div>
+
+              <div className="p-8">
+                  {/* Thank you message */}
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+                      <div className="text-center">
+                          <div className="text-4xl mb-4">🙏</div>
+                          <h2 className="text-lg font-bold text-gray-800 mb-2">感谢您的支持！</h2>
+                          <p className="text-gray-600 text-sm leading-relaxed">
+                              您的每一份支持都将帮助我们持续改进和完善汉字小英雄，<br/>
+                              让更多的孩子能够快乐地学习汉字。
+                          </p>
+                      </div>
+                  </div>
+
+                  {/* QR Code Section */}
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                      <h2 className="text-lg font-bold text-gray-800 mb-6 text-center">扫码打赏</h2>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* WeChat Pay */}
+                          <div className="text-center">
+                              <div className="bg-green-50 p-4 rounded-lg border border-green-100 mb-4">
+                                  <div className="text-2xl mb-2">💚</div>
+                                  <h3 className="font-bold text-green-700">微信支付</h3>
+                              </div>
+                              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                  <img 
+                                      src="https://img.sdgarden.top/blog/wechat/wechatpay.jpg" 
+                                      alt="微信收款码" 
+                                      className="w-48 h-48 mx-auto object-contain rounded-lg"
+                                      onError={(e) => {
+                                          const target = e.target as HTMLImageElement;
+                                          target.style.display = 'none';
+                                          target.nextElementSibling!.classList.remove('hidden');
+                                      }}
+                                  />
+                                  <div className="hidden text-center text-gray-500 text-sm">
+                                      <div className="w-48 h-48 mx-auto bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+                                          <div>
+                                              <div className="text-2xl mb-2">📱</div>
+                                              <p>微信收款码</p>
+                                          </div>
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+
+                          {/* Alipay */}
+                          <div className="text-center">
+                              <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-4">
+                                  <div className="text-2xl mb-2">💙</div>
+                                  <h3 className="font-bold text-blue-700">支付宝</h3>
+                              </div>
+                              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                  <img 
+                                      src="https://img.sdgarden.top/blog/wechat/alipay.jpg" 
+                                      alt="支付宝收款码" 
+                                      className="w-48 h-48 mx-auto object-contain rounded-lg"
+                                      onError={(e) => {
+                                          const target = e.target as HTMLImageElement;
+                                          target.style.display = 'none';
+                                          target.nextElementSibling!.classList.remove('hidden');
+                                      }}
+                                  />
+                                  <div className="hidden text-center text-gray-500 text-sm">
+                                      <div className="w-48 h-48 mx-auto bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+                                          <div>
+                                              <div className="text-2xl mb-2">📱</div>
+                                              <p>支付宝收款码</p>
+                                          </div>
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+
+                      <div className="mt-6 text-center">
+                          <p className="text-sm text-gray-500 mb-2">💡 提示</p>
+                          <p className="text-xs text-gray-400">
+                              打赏金额不限，您的支持就是我们最大的动力！<br/>
+                              如遇到扫码问题，可通过微信反馈联系我们。
+                          </p>
+                      </div>
+                  </div>
+                  
+                  <div className="mt-8 text-center text-xs text-gray-400 max-w-xs leading-relaxed mx-auto">
+                      感谢您的慷慨支持！<br/>
+                      您的每一份打赏都将用于产品的持续改进。
+                  </div>
+              </div>
+          </div>
+      );
   }
 
   if (view === 'AI_CONFIG') {
@@ -173,6 +375,32 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                              <span className="font-bold text-gray-700">微信反馈</span>
                          </div>
                          <ExternalLink size={18} className="text-gray-400" />
+                      </button>
+
+                      <button 
+                         onClick={() => setView('REQUIREMENTS')}
+                         className="w-full bg-white p-4 rounded-xl border border-gray-200 flex items-center justify-between hover:bg-gray-50 transition-colors shadow-sm group"
+                      >
+                         <div className="flex items-center gap-3">
+                             <div className="p-2 bg-orange-50 text-orange-600 rounded-lg group-hover:bg-orange-100 transition-colors">
+                                 <Heart size={20} />
+                             </div>
+                             <span className="font-bold text-gray-700">需求与鸣谢</span>
+                         </div>
+                         <ChevronRight size={18} className="text-gray-400" />
+                      </button>
+
+                      <button 
+                         onClick={() => setView('DONATION')}
+                         className="w-full bg-white p-4 rounded-xl border border-gray-200 flex items-center justify-between hover:bg-gray-50 transition-colors shadow-sm group"
+                      >
+                         <div className="flex items-center gap-3">
+                             <div className="p-2 bg-yellow-50 text-yellow-600 rounded-lg group-hover:bg-yellow-100 transition-colors">
+                                 <Heart size={20} />
+                             </div>
+                             <span className="font-bold text-gray-700">打赏</span>
+                         </div>
+                         <ChevronRight size={18} className="text-gray-400" />
                       </button>
                   </div>
                   
