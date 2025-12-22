@@ -398,7 +398,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
                              <div className="p-2 bg-yellow-50 text-yellow-600 rounded-lg group-hover:bg-yellow-100 transition-colors">
                                  <Heart size={20} />
                              </div>
-                             <span className="font-bold text-gray-700">打赏</span>
+                             <span className="font-bold text-gray-700">打赏支持</span>
                          </div>
                          <ChevronRight size={18} className="text-gray-400" />
                       </button>
