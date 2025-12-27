@@ -56,7 +56,8 @@ const App: React.FC = () => {
 
   const handleStartGame = (config: GameConfig) => {
     setGameConfig(config);
-    setGameSource('DAILY'); // Default reset, though usually overridden if coming from unit
+    // 修正：根据模式动态设置来源，如果是单元学习则设为 UNIT，确保返回首页
+    setGameSource(config.mode === 'UNIT' ? 'UNIT' : 'DAILY');
     setIsCardLevelMode(false);
     setIsTestMode(false);
     setView('GAME');
