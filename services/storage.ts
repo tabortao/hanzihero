@@ -40,7 +40,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   customTTSProfiles: [],
   dailyNewLimit: 5,
   storyLength: 100,
-  selectedCurriculumId: 'renjiaoban',
+  selectedCurriculumId: 'renjiaoban_2024', // Default to 人教版(RJB-2024) for first-time users
   selectedGradeId: 'g1-1'
 };
 

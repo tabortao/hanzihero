@@ -632,7 +632,18 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
                                  setQuickCurrId(e.target.value);
                                  const newCurr = allCurricula.find(c => c.id === e.target.value);
                                  if (newCurr && newCurr.grades.length > 0) {
-                                     setQuickGradeId(newCurr.grades[0].id);
+                                     // Filter categories for 洪恩识字 and select first available
+                                     const availableCategories = newCurr.id === 'hongenshizi' 
+                                         ? ['基础识字', '生活常用', '进阶提升']
+                                         : null;
+                                     
+                                     const availableGrades = availableCategories
+                                         ? newCurr.grades.filter(g => availableCategories.includes(g.name))
+                                         : newCurr.grades;
+                                     
+                                     if (availableGrades.length > 0) {
+                                         setQuickGradeId(availableGrades[0].id);
+                                     }
                                  }
                              }}
                           >
@@ -652,8 +663,15 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ onStartGame, onRev
                                   const existingNames = new Set(curr?.grades.map(g => g.name) || []);
                                   const options = [];
                                   if (curr) {
+                                      // Filter categories for 洪恩识字 to show only available categories
+                                      const availableCategories = curr.id === 'hongenshizi' 
+                                          ? ['基础识字', '生活常用', '进阶提升']
+                                          : null;
+                                      
                                       curr.grades.forEach(g => {
-                                          options.push(<option key={g.id} value={g.id}>{g.name}</option>);
+                                          if (!availableCategories || availableCategories.includes(g.name)) {
+                                              options.push(<option key={g.id} value={g.id}>{g.name}</option>);
+                                          }
                                       });
                                   }
                                   GRADE_PRESETS.forEach(preset => {

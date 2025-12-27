@@ -2,11 +2,13 @@
 import { Curriculum, Character } from './types';
 import { RENJIAOBAN_2012 } from './data/curriculum/renjiaoban_2012';
 import { RENJIAOBAN_2024 } from './data/curriculum/renjiaoban_2024';
+import { HONGENSHIZI } from './data/curriculum/hongenshizi';
 
 // Central export of all curriculum data
 export const APP_DATA: Curriculum[] = [
     RENJIAOBAN_2012,
-    RENJIAOBAN_2024
+    RENJIAOBAN_2024,
+    HONGENSHIZI
 ];
 
 export const GRADE_PRESETS = [
