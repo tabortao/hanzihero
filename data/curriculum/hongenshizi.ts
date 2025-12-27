@@ -10,7 +10,7 @@ export const HONGENSHIZI: Curriculum = {
       units: [
         {
           id: "u1",
-          name: "识字 1",
+          name: "01一二三人个",
           characters: [
             { char: "一", pinyin: "yī" },
             { char: "二", pinyin: "èr" },
@@ -21,7 +21,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u2",
-          name: "识字 2",
+          name: "02大山上下小",
           characters: [
             { char: "大", pinyin: "dà" },
             { char: "山", pinyin: "shān" },
@@ -32,7 +32,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u3",
-          name: "识字 3",
+          name: "03雨天车开火",
           characters: [
             { char: "雨", pinyin: "yǔ" },
             { char: "天", pinyin: "tiān" },
@@ -43,7 +43,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u4",
-          name: "识字 4",
+          name: "04门口月羊只",
           characters: [
             { char: "门", pinyin: "mén" },
             { char: "口", pinyin: "kǒu" },
@@ -54,7 +54,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u5",
-          name: "识字 5",
+          name: "05有牛水中风",
           characters: [
             { char: "有", pinyin: "yǒu" },
             { char: "牛", pinyin: "niú" },
@@ -65,7 +65,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u6",
-          name: "识字 6",
+          name: "06头田土里在",
           characters: [
             { char: "头", pinyin: "tóu" },
             { char: "田", pinyin: "tián" },
@@ -76,7 +76,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u7",
-          name: "识字 7",
+          name: "07日白马手出",
           characters: [
             { char: "日", pinyin: "rì" },
             { char: "白", pinyin: "bái" },
@@ -87,7 +87,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u8",
-          name: "识字 8",
+          name: "08王子儿女刀",
           characters: [
             { char: "王", pinyin: "wáng" },
             { char: "子", pinyin: "zǐ" },
@@ -98,7 +98,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u9",
-          name: "识字 9",
+          name: "09木鸟伞鱼瓜",
           characters: [
             { char: "木", pinyin: "mù" },
             { char: "鸟", pinyin: "niǎo" },
@@ -109,7 +109,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u10",
-          name: "识字 10",
+          name: "10气飞虫米云",
           characters: [
             { char: "气", pinyin: "qì" },
             { char: "飞", pinyin: "fēi" },
@@ -120,7 +120,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u11",
-          name: "识字 11",
+          name: "11电石了来玉",
           characters: [
             { char: "电", pinyin: "diàn" },
             { char: "石", pinyin: "shí" },
@@ -131,7 +131,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u12",
-          name: "识字 12",
+          name: "12去多回少问",
           characters: [
             { char: "去", pinyin: "qù" },
             { char: "多", pinyin: "duō" },
@@ -142,7 +142,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u13",
-          name: "识字 13",
+          name: "13早巴父工力",
           characters: [
             { char: "早", pinyin: "zǎo" },
             { char: "巴", pinyin: "bā" },
@@ -153,7 +153,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u14",
-          name: "识字 14",
+          name: "14不干几男坐",
           characters: [
             { char: "不", pinyin: "bù" },
             { char: "干", pinyin: "gàn" },
@@ -164,7 +164,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u15",
-          name: "识字 15",
+          name: "15打四五六闪",
           characters: [
             { char: "打", pinyin: "dǎ" },
             { char: "四", pinyin: "sì" },
@@ -175,7 +175,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u16",
-          name: "识字 16",
+          name: "16的的花朵果比",
           characters: [
             { char: "的", pinyin: "de" },
             { char: "花", pinyin: "huā" },
@@ -186,7 +186,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u17",
-          name: "识字 17",
+          name: "17午面高包文",
           characters: [
             { char: "午", pinyin: "wǔ" },
             { char: "面", pinyin: "miàn" },
@@ -197,7 +197,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u18",
-          name: "识字 18",
+          name: "18分平我连元",
           characters: [
             { char: "分", pinyin: "fēn" },
             { char: "平", pinyin: "píng" },
@@ -208,7 +208,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u19",
-          name: "识字 19",
+          name: "19丁厂目见兔",
           characters: [
             { char: "丁", pinyin: "dīng" },
             { char: "厂", pinyin: "chǎng" },
@@ -219,7 +219,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u20",
-          name: "识字 20",
+          name: "20禾是把笑着",
           characters: [
             { char: "禾", pinyin: "hé" },
             { char: "是", pinyin: "shì" },
@@ -230,7 +230,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u21",
-          name: "识字 21",
+          name: "21看会自己画",
           characters: [
             { char: "看", pinyin: "kàn" },
             { char: "会", pinyin: "huì" },
@@ -241,7 +241,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u22",
-          name: "识字 22",
+          name: "22好爱心也可",
           characters: [
             { char: "好", pinyin: "hǎo" },
             { char: "爱", pinyin: "ài" },
@@ -252,7 +252,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u23",
-          name: "识字 23",
+          name: "23家爸妈这爷",
           characters: [
             { char: "家", pinyin: "jiā" },
             { char: "爸", pinyin: "bà" },
@@ -263,7 +263,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u24",
-          name: "识字 24",
+          name: "24奶们书串球",
           characters: [
             { char: "奶", pinyin: "nǎi" },
             { char: "们", pinyin: "men" },
@@ -274,7 +274,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u25",
-          name: "识字 25",
+          name: "25圆形状长方",
           characters: [
             { char: "圆", pinyin: "yuán" },
             { char: "形", pinyin: "xíng" },
@@ -285,7 +285,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u26",
-          name: "识字 26",
+          name: "26角灯块冰那",
           characters: [
             { char: "角", pinyin: "jiǎo" },
             { char: "灯", pinyin: "dēng" },
@@ -296,7 +296,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u27",
-          name: "识字 27",
+          name: "27弓买哪乐谢",
           characters: [
             { char: "弓", pinyin: "gōng" },
             { char: "买", pinyin: "mǎi" },
@@ -307,7 +307,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u28",
-          name: "识字 28",
+          name: "28想抱竹要立",
           characters: [
             { char: "想", pinyin: "xiǎng" },
             { char: "抱", pinyin: "bào" },
@@ -318,7 +318,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u29",
-          name: "识字 29",
+          name: "29耳红色吃香",
           characters: [
             { char: "耳", pinyin: "ěr" },
             { char: "红", pinyin: "hóng" },
@@ -329,7 +329,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u30",
-          name: "识字 30",
+          name: "30穿身它发衣",
           characters: [
             { char: "穿", pinyin: "chuān" },
             { char: "身", pinyin: "shēn" },
@@ -340,7 +340,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u31",
-          name: "识字 31",
+          name: "31他她毛朋友",
           characters: [
             { char: "他", pinyin: "tā" },
             { char: "她", pinyin: "tā" },
@@ -351,7 +351,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u32",
-          name: "识字 32",
+          name: "32哥弟兄眉鼻",
           characters: [
             { char: "哥", pinyin: "gē" },
             { char: "弟", pinyin: "dì" },
@@ -362,7 +362,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u33",
-          name: "识字 33",
+          name: "33光星阳亮今",
           characters: [
             { char: "光", pinyin: "guāng" },
             { char: "星", pinyin: "xīng" },
@@ -373,7 +373,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u34",
-          name: "识字 34",
+          name: "34明走兴空两",
           characters: [
             { char: "明", pinyin: "míng" },
             { char: "走", pinyin: "zǒu" },
@@ -384,7 +384,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u35",
-          name: "识字 35",
+          name: "35哭牙肚尾你",
           characters: [
             { char: "哭", pinyin: "kū" },
             { char: "牙", pinyin: "yá" },
@@ -395,7 +395,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u36",
-          name: "识字 36",
+          name: "36脸黑半呀吗",
           characters: [
             { char: "脸", pinyin: "liǎn" },
             { char: "黑", pinyin: "hēi" },
@@ -406,7 +406,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u37",
-          name: "识字 37",
+          name: "37七八九十又",
           characters: [
             { char: "七", pinyin: "qī" },
             { char: "八", pinyin: "bā" },
@@ -417,7 +417,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u38",
-          name: "识字 38",
+          name: "38很太宝贝和",
           characters: [
             { char: "很", pinyin: "hěn" },
             { char: "太", pinyin: "tài" },
@@ -428,7 +428,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u39",
-          name: "识字 39",
+          name: "39关园生公苗",
           characters: [
             { char: "关", pinyin: "guān" },
             { char: "园", pinyin: "yuán" },
@@ -439,7 +439,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u40",
-          name: "识字 40",
+          name: "40叶林草先岛",
           characters: [
             { char: "叶", pinyin: "yè" },
             { char: "林", pinyin: "lín" },
@@ -456,7 +456,7 @@ export const HONGENSHIZI: Curriculum = {
       units: [
         {
           id: "u1",
-          name: "生活识字 1",
+          name: "01嘴眼腳腿",
           characters: [
             { char: "嘴", pinyin: "zuǐ" },
             { char: "眼", pinyin: "yǎn" },
@@ -467,7 +467,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u2",
-          name: "生活识字 2",
+          name: "02翅膀羽体没",
           characters: [
             { char: "翅", pinyin: "chì" },
             { char: "膀", pinyin: "bǎng" },
@@ -478,7 +478,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u3",
-          name: "生活识字 3",
+          name: "03认识颜黄蓝",
           characters: [
             { char: "认", pinyin: "rèn" },
             { char: "识", pinyin: "shi" },
@@ -489,7 +489,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u4",
-          name: "生活识字 4",
+          name: "04绿粉青紫彩",
           characters: [
             { char: "绿", pinyin: "lǜ" },
             { char: "粉", pinyin: "fěn" },
@@ -500,7 +500,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u5",
-          name: "生活识字 5",
+          name: "05食物尝闻味",
           characters: [
             { char: "食", pinyin: "shí" },
             { char: "物", pinyin: "wù" },
@@ -511,7 +511,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u6",
-          name: "生活识字 6",
+          name: "06鲜苦甜什么",
           characters: [
             { char: "鲜", pinyin: "xiān" },
             { char: "苦", pinyin: "kǔ" },
@@ -522,7 +522,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u7",
-          name: "生活识字 7",
+          name: "07起运动踢足",
           characters: [
             { char: "起", pinyin: "qǐ" },
             { char: "运", pinyin: "yùn" },
@@ -533,7 +533,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u8",
-          name: "生活识字 8",
+          name: "08赛快慢跑步",
           characters: [
             { char: "赛", pinyin: "sài" },
             { char: "快", pinyin: "kuài" },
@@ -544,7 +544,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u9",
-          name: "生活识字 9",
+          name: "09唱歌跳舞吹",
           characters: [
             { char: "唱", pinyin: "chàng" },
             { char: "歌", pinyin: "gē" },
@@ -555,7 +555,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u10",
-          name: "生活识字 10",
+          name: "10号讲故事怎",
           characters: [
             { char: "号", pinyin: "hào" },
             { char: "讲", pinyin: "jiǎng" },
@@ -566,7 +566,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u11",
-          name: "生活识字 11",
+          name: "11帮找欢担闷",
           characters: [
             { char: "帮", pinyin: "bāng" },
             { char: "找", pinyin: "zhǎo" },
@@ -577,7 +577,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u12",
-          name: "生活识字 12",
+          name: "12急害怕惊哈",
           characters: [
             { char: "急", pinyin: "jí" },
             { char: "害", pinyin: "hài" },
@@ -588,7 +588,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u13",
-          name: "生活识字 13",
+          name: "13老师同学校",
           characters: [
             { char: "老", pinyin: "lǎo" },
             { char: "师", pinyin: "shī" },
@@ -599,7 +599,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u14",
-          name: "生活识字 14",
+          name: "14桌椅教室课",
           characters: [
             { char: "桌", pinyin: "zhuō" },
             { char: "椅", pinyin: "yǐ" },
@@ -610,7 +610,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u15",
-          name: "生活识字 15",
+          name: "15做给操伸拉",
           characters: [
             { char: "做", pinyin: "zuò" },
             { char: "给", pinyin: "gěi" },
@@ -621,7 +621,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u16",
-          name: "生活识字 16",
+          name: "16举拍抓拥扔",
           characters: [
             { char: "举", pinyin: "jǔ" },
             { char: "拍", pinyin: "pāi" },
@@ -632,7 +632,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u17",
-          name: "生活识字 17",
+          name: "17寒冷温暖热",
           characters: [
             { char: "寒", pinyin: "hán" },
             { char: "冷", pinyin: "lěng" },
@@ -643,7 +643,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u18",
-          name: "生活识字 18",
+          name: "18凉湿净到",
           characters: [
             { char: "凉", pinyin: "liáng" },
             { char: "湿", pinyin: "shī" },
@@ -654,7 +654,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u19",
-          name: "生活识字 19",
+          name: "19都办渴喝饿",
           characters: [
             { char: "都", pinyin: "dōu" },
             { char: "办", pinyin: "bàn" },
@@ -665,7 +665,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u20",
-          name: "生活识字 20",
+          name: "20饭睡觉累醒",
           characters: [
             { char: "饭", pinyin: "fàn" },
             { char: "睡", pinyin: "shuì" },
@@ -676,7 +676,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u21",
-          name: "生活识字 21",
+          name: "21房间帘窗户",
           characters: [
             { char: "房间", pinyin: "fáng jiān" },
             { char: "帘", pinyin: "lián" },
@@ -686,7 +686,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u22",
-          name: "生活识字 22",
+          name: "22台视床被处",
           characters: [
             { char: "台", pinyin: "tái" },
             { char: "视", pinyin: "shì" },
@@ -697,7 +697,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u23",
-          name: "生活识字 23",
+          name: "23让对姐妹阿",
           characters: [
             { char: "让", pinyin: "ràng" },
             { char: "对", pinyin: "duì" },
@@ -708,7 +708,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u24",
-          name: "生活识字 24",
+          name: "24姨叔伯姑亲",
           characters: [
             { char: "姨", pinyin: "yí" },
             { char: "叔", pinyin: "shū" },
@@ -719,7 +719,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u25",
-          name: "生活识字 25",
+          name: "25餐厅勺筷盘",
           characters: [
             { char: "餐", pinyin: "cān" },
             { char: "盆", pinyin: "pén" },
@@ -730,7 +730,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u26",
-          name: "生活识字 26",
+          name: "26袋巾杯成用",
           characters: [
             { char: "袋", pinyin: "dài" },
             { char: "巾", pinyin: "jīn" },
@@ -741,7 +741,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u27",
-          name: "生活识字 27",
+          name: "27像原菜萝卜",
           characters: [
             { char: "像", pinyin: "xiàng" },
             { char: "原", pinyin: "yuán" },
@@ -752,7 +752,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u28",
-          name: "生活识字 28",
+          name: "28豆苹桃杏笋",
           characters: [
             { char: "豆", pinyin: "dòu" },
             { char: "苹", pinyin: "píng" },
@@ -763,7 +763,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u29",
-          name: "生活识字 29",
+          name: "29扫地拖洒洗",
           characters: [
             { char: "扫", pinyin: "sǎo" },
             { char: "地", pinyin: "dì" },
@@ -774,7 +774,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u30",
-          name: "生活识字 30",
+          name: "30服晒收全呢",
           characters: [
             { char: "服", pinyin: "fú" },
             { char: "晒", pinyin: "shài" },
@@ -785,7 +785,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u31",
-          name: "生活识字 31",
+          name: "31还谁商场楼",
           characters: [
             { char: "还", pinyin: "hái" },
             { char: "谁", pinyin: "shuí" },
@@ -796,7 +796,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u32",
-          name: "生活识字 32",
+          name: "32街理店鞋市",
           characters: [
             { char: "街", pinyin: "jiē" },
             { char: "理", pinyin: "lǐ" },
@@ -807,7 +807,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u33",
-          name: "生活识字 33",
+          name: "33医院护士",
           characters: [
             { char: "医", pinyin: "yī" },
             { char: "院", pinyin: "yuàn" },
@@ -817,7 +817,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u34",
-          name: "生活识字 34",
+          name: "34伤纱布针住",
           characters: [
             { char: "伤", pinyin: "shāng" },
             { char: "纱", pinyin: "shā" },
@@ -828,7 +828,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u35",
-          name: "生活识字 35",
+          name: "35养放鸡鸭农",
           characters: [
             { char: "养", pinyin: "yǎng" },
             { char: "放", pinyin: "fàng" },
@@ -839,7 +839,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u36",
-          name: "生活识字 36",
+          name: "36夫猫狗鼠群",
           characters: [
             { char: "夫", pinyin: "fū" },
             { char: "猫", pinyin: "māo" },
@@ -850,7 +850,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u37",
-          name: "生活识字 37",
+          name: "37汽行交装甲",
           characters: [
             { char: "汽", pinyin: "qì" },
             { char: "行", pinyin: "xíng" },
@@ -861,7 +861,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u38",
-          name: "生活识字 38",
+          name: "38机宇宙船化",
           characters: [
             { char: "机", pinyin: "jī" },
             { char: "宇", pinyin: "yǔ" },
@@ -872,7 +872,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u39",
-          name: "生活识字 39",
+          name: "39当该科程航",
           characters: [
             { char: "当", pinyin: "dāng" },
             { char: "该", pinyin: "gāi" },
@@ -883,7 +883,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u40",
-          name: "生活识字 40",
+          name: "40员司蹈军银",
           characters: [
             { char: "员", pinyin: "yuán" },
             { char: "司", pinyin: "sī" },
@@ -894,7 +894,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u41",
-          name: "生活识字 41",
+          name: "41客壳救板加",
           characters: [
             { char: "客", pinyin: "kè" },
             { char: "壳", pinyin: "ké" },
@@ -905,7 +905,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u42",
-          name: "生活识字 42",
+          name: "42油修轮始离",
           characters: [
             { char: "油", pinyin: "yóu" },
             { char: "修", pinyin: "xiū" },
@@ -916,7 +916,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u43",
-          name: "生活识字 43",
+          name: "43遇别海洋流",
           characters: [
             { char: "遇", pinyin: "yù" },
             { char: "别", pinyin: "bié" },
@@ -927,7 +927,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u44",
-          name: "生活识字 44",
+          name: "44浪波潮雷鸟",
           characters: [
             { char: "浪", pinyin: "làng" },
             { char: "波", pinyin: "bō" },
@@ -938,7 +938,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u45",
-          name: "生活识字 45",
+          name: "45底虾丑斑带",
           characters: [
             { char: "底", pinyin: "dǐ" },
             { char: "虾", pinyin: "xiā" },
@@ -949,7 +949,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u46",
-          name: "生活识字 46",
+          name: "46宫美柱矿完",
           characters: [
             { char: "宫", pinyin: "gōng" },
             { char: "美", pinyin: "měi" },
@@ -960,7 +960,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u47",
-          name: "生活识字 47",
+          name: "47挖就岩沙滩",
           characters: [
             { char: "挖", pinyin: "wā" },
             { char: "就", pinyin: "jiù" },
@@ -971,7 +971,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u48",
-          name: "生活识字 48",
+          name: "48鸥瓶珠金骨",
           characters: [
             { char: "鸥", pinyin: "ōu" },
             { char: "瓶", pinyin: "píng" },
@@ -982,7 +982,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u49",
-          name: "生活识字 49",
+          name: "49帆游冲划钓",
           characters: [
             { char: "帆", pinyin: "fān" },
             { char: "游", pinyin: "yóu" },
@@ -993,7 +993,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u50",
-          name: "生活识字 50",
+          name: "50钩篮网最得",
           characters: [
             { char: "钩", pinyin: "gōu" },
             { char: "篮", pinyin: "lán" },
@@ -1004,7 +1004,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u51",
-          name: "生活识字 51",
+          name: "51梦森植树泥",
           characters: [
             { char: "梦", pinyin: "mèng" },
             { char: "森", pinyin: "sēn" },
@@ -1015,7 +1015,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u52",
-          name: "生活识字 52",
+          name: "52春夏秋冬季",
           characters: [
             { char: "春", pinyin: "chūn" },
             { char: "夏", pinyin: "xià" },
@@ -1026,7 +1026,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u53",
-          name: "生活识字 53",
+          name: "53熊猴鹿虎狮",
           characters: [
             { char: "熊", pinyin: "xióng" },
             { char: "猴", pinyin: "hóu" },
@@ -1037,7 +1037,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u54",
-          name: "生活识字 54",
+          name: "54狐狸狼现总",
           characters: [
             { char: "狐", pinyin: "hú" },
             { char: "狸", pinyin: "li" },
@@ -1048,7 +1048,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u55",
-          name: "生活识字 55",
+          name: "55跟柳芽蚯蚓",
           characters: [
             { char: "跟", pinyin: "gēn" },
             { char: "柳", pinyin: "liǔ" },
@@ -1059,7 +1059,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u56",
-          name: "生活识字 56",
+          name: "56蝴蝶燕蜜蜂",
           characters: [
             { char: "蝴", pinyin: "hú" },
             { char: "蝶", pinyin: "dié" },
@@ -1070,7 +1070,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u57",
-          name: "生活识字 57",
+          name: "57民种翻浇肥",
           characters: [
             { char: "民", pinyin: "mín" },
             { char: "种", pinyin: "zhòng" },
@@ -1081,7 +1081,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u58",
-          name: "生活识字 58",
+          name: "58施除杀如再",
           characters: [
             { char: "施", pinyin: "shī" },
             { char: "除", pinyin: "chú" },
@@ -1092,7 +1092,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u59",
-          name: "生活识字 59",
+          name: "59荷蝌蚪蛙露",
           characters: [
             { char: "荷", pinyin: "hé" },
             { char: "蝌", pinyin: "kē" },
@@ -1103,7 +1103,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u60",
-          name: "生活识字 60",
+          name: "60蜻蜓蝉声音",
           characters: [
             { char: "蜻", pinyin: "qīng" },
             { char: "蜓", pinyin: "tíng" },
@@ -1114,7 +1114,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u61",
-          name: "生活识字 61",
+          name: "61晨朝夕落傍",
           characters: [
             { char: "晨", pinyin: "chén" },
             { char: "朝", pinyin: "zhāo" },
@@ -1125,7 +1125,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u62",
-          name: "生活识字 62",
+          name: "62晚虹霞追能",
           characters: [
             { char: "晚", pinyin: "wǎn" },
             { char: "虹", pinyin: "hóng" },
@@ -1136,7 +1136,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u63",
-          name: "生活识字 63",
+          name: "63送过节铃纸",
           characters: [
             { char: "送", pinyin: "sòng" },
             { char: "过", pinyin: "guò" },
@@ -1147,7 +1147,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u64",
-          name: "生活识字 64",
+          name: "64烟礼蛋糕娃",
           characters: [
             { char: "烟", pinyin: "yān" },
             { char: "礼", pinyin: "lǐ" },
@@ -1158,7 +1158,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u65",
-          name: "生活识字 65",
+          name: "65滴泉溪洼江",
           characters: [
             { char: "滴", pinyin: "dī" },
             { char: "泉", pinyin: "quán" },
@@ -1169,7 +1169,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u66",
-          name: "生活识字 66",
+          name: "66河湖清神奇",
           characters: [
             { char: "河", pinyin: "hé" },
             { char: "湖", pinyin: "hú" },
@@ -1180,7 +1180,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u67",
-          name: "生活识字 67",
+          name: "67求棵根枝枯",
           characters: [
             { char: "求", pinyin: "qiú" },
             { char: "棵", pinyin: "kē" },
@@ -1191,7 +1191,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u68",
-          name: "生活识字 68",
+          name: "68皮啄鸦松活",
           characters: [
             { char: "皮", pinyin: "pí" },
             { char: "啄", pinyin: "zhuó" },
@@ -1202,7 +1202,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u69",
-          name: "生活识字 69",
+          name: "69历期昨新年",
           characters: [
             { char: "历", pinyin: "lì" },
             { char: "期", pinyin: "qī" },
@@ -1213,7 +1213,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u70",
-          name: "生活识字 70",
+          name: "70表时数字久",
           characters: [
             { char: "表", pinyin: "biǎo" },
             { char: "时", pinyin: "shí" },
@@ -1224,7 +1224,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u71",
-          name: "生活识字 71",
+          name: "71响听叫叹喊",
           characters: [
             { char: "响", pinyin: "xiǎng" },
             { char: "听", pinyin: "tīng" },
@@ -1235,7 +1235,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u72",
-          name: "生活识字 72",
+          name: "72欠吸呼说话",
           characters: [
             { char: "欠", pinyin: "qiàn" },
             { char: "吸", pinyin: "xī" },
@@ -1246,7 +1246,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u73",
-          name: "生活识字 73",
+          name: "73坡注意路停",
           characters: [
             { char: "坡", pinyin: "pō" },
             { char: "注", pinyin: "zhù" },
@@ -1257,7 +1257,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u74",
-          name: "生活识字 74",
+          name: "74辆道直定幸",
           characters: [
             { char: "辆", pinyin: "liàng" },
             { char: "道", pinyin: "dào" },
@@ -1268,7 +1268,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u75",
-          name: "生活识字 75",
+          name: "75影样边外远",
           characters: [
             { char: "影", pinyin: "yǐng" },
             { char: "样", pinyin: "yàng" },
@@ -1279,7 +1279,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u76",
-          name: "生活识字 76",
+          name: "76近左右前后",
           characters: [
             { char: "近", pinyin: "jìn" },
             { char: "左", pinyin: "zuǒ" },
@@ -1290,7 +1290,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u77",
-          name: "生活识字 77",
+          name: "77蜘蛛蚊洞丝",
           characters: [
             { char: "蜘", pinyin: "zhī" },
             { char: "蛛", pinyin: "zhū" },
@@ -1301,7 +1301,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u78",
-          name: "生活识字 78",
+          name: "78蚂蚁蛇壁怪",
           characters: [
             { char: "蚂", pinyin: "mǎ" },
             { char: "蚁", pinyin: "yǐ" },
@@ -1312,7 +1312,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u79",
-          name: "生活识字 79",
+          name: "79队进铁站入",
           characters: [
             { char: "队", pinyin: "duì" },
             { char: "进", pinyin: "jìn" },
@@ -1323,7 +1323,7 @@ export const HONGENSHIZI: Curriculum = {
         },
         {
           id: "u80",
-          name: "生活识字 80",
+          name: "80票扶乘座位",
           characters: [
             { char: "票", pinyin: "piào" },
             { char: "扶", pinyin: "fú" },
