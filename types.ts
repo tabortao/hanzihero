@@ -95,6 +95,14 @@ export interface CustomTTSProfile {
     pitch?: number; // 0.5 - 1.5 (Default 1.0)
 }
 
+export interface WebDAVConfig {
+  url: string;
+  username: string;
+  password: string;
+  path: string;
+  maxBackups: number;
+}
+
 export interface AppSettings {
   apiBaseUrl: string;
   apiKey: string;
@@ -118,6 +126,9 @@ export interface AppSettings {
   storyLength: number;
   selectedCurriculumId?: string;
   selectedGradeId?: string;
+  
+  // WebDAV Backup
+  webdav?: WebDAVConfig;
 }
 
 export interface LearningStats {

@@ -41,7 +41,15 @@ const DEFAULT_SETTINGS: AppSettings = {
   dailyNewLimit: 5,
   storyLength: 100,
   selectedCurriculumId: 'renjiaoban_2024', // Default to 人教版(RJB-2024) for first-time users
-  selectedGradeId: 'g1-1'
+  selectedGradeId: 'g1-1',
+  
+  webdav: {
+      url: '',
+      username: '',
+      password: '',
+      path: '/hanzi-hero-backup',
+      maxBackups: 5
+  }
 };
 
 export const getSettings = (): AppSettings => {

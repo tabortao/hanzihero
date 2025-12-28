@@ -1,12 +1,14 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Settings, Database, Download, Upload, Info, Bot, ArrowLeft, HelpCircle, BookOpen, ChevronRight, Heart, ExternalLink, MessageCircle, Check, X, Server, FileJson, Activity, WifiOff, Sliders, Book } from 'lucide-react';
-import { AppSettings, ViewState } from '../types';
+import { User, Settings, Database, Download, Upload, Info, Bot, ArrowLeft, HelpCircle, BookOpen, ChevronRight, Heart, ExternalLink, MessageCircle, Check, X, Server, FileJson, Activity, WifiOff, Sliders, Book, Cloud, CloudUpload, CloudDownload, RefreshCw, Trash2, Link } from 'lucide-react';
+import { AppSettings, ViewState, WebDAVConfig } from '../types';
 import { getSettings, saveSettings, exportUserData, importUserData } from '../services/storage';
+import { WebDAVClient } from '../services/webdav';
 import { AIConfigurationView } from './AIConfigurationView';
 import { UserManualView } from './UserManualView';
 import { HabitsAndVoiceView } from './HabitsAndVoiceView';
 import { GuideView } from './GuideView';
+import { DataManagementView } from './DataManagementView';
 
 // Stub for provider constants
 const PROVIDERS = {
@@ -22,14 +24,10 @@ interface ProfileViewProps {
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
-  const [view, setView] = useState<'MAIN' | 'AI_CONFIG' | 'ABOUT' | 'HELP' | 'MANUAL' | 'HABITS' | 'GUIDE' | 'REQUIREMENTS' | 'DONATION'>('MAIN');
+  const [view, setView] = useState<'MAIN' | 'AI_CONFIG' | 'ABOUT' | 'HELP' | 'MANUAL' | 'HABITS' | 'GUIDE' | 'REQUIREMENTS' | 'DONATION' | 'DATA_MANAGEMENT'>('MAIN');
   const [config, setConfig] = useState<AppSettings>(getSettings());
   const [activeProvider, setActiveProvider] = useState<string>('GOOGLE');
   
-  const [showImport, setShowImport] = useState(false);
-  const [importStatus, setImportStatus] = useState<'IDLE' | 'READING' | 'SUCCESS' | 'ERROR'>('IDLE');
-  const [importErrorMsg, setImportErrorMsg] = useState('');
-
   // Ref to track mount status for auto-save logic
   const isMounted = useRef(false);
 
@@ -50,47 +48,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
     return () => { isMounted.current = false; };
   }, [view]); // Reload when view changes back to main
 
-  const handleExport = () => {
-    const data = exportUserData();
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `hanzi-hero-backup-${new Date().toISOString().slice(0,10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      
-      setImportStatus('READING');
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-          const content = evt.target?.result as string;
-          const success = importUserData(content);
-          if (success) {
-              setImportStatus('SUCCESS');
-              setTimeout(() => {
-                  window.location.reload();
-              }, 1500);
-          } else {
-              setImportStatus('ERROR');
-              setImportErrorMsg('Json format error');
-          }
-      };
-      reader.readAsText(file);
-  };
-
   if (view === 'MANUAL') {
       return <UserManualView onBack={() => setView('ABOUT')} />
   }
   
   if (view === 'GUIDE') {
       return <GuideView onBack={() => setView('ABOUT')} />
+  }
+
+  if (view === 'DATA_MANAGEMENT') {
+      return <DataManagementView onBack={() => setView('MAIN')} />
   }
 
   if (view === 'REQUIREMENTS') {
@@ -484,52 +451,23 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSave }) => {
               </div>
            </div>
 
-           {/* Data Management */}
-           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 lg:col-span-2">
-               <h3 className="font-bold text-gray-800 border-b pb-3 mb-4 flex items-center gap-2">
-                   <Database size={18} className="text-indigo-600"/> 数据备份与恢复
-               </h3>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col justify-between">
-                      <div className="mb-2">
-                          <h4 className="font-bold text-gray-700">导出数据</h4>
-                          <p className="text-xs text-gray-400 mt-1">保存所有学习进度、设置和自定义内容到本地文件。</p>
-                      </div>
-                      <button onClick={handleExport} className="w-full py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:border-indigo-300 hover:text-indigo-600 font-bold flex justify-center items-center gap-2 transition-colors">
-                          <Download size={16} /> 导出备份
-                      </button>
-                  </div>
-                  
-                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col justify-between">
-                       <div className="mb-2">
-                          <h4 className="font-bold text-gray-700">导入数据</h4>
-                          <p className="text-xs text-gray-400 mt-1">从备份文件恢复数据。注意：这将覆盖当前所有数据。</p>
-                      </div>
-                      <button onClick={() => setShowImport(!showImport)} className="w-full py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:border-indigo-300 hover:text-indigo-600 font-bold flex justify-center items-center gap-2 transition-colors">
-                          <Upload size={16} /> {showImport ? '取消导入' : '选择文件'}
-                      </button>
-                  </div>
-               </div>
-               
-               {showImport && (
-                   <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 animate-slide-up">
-                       <label className="block text-sm font-bold text-indigo-900 mb-2 flex items-center gap-2">
-                           <FileJson size={18} /> 
-                           上传备份文件 (.json)
-                       </label>
-                       
-                       <input 
-                           type="file" 
-                           accept=".json"
-                           onChange={handleFileImport}
-                           className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-white file:text-indigo-700 hover:file:bg-indigo-50 mb-3 cursor-pointer"
-                       />
-
-                       {importStatus === 'READING' && <div className="text-indigo-500 font-bold text-sm flex items-center gap-2"><Activity className="animate-spin" size={14}/> 正在读取文件...</div>}
-                       {importStatus === 'SUCCESS' && <div className="text-green-600 font-bold text-sm flex items-center gap-2"><Check size={14}/> 导入成功! 正在刷新...</div>}
-                       {importStatus === 'ERROR' && <div className="text-red-500 font-bold text-sm flex items-center gap-2"><WifiOff size={14}/> 导入失败: {importErrorMsg}</div>}
+           {/* Data Management Entry */}
+           <div className="lg:col-span-2">
+               <button 
+                   onClick={() => setView('DATA_MANAGEMENT')}
+                   className="w-full py-4 bg-white border border-gray-100 rounded-2xl shadow-sm hover:border-indigo-200 hover:shadow-md transition-all flex items-center justify-between px-6 group"
+               >
+                   <div className="flex items-center gap-4">
+                       <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl group-hover:scale-110 transition-transform">
+                           <Database size={24} />
+                       </div>
+                       <div className="text-left">
+                           <h3 className="font-bold text-gray-800 text-lg group-hover:text-indigo-600 transition-colors">数据管理</h3>
+                           <p className="text-sm text-gray-400">备份与恢复、WebDAV 云同步</p>
+                       </div>
                    </div>
-               )}
+                   <ChevronRight className="text-gray-300 group-hover:text-indigo-400" />
+               </button>
            </div>
 
            {/* About Section Entry */}
